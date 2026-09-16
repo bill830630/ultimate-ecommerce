@@ -324,8 +324,13 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     margin-top: 20px;
     margin-bottom: 20px;
 }
-/* 購物車頁：優惠券按鈕緊接在點數區塊下方，點數區塊本身已有 margin-bottom，這裡不用再疊加上緣間距 */
-.twshop-points-redemption-wrapper + .twshop-visual-coupons-wrapper {
+/* 購物車頁：優惠券按鈕緊接在點數/儲值金區塊下方，該區塊本身已有 margin-bottom，這裡不用再疊加上緣間距。
+   儲值金區塊（wallet 模組啟用時）的 wrapper 固定輸出在點數區塊與優惠券區塊之間（見
+   twshop_classic_cart_wallet() 的 priority 15，介於點數 10 與優惠券 20 之間），所以「緊接在
+   點數區塊後面」這個相鄰選擇器在 wallet 模組啟用時實際上永遠不會成立，要另外處理
+   儲值金 wrapper 緊接優惠券 wrapper 的情況（v25.8.76 效仿點數區塊樣式時一併修正）。 */
+.twshop-points-redemption-wrapper + .twshop-visual-coupons-wrapper,
+.twshop-wallet-redemption-wrapper + .twshop-visual-coupons-wrapper {
     margin-top: 0;
 }
 .twshop-visual-coupons-wrapper,
@@ -580,6 +585,61 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
         align-items: stretch;
     }
     .twshop-points-redemption .twshop-points-input-row input {
+        flex: none;
+    }
+}
+
+/* 購物車 / 結帳頁儲值金折抵區塊（v25.8.76 起效仿上面的點數折抵區塊樣式，
+   class 命名與規則逐一對應，只是前綴從 twshop-points 換成 twshop-wallet）。 */
+.twshop-wallet-redemption-wrapper {
+    margin-bottom: 1em;
+}
+.twshop-wallet-redemption {
+    padding: 0 0 15px;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    margin-bottom: 15px;
+    background: none;
+}
+.twshop-wallet-redemption h4 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+.twshop-wallet-redemption p {
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+.twshop-wallet-redemption .twshop-wallet-input-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.twshop-wallet-redemption .twshop-wallet-input-row input {
+    flex: 1;
+    min-width: 130px;
+    height: var(--theme-form-field-height, 40px);
+    box-sizing: border-box;
+}
+.twshop-wallet-redemption .twshop-wallet-input-row input[type="number"]::-webkit-outer-spin-button,
+.twshop-wallet-redemption .twshop-wallet-input-row input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.twshop-wallet-redemption .twshop-wallet-input-row input[type="number"] {
+    -moz-appearance: textfield;
+}
+.twshop-wallet-notice {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--theme-text-color, #666);
+    opacity: 0.85;
+}
+@media screen and (max-width: 480px) {
+    .twshop-wallet-redemption .twshop-wallet-input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .twshop-wallet-redemption .twshop-wallet-input-row input {
         flex: none;
     }
 }

@@ -359,6 +359,11 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
         $matching_units = array(); // 每個購買單位一筆：['key' => cart_item_key, 'price' => 目前單價]
         foreach ( $cart_obj->get_cart() as $m_key => $m_item ) {
             if ( ! twshop_bxgy_item_matches_rule( $m_item, $rule ) ) continue;
+            // 儲值金商品不能被「買N送N」選中當免費單位（v25.8.79 新增）：規則條件範圍是
+            // 用分類/標籤動態決定，沒有固定的目標商品可以在存檔時擋，只能在這裡跑到
+            // 才擋——免費單位一樣會被歸零售價，但入帳金額不受影響，等於顧客不花錢就
+            // 拿到真錢。
+            if ( ! empty( $m_item['data'] ) && twshop_is_wallet_credit_product( $m_item['data'] ) ) continue;
             $unit_price = (float) $m_item['data']->get_price();
             for ( $i = 0; $i < (int) $m_item['quantity']; $i++ ) {
                 $matching_units[] = array( 'key' => $m_key, 'price' => $unit_price );
@@ -456,6 +461,13 @@ function twshop_get_calculated_discount_price( $price, $product, $user_roles ) {
  * 被 stack_exclusive 擋掉的不算。
  */
 function twshop_calculate_product_discount( $price, $product, $user_roles ) {
+    // 儲值金商品不受一般折扣規則影響（v25.8.79 新增）：入帳金額是商品自己的
+    // _twshop_wallet_credit_amount 面額 meta，跟這裡算出來的售價完全無關——放任這支
+    // 函式打折會讓顧客用低於面額的真錢買到儲值金（面額不變，只是售價被打折），這是
+    // woocommerce_product_get_price／_variation_get_price 與 twshop_product_is_on_sale()
+    // 的共同入口，這裡擋掉同時也讓折扣角標/促銷標記不會誤標儲值金商品。
+    if ( twshop_is_wallet_credit_product( $product ) ) return array( 'price' => false, 'rule_ids' => array() );
+
     $rules = twshop_get_rules();
     if ( empty($rules) ) return array( 'price' => false, 'rule_ids' => array() );
     $product_id = $product->get_id();
@@ -746,6 +758,16 @@ function twshop_get_cart_discount_fees( $cart ) {
     if ( empty($rules) ) return array();
     $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
     $cart_total = $cart->get_subtotal();
+    // 儲值金商品不計入購物車層折扣的小計基準（v25.8.79 新增）：這裡算出來的折扣是
+    // 整單負費用，不是改單一商品價格，但結果一樣——含了儲值金商品的小計會讓顧客
+    // 總支付金額被拉高、被打折的比例也隨之升高，入帳金額卻完全不受影響，等於一個
+    // 完全不相干的全館促銷變相替儲值金商品打折；同一個 $cart_total 也餵進下面
+    // min_amount 門檻判斷，順便擋掉「用儲值金商品的價格墊高小計去湊無關促銷門檻」。
+    foreach ( $cart->get_cart() as $cart_item ) {
+        if ( ! empty( $cart_item['data'] ) && twshop_is_wallet_credit_product( $cart_item['data'] ) ) {
+            $cart_total -= (float) $cart_item['line_subtotal'];
+        }
+    }
     $fees = array();
 
     // 疊加群組 B（cart 層）：cart_percent + cart_discount + tiered_cart 依卡片排序（優先權）逐一套用；

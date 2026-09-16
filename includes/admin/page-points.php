@@ -534,7 +534,7 @@ function twshop_render_redeemable_products_field( $redeemable_products, $cat_opt
                 // 排除可變商品：twshop_ajax_redeem_points_product() 是直接
                 // WC()->cart->add_to_cart( $id, 1, 0, ... )（不含 variation_id），選到可變商品
                 // 的父商品會讓顧客兌換時必定失敗（WooCommerce 核心要求可變商品一定要指定規格）。
-                echo twshop_render_product_search_field( 'redeem_product_add_picker', array(), false, '搜尋商品名稱或商品編號…', array( 'variable' ) ); ?>
+                echo twshop_render_product_search_field( 'redeem_product_add_picker', array(), false, '搜尋商品名稱或商品編號…', array( 'variable', 'wallet_credit' ) ); ?>
             </span>
             <select class="redeem-category-add-select" style="display:none;">
                 <option value="">選擇商品分類</option>

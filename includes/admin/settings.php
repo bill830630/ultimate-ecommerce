@@ -184,6 +184,21 @@ function twshop_register_settings() {
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_enabled', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_subject', 'sanitize_text_field' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_body', 'sanitize_textarea_field' );
+    // 儲值金 ▸ 設定：使用限制與提示文字（v25.8.76 起效仿點數規則/提示文字設定新增）
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_min_cart_amount', 'floatval' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_restrict_type', 'twshop_sanitize_cat_tag_type' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_restrict_values', 'twshop_sanitize_id_array' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_ui_heading', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_balance_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_input_placeholder', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_btn_apply_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_btn_update_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_applied_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_no_balance_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_min_cart_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_restricted_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_restricted_text', 'sanitize_text_field' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_allowed_gateways', 'twshop_sanitize_wallet_allowed_gateways' );
 
     // 會員 ▸ 頁籤管理
     register_setting( 'wc_member_tabs_group', 'wc_membership_tab_name', 'sanitize_text_field' );
@@ -407,6 +422,20 @@ function twshop_sanitize_method_titles( $input ) {
 
 function twshop_sanitize_yes_no( $input ) {
     return ( 'yes' === $input ) ? 'yes' : 'no';
+}
+
+/**
+ * 儲值金商品限定付款方式（v25.8.79 新增）：跟目前已註冊的 gateway id 取交集，
+ * 不限「已啟用」——避免暫時停用的金流被存檔時悄悄清掉管理員原本的選擇。跟
+ * twshop_sanitize_method_titles() 刻意保留陌生 id（改名工具）的理由方向相反：
+ * 這裡的 id 若不是真實存在的 gateway，往後在 twshop_restrict_wallet_credit_
+ * payment_gateways() 這個 filter 裡永遠不可能命中任何一個真實金流，留著沒有
+ * 任何用處，丟棄才是正確的。
+ */
+function twshop_sanitize_wallet_allowed_gateways( $input ) {
+    if ( ! is_array( $input ) || ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) return array();
+    $registered = array_keys( WC()->payment_gateways()->payment_gateways() );
+    return array_values( array_intersect( array_map( 'sanitize_key', $input ), $registered ) );
 }
 
 /**

@@ -33,6 +33,45 @@ function twshop_is_wallet_credit_product( $product ) {
 }
 
 /**
+ * 儲值金商品強制要求登入才能購買（v25.8.79 新增，UX 層防線，掛
+ * `woocommerce_is_purchasable`）：訪客購買儲值金商品時，`twshop_wallet_credit_on_
+ * payment_complete()`（見下方）會因為 `$order->get_customer_id()` 是 0 直接放棄整個
+ * 入帳流程，訂單畫面看起來完全正常已付款，顧客卻什麼都拿不到，客服也查不出發生過
+ * 什麼事——與其事後留備註，直接在源頭擋掉訪客購買。
+ *
+ * **這裡不併進既有的 `twshop_get_purchase_restricted_product_ids()`／
+ * `twshop_restrict_purchase_for_redeem_and_gift_products()`（helpers.php）**：那組是
+ * 「不論是誰、永久限制」的清單，有 per-request static cache；這裡是依「當下登入狀態」
+ * 判斷，混進去會需要每個請求重建快取（失去快取意義），或對已登入使用者產生錯誤結果。
+ *
+ * **這道防線擋不住「商品已經在購物車裡才登出，或從未登入就直接送出結帳」**——
+ * `WC_Cart::check_cart_item_validity()`（結帳送出時實際跑的驗證）不檢查
+ * `is_purchasable()`，只檢查商品是否存在/庫存（CLAUDE.md 既有記錄）。真正能擋住訂單
+ * 建立的是 `twshop_validate_wallet_credit_guest_checkout()`（`wallet-checkout.php`，
+ * 掛 `woocommerce_after_checkout_validation`），這裡只是讓多數訪客在商品頁/購物車就
+ * 提早看到「買不了」，屬於使用體驗層級的第一道防線。
+ */
+function twshop_restrict_wallet_credit_purchase_for_guest( $purchasable, $product ) {
+    if ( ! $purchasable || is_user_logged_in() ) return $purchasable;
+    return twshop_is_wallet_credit_product( $product ) ? false : $purchasable;
+}
+
+/**
+ * 商品頁說明文字：訪客瀏覽儲值金商品時，`is_purchasable()` 為 `false` 會讓
+ * `simple.php` 樣板完全不輸出加入購物車表單，沒有這行說明頁面會看起來像空白/壞掉
+ * （比照 `twshop_render_purchase_restricted_notice()`，`helpers.php`，priority 25，
+ * 的既有慣例）。**刻意用獨立文案而非重用那支既有函式**：那支的措辭（「此商品目前
+ * 無法直接購買」）是給兌換/贈品限制用的，套在這裡會讓顧客誤以為這件商品永遠買不到，
+ * 而不是「登入就能買」。priority 26，緊接在既有限制提示（25）之後。
+ */
+function twshop_render_wallet_credit_login_required_notice() {
+    global $product;
+    if ( ! $product instanceof WC_Product ) return;
+    if ( is_user_logged_in() || ! twshop_is_wallet_credit_product( $product ) ) return;
+    echo '<p class="twshop-purchase-restricted-notice">' . esc_html__( '此商品需登入會員才能購買。', 'ultimate-ecommerce' ) . '</p>';
+}
+
+/**
  * 商品類型下拉選單新增「儲值金商品」選項（filter `product_type_selector`）。
  */
 function twshop_wallet_credit_register_product_type( $types ) {

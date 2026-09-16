@@ -723,6 +723,11 @@ function twshop_resolve_redeemable_products( $list ) {
             if ( isset( $seen[ $product_id ] ) ) continue;
             $product = wc_get_product( $product_id );
             if ( ! $product ) continue;
+            // 儲值金商品不能被設成點數兌換商品（v25.8.79 新增）：type=product 已在
+            // twshop_sanitize_points_redeemable_products() 存檔時擋掉，這裡涵蓋的是
+            // type=category/tag 動態展開、存檔當下驗證不到的路徑——分類/標籤底下若
+            // 剛好含儲值金商品，展開時直接跳過，不列入兌換清單。
+            if ( twshop_is_wallet_credit_product( $product ) ) continue;
 
             if ( 'product' === $entry['type'] ) {
                 $cost = $entry['points_cost'];

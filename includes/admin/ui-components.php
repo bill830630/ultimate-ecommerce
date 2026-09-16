@@ -397,6 +397,10 @@ function twshop_sanitize_points_redeemable_products( $value ) {
         $dedup_key = $type . ':' . $id;
         if ( $id <= 0 || isset( $seen[ $dedup_key ] ) ) continue;
         if ( 'product' === $type && $points_cost <= 0 ) continue;
+        // 儲值金商品不能被設成點數兌換商品（v25.8.79 新增）：$0 兌換卻仍會入帳完整面額，
+        // 等於把點數免費換成真錢。type=category/tag 是動態展開，這裡驗證不到，改在
+        // twshop_resolve_redeemable_products()（points-engine.php）展開時跳過。
+        if ( 'product' === $type && twshop_is_wallet_credit_product( wc_get_product( $id ) ) ) continue;
         $seen[ $dedup_key ] = true;
         $result[] = array( 'type' => $type, 'id' => $id, 'points_cost' => $points_cost, 'max_qty' => $max_qty );
     }

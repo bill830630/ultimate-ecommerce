@@ -151,7 +151,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                         // （核心要求可變商品一定要指定規格），且這段是掛在 woocommerce_before_calculate_totals，
                         // 失敗時完全沒有任何錯誤訊息浮現，管理員很難發現。addon_product 型別雖然不是主動
                         // 加入購物車，但同一個欄位語意是「指定商品」，一併排除避免混淆。
-                        echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable' ) ); ?>
+                        echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable', 'wallet_credit' ) ); ?>
                     </div>
                     <div class="twshop-rule-field rule-bxgy-wrap" style="display:none;">
                         <label class="twshop-rule-label">買滿件數 (N)</label>
@@ -338,6 +338,19 @@ function twshop_ajax_save_rule() {
     );
 
     $rules = twshop_get_rules();
+
+    // 儲值金商品不能設成贈品/加購品（v25.8.79 新增）：入帳邏輯只認商品的
+    // _twshop_wallet_credit_amount 面額，跟贈品/加購這裡把售價歸零或打到象徵性低價
+    // 完全無關，顧客實付 $0~$1 卻仍能拿到完整面額，等於系統本身沒有防呆地讓儲值金
+    // 商品被誤用成印錢工具。buy_x_get_y 沒有固定的「目標商品」（靠限制條件動態決定
+    // 範圍），沒辦法在這裡擋，改在 twshop_auto_manage_gifts_and_addons()（discount-engine.php）
+    // 選擇最便宜 M 件時跳過儲值金商品項目。
+    if ( in_array( $new_rule['type'], array( 'free_gift', 'addon_product' ), true ) && $new_rule['gift_product_id'] > 0 ) {
+        $gift_product = wc_get_product( $new_rule['gift_product_id'] );
+        if ( $gift_product && twshop_is_wallet_credit_product( $gift_product ) ) {
+            wp_send_json_error( array( 'msg' => '「贈品」／「加購品」不能設定為儲值金商品。' ) );
+        }
+    }
 
     // 買N送N：限制條件範圍必填（決定哪些商品的購買數量算進 N），且 M 必須小於 N。
     if ( 'buy_x_get_y' === $new_rule['type'] ) {

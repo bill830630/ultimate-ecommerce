@@ -210,7 +210,7 @@ function twshop_create_gift_coupon( $code, $gift, $email, $validity_days, $title
 /**
  * 前台文字與開關類 option 的預設值對照表。
  *
- * 這 43 個 option 的預設值原本在後台設定頁與前台渲染處各寫一次(部分寫了三到五次),
+ * 這 56 個 option 的預設值原本在後台設定頁與前台渲染處各寫一次(部分寫了三到五次),
  * 兩邊逐字相同全靠人維護。改了前台忘了改後台的後果特別隱晦:後台輸入框顯示的是
  * 舊預設字串,使用者以為那就是目前生效的文字,實際上前台跑的是新的——兩邊都不會報錯,
  * 而且只有在「使用者從沒儲存過這個欄位」時才看得出來。
@@ -253,6 +253,19 @@ function twshop_get_option_defaults() {
         'wc_points_no_balance_text'   => '您目前沒有可用的{term}',
         'wc_points_restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用{term}',
         'wc_points_ui_heading'        => '使用{term}折抵',
+
+        // 儲值金前台文字（v25.8.76 起效仿點數折抵區塊新增，見 wallet-checkout.php
+        // twshop_wallet_block_reason()／twshop_render_wallet_redemption_ui()）
+        'wc_wallet_applied_text'      => '本次訂單將折抵 NT{amount}',
+        'wc_wallet_balance_text'      => '目前餘額：NT{amount}',
+        'wc_wallet_btn_apply_text'    => '套用折抵',
+        'wc_wallet_btn_update_text'   => '更新折抵',
+        'wc_wallet_input_placeholder' => '輸入要折抵的金額',
+        'wc_wallet_min_cart_text'     => '購物車需滿 {amount} 才可使用儲值金折抵',
+        'wc_wallet_no_balance_text'   => '您目前沒有可用的儲值金',
+        'wc_wallet_restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用儲值金折抵',
+        'wc_wallet_topup_restricted_text' => '購物車內含儲值金商品時，無法使用儲值金折抵',
+        'wc_wallet_ui_heading'        => '使用儲值金折抵',
 
         // 會員通知信與等級文字
         'wc_birthday_email_subject'        => '祝您生日快樂！專屬生日禮金',

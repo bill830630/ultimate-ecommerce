@@ -388,6 +388,14 @@ function twshop_global_frontend_js() {
         // hook（台灣地址 2 個、超商取貨 3 個）也都沒有掛載，前端這段邏輯若還是照跑，會出現
         // 「畫面上把地址欄位藏起來/搬動選單，但伺服器其實不理會這些客製化規則」的不一致狀況。
         'checkoutFieldCustomization' => twshop_module_enabled( 'order_checkout_enhancements' ),
+        // needsShipping：頁面載入當下購物車是否需要運送（WC_Cart::needs_shipping()，全部
+        // 品項皆為虛擬商品——例如只買儲值金商品——時為 false）。twshopInitShippingPlaceholder()
+        // 用它決定要不要插入「運送方式」placeholder 區塊：不需要運送時 WooCommerce 核心
+        // 本來就不會輸出 #order_review ul#shipping_method，若沒有這道判斷，placeholder
+        // 仍會被無條件插入，變成一個寫著「運送方式」卻永遠搬不到任何選項進去的空白區塊
+        // （2026-09-16 使用者實測回報：購買儲值金商品時看到這個空區塊）。跟 cvsMethods 一樣
+        // 只是頁面載入當下的快照——結帳頁本身不會讓顧客中途增減購物車內容，不需要動態更新。
+        'needsShipping'   => (bool) ( function_exists( 'WC' ) && WC()->cart && WC()->cart->needs_shipping() ),
         // isCheckout：twshop-frontend.js 用它把「運送方式選單搬到地址欄位前」限定只在結帳頁執行。
         // twshop-frontend.js 也會在「我的帳號 ▸ 編輯地址」頁載入（is_account_page() 也在
         // twshop_frontend_assets_needed() 的條件內），但那個頁面的地址表單跟結帳頁共用同一套

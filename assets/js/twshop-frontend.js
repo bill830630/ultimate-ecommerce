@@ -294,6 +294,11 @@
         };
 
         var twshopInitShippingPlaceholder = function () {
+            // 購物車全部品項皆為虛擬商品（例如只買儲值金商品）時，WC_Cart::needs_shipping()
+            // 為 false，WooCommerce 核心根本不會輸出 #order_review ul#shipping_method，
+            // 這裡若還是無條件插入 placeholder，畫面上會留下一個寫著「運送方式」卻永遠是空的
+            // 區塊（twshopRelocateShipping() 找不到東西可搬，直接原地不動）。
+            if (!twshopData.needsShipping) return;
             if ($('#twshop-shipping-placeholder').length) return;
             // 這裡只是借用「台灣結帳第一個地址欄是 billing_postcode（priority 45）」這件事
             // 找一個插入點，不代表運送方式只在台灣才需要排最前面——本站銷售地區不只台灣

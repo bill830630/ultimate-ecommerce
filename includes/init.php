@@ -297,6 +297,18 @@ function twshop_membership_init() {
         add_action( 'woocommerce_checkout_order_processed', 'twshop_deduct_wallet_on_checkout', 15, 3 );
         add_action( 'woocommerce_cart_emptied', 'twshop_clear_applied_wallet_on_cart_emptied' );
 
+        // 購物車含儲值金商品時限縮可用付款方式（v25.8.79 新增，「儲值中心 ▸ 設定 ▸
+        // 允許使用的付款方式」，留空＝不限制）；跟上面加入購物車按鈕同一個 if 區塊，
+        // 是業務層面的購買限制，不是商品類型註冊本身。
+        add_filter( 'woocommerce_available_payment_gateways', 'twshop_restrict_wallet_credit_payment_gateways' );
+
+        // 儲值金商品強制要求登入才能購買（v25.8.79 新增，見 wallet-topup.php 函式說明）：
+        // (a) UX 層——商品不可購買 + 商品頁提示；(b) 結帳送出時的權威防線，跟上面
+        // twshop_validate_wallet_balance() 同一個 hook。
+        add_filter( 'woocommerce_is_purchasable', 'twshop_restrict_wallet_credit_purchase_for_guest', 10, 2 );
+        add_action( 'woocommerce_single_product_summary', 'twshop_render_wallet_credit_login_required_notice', 26 );
+        add_action( 'woocommerce_after_checkout_validation', 'twshop_validate_wallet_credit_guest_checkout', 10, 2 );
+
         // 取消/已退款/付款失敗：全額退回尚未退回的部分。刻意寫死這三個狀態，不像點數
         // 模組那樣走可設定的 wc_points_revoke_statuses——儲值金第一版還沒有自己的
         // 「發放與退還時機」設定頁，之後若要開放自訂再比照點數模組的既有寫法改成迴圈。

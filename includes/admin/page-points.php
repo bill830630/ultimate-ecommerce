@@ -109,7 +109,7 @@ function twshop_points_balances_tab() {
                     <p style="font-size:22px; font-weight:bold; margin-bottom:4px;"><?php echo esc_html( number_format( $points ) ); ?> <?php echo esc_html( $term ); ?></p>
                     <?php $nearest_expiring = twshop_get_nearest_expiring_batch( $user_id ); ?>
                     <?php if ( $nearest_expiring ) : ?>
-                        <p style="color:#b32d2e; margin-top:0;">有 <?php echo esc_html( $nearest_expiring['amount'] ); ?> 點將於 <?php echo esc_html( $nearest_expiring['expire'] ); ?> 到期</p>
+                        <p class="twshop-text-danger" style="margin-top:0;">有 <?php echo esc_html( $nearest_expiring['amount'] ); ?> 點將於 <?php echo esc_html( $nearest_expiring['expire'] ); ?> 到期</p>
                     <?php endif; ?>
 
                     <h4>手動增減<?php echo esc_html( $term ); ?></h4>
@@ -122,18 +122,18 @@ function twshop_points_balances_tab() {
                             </div>
                             <?php if ( $expiry_days > 0 ) : ?>
                                 <div>
-                                    <label style="display:block; font-weight:bold; margin-bottom:5px;">自訂有效天數</label>
+                                    <label style="display:block; font-weight:bold; margin-bottom:5px;">有效天數</label>
                                     <input type="number" name="twshop_manual_points_expire_days" min="1" class="small-text" placeholder="<?php echo esc_attr( $expiry_days ); ?>"> 天
                                 </div>
                             <?php endif; ?>
+                            <div style="flex:1; min-width:220px;">
+                                <label style="display:block; font-weight:bold; margin-bottom:5px;">備註原因</label>
+                                <input type="text" name="twshop_points_reason" value="" class="regular-text" placeholder="手動調整" style="width:100%;">
+                            </div>
                         </div>
                         <?php if ( $expiry_days > 0 ) : ?>
                             <p class="description" style="margin-top:-6px;">有效天數僅適用於本次輸入正數（增加）的點數，自入帳日起算；留空則依系統預設（<?php echo esc_html( $expiry_days ); ?> 天）</p>
                         <?php endif; ?>
-                        <div style="margin-bottom:10px;">
-                            <label style="display:block; font-weight:bold; margin-bottom:5px;">備註原因</label>
-                            <input type="text" name="twshop_points_reason" value="" class="regular-text" placeholder="手動調整" style="width:100%; max-width:500px;">
-                        </div>
                         <button type="submit" name="twshop_points_manual_adjust" value="1" class="button button-primary">儲存<?php echo esc_html( $term ); ?></button>
                         <p class="description">輸入正數為增加，輸入負數為扣除。</p>
                     </form>
@@ -145,7 +145,7 @@ function twshop_points_balances_tab() {
                         </thead>
                         <tbody>
                             <?php if ( empty( $history ) ) : ?>
-                                <tr><td colspan="5" style="text-align:center; color:#666;">目前尚無紀錄</td></tr>
+                                <tr><td colspan="5" class="twshop-text-muted" style="text-align:center;">目前尚無紀錄</td></tr>
                             <?php else : foreach ( $history as $row ) :
                                 $amount = (int) ( $row['amount'] ?? 0 );
                                 ?>
@@ -178,7 +178,7 @@ function twshop_points_balances_tab() {
                 </thead>
                 <tbody>
                     <?php if ( empty( $overview ) ) : ?>
-                        <tr><td colspan="3" style="text-align:center; color:#666;">目前沒有任何會員持有<?php echo esc_html( $term ); ?></td></tr>
+                        <tr><td colspan="3" class="twshop-text-muted" style="text-align:center;">目前沒有任何會員持有<?php echo esc_html( $term ); ?></td></tr>
                     <?php else : foreach ( $overview as $u ) :
                         $bal = (int) get_user_meta( $u->ID, 'twshop_reward_points', true );
                         ?>
@@ -549,7 +549,7 @@ function twshop_render_redeemable_products_field( $redeemable_products, $cat_opt
                 <?php endforeach; ?>
             </select>
             <input type="number" class="redeem-product-add-points" min="1" placeholder="所需點數" />
-            <span class="redeem-category-cost-note" style="display:none; font-size:12px; color:#72777c;">依商品售價自動換算，不需填點數</span>
+            <span class="redeem-category-cost-note twshop-text-muted" style="display:none; font-size:12px;">依商品售價自動換算，不需填點數</span>
             <input type="number" class="redeem-product-add-maxqty" min="1" placeholder="單次兌換上限" value="1" style="width:110px;" title="顧客單次最多可兌換幾個（預設 1）" />
             <button type="button" class="button add-redeem-product-btn">加入</button>
         </div>

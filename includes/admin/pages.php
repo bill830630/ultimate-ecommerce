@@ -30,14 +30,6 @@ function twshop_discount_rules_render_page() {
 }
 
 /**
- * 優惠卡券：單一頁面，刻意不受模組開關影響、永遠顯示（見 twshop_register_menus()
- * 的說明）。內容函式 twshop_marketing_coupons_tab() 沿用改版前的既有名稱，未跟著搬遷改名。
- */
-function twshop_visual_coupons_render_page() {
-    twshop_render_single_tab_page( '優惠卡券', 'twshop_marketing_coupons_tab' );
-}
-
-/**
  * 紅利點數：對應 points 模組。v25.8.25 起改成 5 個真正的頁籤（比照下方
  * twshop_system_render_page() 的既有模式），不再是單一頁面/單一 <form>——
  * 內容函式拆分與 settings group 拆分見 includes/admin/page-points.php／settings.php。
@@ -64,8 +56,8 @@ function twshop_points_render_page() {
 }
 
 /**
- * 系統：一般／模組開關／頁籤管理，三個頁籤皆為不屬於任何單一功能模組的核心系統設定，
- * 不受任何模組開關影響，永遠顯示。
+ * 系統：一般／模組開關／頁籤管理／優惠卡券／蝦皮串接，皆為不屬於任何單一功能模組的核心
+ * 系統設定（優惠卡券頁籤例外，見下方說明），不受任何模組開關影響，永遠顯示。
  * v25.5.83：原本獨立的「物流」頁籤（物流貨態自動完成訂單／訂單物流資訊 metabox 開關）
  * 已併入「模組開關」頁籤的 order_checkout_enhancements 單一模組開關，頁籤整個移除，
  * 比照 v25.5.69 移除「通知」頁籤的既有先例。
@@ -82,11 +74,17 @@ function twshop_system_render_page() {
         // ?tab=modules 會被 twshop_get_current_admin_tab() 判定為不存在的頁籤、退回第一個
         // 分頁，不會執行到 twshop_system_modules_tab()（該函式自己也有一道 manage_options
         // 檢查，這裡是分頁層級的第二道防線）。
-        $tabs = array( 'general' => '一般' );
+        $tabs = array( 'general' => '一般設定' );
         if ( current_user_can( 'manage_options' ) ) {
             $tabs['modules'] = '模組開關';
         }
         $tabs['tabs'] = '頁籤管理';
+        // 優惠卡券（v25.8.71 起從獨立頂層選單搬進來，比照蝦皮串接搬遷的既有先例）：
+        // 內容函式 twshop_marketing_coupons_tab() 本身刻意不受模組開關影響、永遠顯示
+        // ——優惠券措辭設定不只給視覺化優惠券用，也用在折扣規則「排他性優惠券」的
+        // 錯誤提示文字，即使 visual_coupons 模組關閉仍需要能編輯，這裡的頁籤顯示條件
+        // 因此也不受模組開關限制。
+        $tabs['coupons'] = '優惠卡券';
         // 蝦皮串接（v25.8.65 起從獨立頂層選單搬進來，見 page-shopee.php 檔頭說明）：
         // 跟「一般」「頁籤管理」一樣不受模組開關限制、manage_woocommerce 即可看到，
         // 只是內容本身多包一層自己的子頁籤（`subtab` 參數，見 twshop_shopee_settings_tab()）。
@@ -96,6 +94,7 @@ function twshop_system_render_page() {
         if ( 'general' === $current ) twshop_system_general_tab();
         elseif ( 'modules' === $current ) twshop_system_modules_tab();
         elseif ( 'tabs' === $current ) twshop_member_tabs_tab();
+        elseif ( 'coupons' === $current ) twshop_marketing_coupons_tab();
         elseif ( 'shopee' === $current ) twshop_shopee_settings_tab();
     } );
 }

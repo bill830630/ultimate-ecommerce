@@ -15,8 +15,10 @@
  * on/off meta。訂單不再有「整張訂單是儲值訂單」這個概念——一張訂單可能同時有儲值金商品
  * 與一般商品，逐項處理。
  *
- * 加贈金不是後台另外設定的欄位，是「顧客實付金額」與「商品面額」的差額自動算出來的
- * （面額 1000、售價 900 → 本金 900 + 加贈 100；面額等於售價則沒有加贈）。
+ * v25.8.75 起移除「加贈金」這個獨立追蹤的概念（見 wallet-core.php 檔頭說明）。「儲值金
+ * 額度」（面額）仍然可以跟商品售價不同——這是店家想做「儲多少送多少」促銷時的手段，
+ * 這個能力保留；差別只在於系統不再把入帳金額拆成「本金」「加贈金」兩筆分開記錄與顯示，
+ * 商品面額多少，會員的儲值金餘額就單純增加多少。
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -108,7 +110,7 @@ function twshop_add_wallet_credit_product_fields() {
         'label'             => '儲值金額度（每件）',
         'placeholder'       => '留空預設等於商品價格',
         'desc_tip'          => true,
-        'description'       => '購買 1 件這個商品，會員的儲值金餘額增加多少。留空時存檔會自動帶入商品價格（沒有加贈）；填一個高於商品價格的數字，差額就會自動變成「加贈金」——這個欄位跟上面「商品價格」是各自獨立設定的兩個值，商品價格決定顧客要付多少錢，這裡決定會員實際入帳多少。',
+        'description'       => '購買 1 件這個商品，會員的儲值金餘額增加多少。留空時存檔會自動帶入商品價格；也可以填一個跟商品價格不同的數字（例如高於價格做促銷）——這個欄位跟上面「商品價格」是各自獨立設定的兩個值，商品價格決定顧客要付多少錢，這裡決定會員實際入帳多少。',
         'type'              => 'number',
         'custom_attributes' => array( 'step' => '1', 'min' => '0' ),
     ) );
@@ -121,11 +123,12 @@ function twshop_add_wallet_credit_product_fields() {
  *
  * 「儲值金額度」留空（或填 0）時預設帶入商品價格（`_regular_price`，跟這支函式同一次
  * $_POST 送出，WooCommerce 核心的售價欄位一律無條件存在於商品編輯表單裡，見
- * wallet-credit-product.js 開頭關於欄位重用的說明）——多數儲值金商品是「儲多少送多少」
- * 的單純情境（無加贈），這個預設值讓管理員不用每次都手動填一次一模一樣的數字，也避免
- * 忘記填導致這個欄位留空/是 0（真的存成 0 的話，付款完成入帳邏輯的 `$credit_total <= 0`
- * 判斷會讓這個商品完全不入帳，顧客等於白付錢）。要做「加贈」的商品，管理員只要明確填一個
- * 高於商品價格的數字即可，不受這個預設值影響——只有「完全沒填/或填 0」才會套用預設。
+ * wallet-credit-product.js 開頭關於欄位重用的說明）——多數儲值金商品是「儲多少算多少」
+ * 的單純情境（面額等於售價），這個預設值讓管理員不用每次都手動填一次一模一樣的數字，
+ * 也避免忘記填導致這個欄位留空/是 0（真的存成 0 的話，付款完成入帳邏輯的
+ * `$credit_total <= 0` 判斷會讓這個商品完全不入帳，顧客等於白付錢）。要做促銷、讓面額
+ * 高於售價的商品，管理員只要明確填一個高於商品價格的數字即可，不受這個預設值影響——
+ * 只有「完全沒填/或填 0」才會套用預設。
  */
 function twshop_save_wallet_credit_product_fields( $post_id ) {
     $posted_amount = isset( $_POST['_twshop_wallet_credit_amount'] )
@@ -165,66 +168,56 @@ function twshop_enqueue_wallet_credit_product_admin_script( $hook ) {
 }
 
 /**
- * 對單一訂單項目追回「差額」金額，依這個項目已入帳的本金/加贈金比例分配 $delta、
- * 依可用餘額夾住（不透支）、記錄新的累計已追回量，餘額不足時留訂單備註。
- * `twshop_wallet_revoke_topup_order()`（整單取消/退款/失敗）與
+ * 對單一訂單項目追回 $delta 金額，依可用餘額夾住（不透支）、記錄新的累計已追回量，
+ * 餘額不足時留訂單備註。`twshop_wallet_revoke_topup_order()`（整單取消/退款/失敗）與
  * `twshop_wallet_handle_topup_item_refund()`（部分退款）共用同一套邏輯，只是
  * 呼叫端算出來的 $delta 與 $ref 不同。
  *
  * 【設計取捨：一次性最佳努力，不自動重試】跟結帳折抵那邊的退回邏輯（只會加錢）不同，
  * 這裡是扣錢，可能因為餘額已經被花掉而扣不滿。扣不滿的差額只留訂單備註，不會在之後
- * 自動重試——若日後餘額回升想把差額追回，管理員要透過後台使用者個人資料頁的「手動
- * 增減儲值金」自行處理。
+ * 自動重試——若日後餘額回升想把差額追回，管理員要透過「儲值金 ▸ 會員餘額」頁籤的
+ * 手動調整表單自行處理。
  */
 function twshop_wallet_claw_back_item_amount( $order, $item, $user_id, $delta, $ref, $note ) {
-    $credited_paid  = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_paid' ), 2 );
-    $credited_bonus = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_bonus' ), 2 );
-    $credited_total = round( $credited_paid + $credited_bonus, 2 );
-    $ratio_paid     = $credited_total > 0 ? $credited_paid / $credited_total : 0;
+    $balance = twshop_wallet_get_balance( $user_id );
+    $claw    = min( $delta, max( 0, $balance ) );
 
-    $want_paid  = round( $delta * $ratio_paid, 2 );
-    $want_bonus = round( $delta - $want_paid, 2 );
-
-    $balance    = twshop_wallet_get_balance( $user_id );
-    $claw_paid  = min( $want_paid,  max( 0, $balance['paid'] ) );
-    $claw_bonus = min( $want_bonus, max( 0, $balance['bonus'] ) );
-
-    if ( $claw_paid > 0 || $claw_bonus > 0 ) {
-        twshop_wallet_apply( $user_id, -$claw_paid, -$claw_bonus, 'topup_revoke', $ref, array(
+    if ( $claw > 0 ) {
+        twshop_wallet_apply( $user_id, -$claw, 'topup_revoke', $ref, array(
             'order_id' => $order->get_id(),
             'note'     => $note,
         ) );
 
-        $already_revoked_paid  = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_paid' ), 2 );
-        $already_revoked_bonus = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_bonus' ), 2 );
-        $item->update_meta_data( '_twshop_wallet_topup_revoked_paid', $already_revoked_paid + $claw_paid );
-        $item->update_meta_data( '_twshop_wallet_topup_revoked_bonus', $already_revoked_bonus + $claw_bonus );
+        $already_revoked = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_amount' ), 2 );
+        $item->update_meta_data( '_twshop_wallet_topup_revoked_amount', $already_revoked + $claw );
         $item->save_meta_data();
     }
 
-    $shortfall_paid  = round( $want_paid  - $claw_paid,  2 );
-    $shortfall_bonus = round( $want_bonus - $claw_bonus, 2 );
-    if ( $shortfall_paid > 0 || $shortfall_bonus > 0 ) {
+    $shortfall = round( $delta - $claw, 2 );
+    if ( $shortfall > 0 ) {
         $product = $item->get_product();
         $order->add_order_note( sprintf(
-            '⚠️ 儲值金商品「%s」追回不足，會員餘額已被花用：本金差額 NT$%s／加贈金差額 NT$%s，需人工處理（後台使用者個人資料頁手動調整儲值金）。',
+            '⚠️ 儲值金商品「%s」追回不足，會員餘額已被花用：差額 NT$%s，需人工處理（「儲值金 ▸ 會員餘額」頁籤手動調整）。',
             $product ? $product->get_name() : ( '項目 #' . $item->get_id() ),
-            number_format( $shortfall_paid, 2 ), number_format( $shortfall_bonus, 2 )
+            number_format( $shortfall, 2 )
         ) );
     }
 
-    return array( 'paid' => $claw_paid, 'bonus' => $claw_bonus );
+    return $claw;
 }
 
 /**
  * 付款完成（涵蓋所有金流的統一 hook）：逐項掃描這張訂單，找出儲值金商品項目入帳。
  * ref 用訂單項目 ID（`$item_id`，WooCommerce 全站唯一），天然冪等；另外用訂單項目
- * meta `_twshop_wallet_topup_credited`（及 `_credited_paid`/`_credited_bonus`）標記
- * 「這個項目已經處理過」，除了避免 `woocommerce_payment_complete` 因網路重試觸發兩次
- * 時重複寄送通知信（`twshop_wallet_apply()` 本身的 ref 冪等已經防止重複入帳，但無法
- * 防止這支函式重複判斷「本次有沒有真的入帳」），也是追回邏輯（見下方兩支函式）拿
- * 「這個項目當初入帳了多少」的權威來源——沒有另外查帳本 SUM，因為帳本的 `order_id`
- * 欄位不含項目層級的區分，一張訂單有多個儲值金商品項目時無法用 SQL 反查回單一項目。
+ * meta `_twshop_wallet_topup_credited`（及 `_credited_amount`）標記「這個項目已經處理
+ * 過」，除了避免 `woocommerce_payment_complete` 因網路重試觸發兩次時重複寄送通知信
+ * （`twshop_wallet_apply()` 本身的 ref 冪等已經防止重複入帳，但無法防止這支函式重複
+ * 判斷「本次有沒有真的入帳」），也是追回邏輯（見下方兩支函式）拿「這個項目當初入帳了
+ * 多少」的權威來源——沒有另外查帳本 SUM，因為帳本的 `order_id` 欄位不含項目層級的
+ * 區分，一張訂單有多個儲值金商品項目時無法用 SQL 反查回單一項目。
+ *
+ * 入帳金額就是商品的「儲值金額度」（面額）× 數量，不再跟該項目實際付了多少錢比較、
+ * 拆分——面額可以跟商品售價不同（店家的促銷手段），但一律整筆入帳，不分本金/加贈金。
  *
  * **不強制把整張訂單轉 completed**：訂單裡若還有其他一般商品需要出貨，維持
  * WooCommerce 原生的 processing/completed 判斷；全部都是虛擬商品時，核心的
@@ -237,9 +230,8 @@ function twshop_wallet_credit_on_payment_complete( $order_id ) {
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    $total_paid   = 0.0;
-    $total_bonus  = 0.0;
-    $any_credited = false;
+    $total_credited = 0.0;
+    $any_credited   = false;
 
     foreach ( $order->get_items() as $item_id => $item ) {
         $product = $item->get_product();
@@ -251,35 +243,21 @@ function twshop_wallet_credit_on_payment_complete( $order_id ) {
         $credit_total    = round( $credit_per_unit * $qty, 2 );
         if ( $credit_total <= 0 ) continue;
 
-        $paid_for_item = round( (float) $item->get_total() + (float) $item->get_total_tax(), 2 );
-        $paid  = max( 0, min( $paid_for_item, $credit_total ) );
-        $bonus = round( $credit_total - $paid, 2 );
-
-        if ( $paid > 0 ) {
-            twshop_wallet_apply( $user_id, $paid, 0, 'topup', 'topup:' . $item_id, array(
-                'order_id' => $order_id,
-                'note'     => '訂單 #' . $order_id . ' 儲值金商品「' . $product->get_name() . '」',
-            ) );
-        }
-        if ( $bonus > 0 ) {
-            twshop_wallet_apply( $user_id, 0, $bonus, 'topup_bonus', 'topup_bonus:' . $item_id, array(
-                'order_id' => $order_id,
-                'note'     => '訂單 #' . $order_id . ' 儲值金商品「' . $product->get_name() . '」加贈',
-            ) );
-        }
+        twshop_wallet_apply( $user_id, $credit_total, 'topup', 'topup:' . $item_id, array(
+            'order_id' => $order_id,
+            'note'     => '訂單 #' . $order_id . ' 儲值金商品「' . $product->get_name() . '」',
+        ) );
 
         $item->update_meta_data( '_twshop_wallet_topup_credited', 'yes' );
-        $item->update_meta_data( '_twshop_wallet_topup_credited_paid', $paid );
-        $item->update_meta_data( '_twshop_wallet_topup_credited_bonus', $bonus );
+        $item->update_meta_data( '_twshop_wallet_topup_credited_amount', $credit_total );
         $item->save_meta_data();
 
-        $total_paid  += $paid;
-        $total_bonus += $bonus;
+        $total_credited += $credit_total;
         $any_credited = true;
     }
 
     if ( $any_credited ) {
-        twshop_wallet_maybe_send_topup_email( $order, $user_id, $total_paid, $total_bonus );
+        twshop_wallet_maybe_send_topup_email( $order, $user_id, $total_credited );
     }
 }
 
@@ -287,20 +265,23 @@ function twshop_wallet_credit_on_payment_complete( $order_id ) {
  * 儲值成功通知信，開關與範本見「儲值金 ▸ 設定」頁籤。跟會員等級的生日禮/升等禮通知信
  * 同一套做法（`str_replace` 套版＋直接同步 `wp_mail()`，不像點數到期提醒那樣走
  * `wp_schedule_single_event()` 排隊——這裡是使用者當下操作觸發的即時通知，不是批次
- * 掃描大量會員的排程情境，不需要非同步化）。$paid/$bonus 是這張訂單所有儲值金商品
- * 項目加總後的本金/加贈金（一張訂單可能買了不只一個儲值金商品）。
+ * 掃描大量會員的排程情境，不需要非同步化）。$amount 是這張訂單所有儲值金商品項目
+ * 加總後的入帳金額（一張訂單可能買了不只一個儲值金商品）。
  */
-function twshop_wallet_maybe_send_topup_email( $order, $user_id, $paid, $bonus ) {
+function twshop_wallet_maybe_send_topup_email( $order, $user_id, $amount ) {
     if ( 'yes' !== twshop_option( 'wc_wallet_topup_email_enabled' ) ) return;
 
     $user = get_userdata( $user_id );
     if ( ! $user || ! is_email( $user->user_email ) ) return;
 
     $balance = twshop_wallet_get_balance( $user_id );
-    $body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n加贈金額：NT{bonus}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
+    $body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
     $body    = str_replace(
+        // {bonus} 已於 v25.8.75 隨加贈金機制移除，不再是可用佔位符——這裡仍保留把它
+        // 替換成空字串，只是為了不讓既有站台在移除前就已經存檔過的舊範本裡殘留一段
+        // 永遠無法被替換的 "{bonus}" 文字，不代表這個佔位符還有意義。
         array( '{name}', '{amount}', '{bonus}', '{balance}', '{order_id}' ),
-        array( $user->display_name, number_format( $paid, 2 ), number_format( $bonus, 2 ), number_format( $balance['total'], 2 ), $order->get_id() ),
+        array( $user->display_name, number_format( $amount, 2 ), '', number_format( $balance, 2 ), $order->get_id() ),
         $body
     );
 
@@ -324,11 +305,9 @@ function twshop_wallet_revoke_topup_order( $order_id ) {
         if ( 'yes' !== $item->get_meta( '_twshop_wallet_topup_credited' ) ) continue;
         if ( 'yes' === $item->get_meta( '_twshop_wallet_topup_revoke_processed' ) ) continue;
 
-        $credited_paid  = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_paid' ), 2 );
-        $credited_bonus = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_bonus' ), 2 );
-        $already_paid   = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_paid' ), 2 );
-        $already_bonus  = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_bonus' ), 2 );
-        $remaining      = round( ( $credited_paid + $credited_bonus ) - ( $already_paid + $already_bonus ), 2 );
+        $credited  = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_amount' ), 2 );
+        $already   = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_amount' ), 2 );
+        $remaining = round( $credited - $already, 2 );
 
         if ( $remaining > 0 ) {
             $product = $item->get_product();
@@ -364,9 +343,7 @@ function twshop_wallet_handle_topup_item_refund( $order_id, $refund_id ) {
     foreach ( $order->get_items() as $item_id => $item ) {
         if ( 'yes' !== $item->get_meta( '_twshop_wallet_topup_credited' ) ) continue;
 
-        $credited_paid  = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_paid' ), 2 );
-        $credited_bonus = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_bonus' ), 2 );
-        $credited_total = round( $credited_paid + $credited_bonus, 2 );
+        $credited_total = round( (float) $item->get_meta( '_twshop_wallet_topup_credited_amount' ), 2 );
         if ( $credited_total <= 0 ) continue;
 
         $item_original_total = round( (float) $item->get_total() + (float) $item->get_total_tax(), 2 );
@@ -376,9 +353,8 @@ function twshop_wallet_handle_topup_item_refund( $order_id, $refund_id ) {
         $proportion   = min( 1, $refunded_for_item / $item_original_total );
         $target_total = round( $credited_total * $proportion, 2 );
 
-        $already_paid  = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_paid' ), 2 );
-        $already_bonus = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_bonus' ), 2 );
-        $delta = round( $target_total - ( $already_paid + $already_bonus ), 2 );
+        $already = round( (float) $item->get_meta( '_twshop_wallet_topup_revoked_amount' ), 2 );
+        $delta   = round( $target_total - $already, 2 );
         if ( $delta <= 0 ) continue;
 
         $product = $item->get_product();

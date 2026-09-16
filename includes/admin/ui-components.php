@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function twshop_admin_external_scripts($hook) {
     $twshop_pages = array(
         'wc-general-settings', 'twshop-member-tiers', 'twshop-discount-rules',
-        'twshop-visual-coupons', 'twshop-points', 'twshop-system', 'twshop-wallet',
+        'twshop-points', 'twshop-system', 'twshop-wallet',
     );
 
     $on_page = false;

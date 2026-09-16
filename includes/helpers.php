@@ -476,7 +476,7 @@ function twshop_get_module_definitions() {
         'discount_rules'  => array( 'label' => '折扣規則', 'desc' => '動態折扣、免運、自動贈品、加購品' ),
         'visual_coupons'  => array( 'label' => '優惠卡券', 'desc' => '卡片式優惠券、會員優惠券頁面' ),
         'points'          => array( 'label' => '紅利點數', 'desc' => '消費累點、點數折抵、異動紀錄' ),
-        'wallet'          => array( 'label' => '儲值金', 'desc' => '線上自助儲值、儲值加贈、購物折抵、會員中心餘額與交易紀錄' ),
+        'wallet'          => array( 'label' => '儲值中心', 'desc' => '線上自助儲值、購物折抵、會員中心餘額與交易紀錄' ),
         'order_checkout_enhancements' => array(
             'label' => '訂單強化',
             'desc'  => '台灣地址下拉選單、超商取貨免填地址、訂單物流資訊顯示與搜尋、自訂訂單狀態、批次操作、物流貨態自動完成訂單',

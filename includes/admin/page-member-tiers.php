@@ -33,7 +33,7 @@ function twshop_member_tiers_tab() {
             <?php settings_fields( 'wc_member_tiers_group' ); ?>
 
             <h2 class="twshop-section-title">會員等級設定 <span class="twshop-hint">(提示：請利用卡片標題左側圖示拖曳排序，將最高等級放在最上方)</span></h2>
-            <p class="description">優惠券頁面文字請至<a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-visual-coupons' ) ); ?>">「優惠卡券」</a>頁面編輯。</p>
+            <p class="description">優惠券頁面文字請至<a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-system&tab=coupons' ) ); ?>">「優惠卡券」</a>頁面編輯。</p>
             <div id="tier-repeater-container">
                 <?php
                 if ( ! empty( $tiers ) ) { foreach ( $tiers as $tier ) echo twshop_get_tier_row_html( $tier ); }
@@ -130,7 +130,7 @@ function twshop_get_account_tab_row_html( $slug, $label, $enabled, $icon = '' ) 
     ob_start();
     ?>
     <div class="twshop-tab-row" style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #ccd0d4; border-radius:4px; padding:10px 14px; margin-bottom:8px;">
-        <span class="drag-handle" style="cursor:move; color:#999;"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
+        <span class="drag-handle twshop-text-muted" style="cursor:move;"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
         <input type="hidden" name="wc_account_tabs_settings[slug][]" value="<?php echo esc_attr( $slug ); ?>" />
         <input type="hidden" class="tab-enabled-input" name="wc_account_tabs_settings[enabled][]" value="<?php echo esc_attr( $is_logout ? 'yes' : $enabled ); ?>" />
         <?php echo twshop_render_account_tab_icon_picker( $slug, $icon ); ?>
@@ -140,7 +140,7 @@ function twshop_get_account_tab_row_html( $slug, $label, $enabled, $icon = '' ) 
             <?php else : ?>
                 <input type="text" name="wc_account_tab_names[<?php echo esc_attr( $slug ); ?>]" value="<?php echo esc_attr( $label ); ?>" class="regular-text" style="max-width:220px;" />
             <?php endif; ?>
-            <code style="color:#888; font-weight:normal;">(<?php echo esc_html( $slug ); ?>)</code>
+            <code class="twshop-text-muted" style="font-weight:normal;">(<?php echo esc_html( $slug ); ?>)</code>
         </span>
         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
             <input type="checkbox" class="tab-enabled-checkbox" <?php checked( $is_logout || 'yes' === $enabled ); ?> <?php disabled( $is_logout ); ?> />
@@ -209,7 +209,7 @@ function twshop_get_tier_row_html( $t ) {
     <div class="twshop-tier-card" style="background:#fff; border:1px solid #ccd0d4; margin-bottom:15px; border-radius:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <div class="twshop-card-header" style="padding:15px; background:#f7f7f7; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-weight:bold; border-bottom:1px solid #eee;">
             <span>
-                <span class="drag-handle" style="cursor:move; color:#999; margin-right:10px;" title="拖曳排序"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
+                <span class="drag-handle twshop-text-muted" style="cursor:move; margin-right:10px;" title="拖曳排序"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
                 <?php echo $name ? esc_html($name) : '新等級'; ?>
             </span>
             <span class="twshop-card-toggle-icon <?php echo $name ? '' : 'is-open'; ?>" title="點擊收合或展開"><?php echo twshop_get_account_tab_icon_svg( 'chevron-down' ); ?></span>
@@ -228,7 +228,7 @@ function twshop_get_tier_row_html( $t ) {
             </div>
             
             <div class="gifts-section" style="background:#f9f9f9; padding:15px; border-radius:4px; margin-bottom:15px; border: 1px solid #eee;">
-                <label style="font-weight:bold; color:#007cba;"><input type="checkbox" name="wc_member_tiers_settings[b_enable][]" value="yes" <?php checked($b_enable, 'yes'); ?>> 啟用專屬生日禮包</label>
+                <label style="font-weight:bold;"><input type="checkbox" name="wc_member_tiers_settings[b_enable][]" value="yes" <?php checked($b_enable, 'yes'); ?>> 啟用專屬生日禮包</label>
                 <input type="hidden" name="wc_member_tiers_settings[b_gifts][]" value="<?php echo esc_attr($b_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -239,7 +239,7 @@ function twshop_get_tier_row_html( $t ) {
             </div>
 
             <div class="gifts-section" style="background:#fffcf5; padding:15px; border-radius:4px; margin-bottom:15px; border: 1px solid #fae8c3;">
-                <label style="font-weight:bold; color:#d68a00;"><input type="checkbox" name="wc_member_tiers_settings[u_enable][]" value="yes" <?php checked($u_enable, 'yes'); ?>> 啟用達成升級禮包</label>
+                <label style="font-weight:bold;"><input type="checkbox" name="wc_member_tiers_settings[u_enable][]" value="yes" <?php checked($u_enable, 'yes'); ?>> 啟用達成升級禮包</label>
                 <input type="hidden" name="wc_member_tiers_settings[u_gifts][]" value="<?php echo esc_attr($u_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -248,7 +248,7 @@ function twshop_get_tier_row_html( $t ) {
                     <button type="button" class="button add-gift-btn">加入禮包</button>
                 </div>
             </div>
-            <div style="text-align:right;"><button type="button" class="button remove-tier-row" style="color: #b32d2e; border-color: #b32d2e;">刪除此等級</button></div>
+            <div style="text-align:right;"><button type="button" class="button remove-tier-row twshop-button-danger">刪除此等級</button></div>
         </div>
     </div>
     <?php return ob_get_clean();

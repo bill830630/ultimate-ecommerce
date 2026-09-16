@@ -8,11 +8,19 @@
  * 餘額列，同一會員的並發異動會排隊依序執行、不會互相覆蓋；ref 欄位是冪等鍵（例如
  * `topup:{order_id}`），同一個 ref 重複呼叫只會真正執行一次，之後直接回傳第一次的結果——
  * 用於「付款完成的 webhook 因網路重試被觸發兩次」這類情境，避免重複入帳。
+ *
+ * v25.8.75 起移除「加贈金」這個獨立追蹤的概念——不再有本金／加贈金之分，只有單一餘額。
+ * 資料表欄位刻意保留原本的 `balance_paid`／`amount_paid`／`balance_paid_after` 命名
+ * （沒有改名成 `balance`／`amount`），只砍掉 `balance_bonus`／`amount_bonus`／
+ * `balance_bonus_after`／`bonus_expire_at` 這幾個欄位——改名要用 `ALTER TABLE ... CHANGE
+ * COLUMN`，風險與複雜度都比「刪除不用的欄位」高，且欄位名稱只有這個檔案內部看得到，
+ * 不影響任何對外介面，不值得為了命名美觀多冒一次遷移風險。既有站台的既有加贈金餘額在
+ * 升級時會自動併入本金欄位，見 `twshop_wallet_migrate_remove_bonus_columns()`。
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TWSHOP_WALLET_DB_VERSION', '1.0.0' );
+define( 'TWSHOP_WALLET_DB_VERSION', '2.0.0' );
 
 function twshop_wallet_balances_table() {
     global $wpdb;
@@ -44,27 +52,20 @@ function twshop_wallet_install_tables() {
     $sql_balances = "CREATE TABLE {$balances_table} (
         user_id BIGINT UNSIGNED NOT NULL,
         balance_paid DECIMAL(15,2) NOT NULL DEFAULT 0,
-        balance_bonus DECIMAL(15,2) NOT NULL DEFAULT 0,
         updated_at DATETIME NOT NULL,
         PRIMARY KEY  (user_id)
     ) {$charset_collate};";
     dbDelta( $sql_balances );
 
-    // bonus_expire_at 目前只保留欄位、沒有任何程式碼讀寫它——加贈金有效期限是刻意
-    // 留到日後版本才做的功能（見 CLAUDE.md「儲值金模組」一節），先把欄位定好避免
-    // 日後又要跑一次資料庫升級。
     $sql_ledger = "CREATE TABLE {$ledger_table} (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_id BIGINT UNSIGNED NOT NULL,
         type VARCHAR(20) NOT NULL,
         amount_paid DECIMAL(15,2) NOT NULL DEFAULT 0,
-        amount_bonus DECIMAL(15,2) NOT NULL DEFAULT 0,
         balance_paid_after DECIMAL(15,2) NOT NULL DEFAULT 0,
-        balance_bonus_after DECIMAL(15,2) NOT NULL DEFAULT 0,
         order_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
         ref VARCHAR(191) NOT NULL,
         note TEXT NULL,
-        bonus_expire_at DATETIME NULL,
         created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL,
         PRIMARY KEY  (id),
@@ -74,9 +75,52 @@ function twshop_wallet_install_tables() {
     ) {$charset_collate};";
     dbDelta( $sql_ledger );
 
+    twshop_wallet_migrate_remove_bonus_columns();
+
     update_option( 'twshop_wallet_db_version', TWSHOP_WALLET_DB_VERSION );
 }
 register_activation_hook( TWSHOP_PLUGIN_FILE, 'twshop_wallet_install_tables' );
+
+/**
+ * v25.8.75 一次性遷移：既有站台可能已經有 `balance_bonus`／`amount_bonus`／
+ * `balance_bonus_after`／`bonus_expire_at` 這幾個欄位（1.0.0 版本的表結構），且可能已經
+ * 累積了真的加贈金餘額。`dbDelta()` 只會「新增缺少的欄位」，不會刪除/改名既有欄位，
+ * 所以這幾個欄位不會因為上面 `dbDelta()` 跑完就自動消失，要在這裡手動處理：
+ *
+ * 1. 把既有 `balance_bonus`／`amount_bonus`／`balance_bonus_after` 的值併入對應的
+ *    `_paid` 欄位（沒有任何金額憑空消失，只是不再分開記錄是本金還是加贈金）。
+ * 2. 確認欄位真的存在才動作（`information_schema` 查詢），確保這支函式在全新安裝
+ *    （一開始就不會建出這些欄位）與已經跑過一次遷移的站台上重複呼叫都安全、無副作用。
+ *
+ * 用 `SHOW COLUMNS`（而非 `information_schema.COLUMNS` 那種需要額外資料庫權限的查法）
+ * 判斷欄位是否存在，跟 WordPress 核心 `dbDelta()` 本身判斷欄位的方式一致。
+ */
+function twshop_wallet_migrate_remove_bonus_columns() {
+    global $wpdb;
+    $balances_table = twshop_wallet_balances_table();
+    $ledger_table   = twshop_wallet_ledger_table();
+
+    $balances_columns = $wpdb->get_col( "SHOW COLUMNS FROM {$balances_table}" );
+    if ( in_array( 'balance_bonus', $balances_columns, true ) ) {
+        $wpdb->query( "UPDATE {$balances_table} SET balance_paid = balance_paid + balance_bonus" );
+        $wpdb->query( "ALTER TABLE {$balances_table} DROP COLUMN balance_bonus" );
+    }
+
+    $ledger_columns = $wpdb->get_col( "SHOW COLUMNS FROM {$ledger_table}" );
+    if ( in_array( 'amount_bonus', $ledger_columns, true ) ) {
+        $wpdb->query( "UPDATE {$ledger_table} SET amount_paid = amount_paid + amount_bonus" );
+        $wpdb->query( "ALTER TABLE {$ledger_table} DROP COLUMN amount_bonus" );
+    }
+    if ( in_array( 'balance_bonus_after', $ledger_columns, true ) ) {
+        $wpdb->query( "UPDATE {$ledger_table} SET balance_paid_after = balance_paid_after + balance_bonus_after" );
+        $wpdb->query( "ALTER TABLE {$ledger_table} DROP COLUMN balance_bonus_after" );
+    }
+    if ( in_array( 'bonus_expire_at', $ledger_columns, true ) ) {
+        // 從未有任何程式碼讀寫過這個欄位（見 v25.8.61 加入時的既有註解），直接砍掉、
+        // 不需要遷移任何資料。
+        $wpdb->query( "ALTER TABLE {$ledger_table} DROP COLUMN bonus_expire_at" );
+    }
+}
 
 function twshop_wallet_maybe_upgrade_db() {
     if ( get_option( 'twshop_wallet_db_version' ) !== TWSHOP_WALLET_DB_VERSION ) {
@@ -86,41 +130,37 @@ function twshop_wallet_maybe_upgrade_db() {
 add_action( 'admin_init', 'twshop_wallet_maybe_upgrade_db' );
 
 /**
- * 讀取某會員目前餘額。查不到資料列（從未有過任何異動）視為 0，不主動建立資料列——
- * 建立資料列的時機交給 twshop_wallet_apply() 在第一次真正異動時處理，維持「這支只讀、
- * 不寫」的單純語意。
+ * 讀取某會員目前餘額，回傳單一浮點數。查不到資料列（從未有過任何異動）視為 0，
+ * 不主動建立資料列——建立資料列的時機交給 twshop_wallet_apply() 在第一次真正異動時
+ * 處理，維持「這支只讀、不寫」的單純語意。
  */
 function twshop_wallet_get_balance( $user_id ) {
     global $wpdb;
     $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT balance_paid, balance_bonus FROM " . twshop_wallet_balances_table() . " WHERE user_id = %d",
+        "SELECT balance_paid FROM " . twshop_wallet_balances_table() . " WHERE user_id = %d",
         (int) $user_id
     ), ARRAY_A );
 
-    $paid  = $row ? (float) $row['balance_paid'] : 0.0;
-    $bonus = $row ? (float) $row['balance_bonus'] : 0.0;
-    return array( 'paid' => $paid, 'bonus' => $bonus, 'total' => round( $paid + $bonus, 2 ) );
+    return $row ? (float) $row['balance_paid'] : 0.0;
 }
 
 /**
  * 儲值金餘額異動唯一入口。
  *
  * @param int    $user_id
- * @param float  $paid_delta   本金異動（正數增加／負數扣除）
- * @param float  $bonus_delta  加贈金異動（正數增加／負數扣除）
- * @param string $type         topup／topup_bonus／spend／spend_return／topup_revoke／adjust
- * @param string $ref          冪等鍵，同一個 ref 只會真正執行一次（例如 topup:123、spend:456、adjust:<uuid>）
- * @param array  $args         order_id／note／created_by／bonus_expire_at（皆選填）
- * @return array|WP_Error      成功回傳這筆帳本紀錄（含 balance_*_after 與 id）；
- *                              餘額不足（本金＋加贈金扣完仍為負）回傳 WP_Error。
+ * @param float  $delta  異動金額（正數增加／負數扣除）
+ * @param string $type   topup／spend／spend_return／topup_revoke／adjust
+ * @param string $ref    冪等鍵，同一個 ref 只會真正執行一次（例如 topup:123、spend:456、adjust:<uuid>）
+ * @param array  $args   order_id／note／created_by（皆選填）
+ * @return array|WP_Error 成功回傳這筆帳本紀錄（含 balance_paid_after 與 id）；
+ *                        餘額不足回傳 WP_Error。
  */
-function twshop_wallet_apply( $user_id, $paid_delta, $bonus_delta, $type, $ref, $args = array() ) {
+function twshop_wallet_apply( $user_id, $delta, $type, $ref, $args = array() ) {
     global $wpdb;
 
-    $user_id     = (int) $user_id;
-    $paid_delta  = round( (float) $paid_delta, 2 );
-    $bonus_delta = round( (float) $bonus_delta, 2 );
-    $ref         = sanitize_text_field( $ref );
+    $user_id = (int) $user_id;
+    $delta   = round( (float) $delta, 2 );
+    $ref     = sanitize_text_field( $ref );
 
     if ( $user_id <= 0 || '' === $ref ) {
         return new WP_Error( 'twshop_wallet_invalid_args', '缺少會員 ID 或冪等鍵（ref）。' );
@@ -146,7 +186,7 @@ function twshop_wallet_apply( $user_id, $paid_delta, $bonus_delta, $type, $ref, 
         // 造成主鍵衝突——ON DUPLICATE KEY UPDATE 讓兩者都能安全執行，其中一個是
         // 真正建立、另一個等同無害的自我更新。
         $wpdb->query( $wpdb->prepare(
-            "INSERT INTO {$balances_table} (user_id, balance_paid, balance_bonus, updated_at) VALUES (%d, 0, 0, %s)
+            "INSERT INTO {$balances_table} (user_id, balance_paid, updated_at) VALUES (%d, 0, %s)
              ON DUPLICATE KEY UPDATE user_id = user_id",
             $user_id, current_time( 'mysql' )
         ) );
@@ -167,40 +207,33 @@ function twshop_wallet_apply( $user_id, $paid_delta, $bonus_delta, $type, $ref, 
         return $existing;
     }
 
-    $new_paid  = round( (float) $row['balance_paid'] + $paid_delta, 2 );
-    $new_bonus = round( (float) $row['balance_bonus'] + $bonus_delta, 2 );
+    $new_balance = round( (float) $row['balance_paid'] + $delta, 2 );
 
-    if ( $new_paid < 0 || $new_bonus < 0 ) {
+    if ( $new_balance < 0 ) {
         $wpdb->query( 'ROLLBACK' );
         return new WP_Error( 'twshop_wallet_insufficient_balance', '儲值金餘額不足，無法完成這筆異動。' );
     }
 
     $wpdb->update(
         $balances_table,
-        array( 'balance_paid' => $new_paid, 'balance_bonus' => $new_bonus, 'updated_at' => current_time( 'mysql' ) ),
+        array( 'balance_paid' => $new_balance, 'updated_at' => current_time( 'mysql' ) ),
         array( 'user_id' => $user_id ),
-        array( '%f', '%f', '%s' ),
+        array( '%f', '%s' ),
         array( '%d' )
     );
 
     $insert = array(
-        'user_id'             => $user_id,
-        'type'                => sanitize_key( $type ),
-        'amount_paid'         => $paid_delta,
-        'amount_bonus'        => $bonus_delta,
-        'balance_paid_after'  => $new_paid,
-        'balance_bonus_after' => $new_bonus,
-        'order_id'            => (int) ( $args['order_id'] ?? 0 ),
-        'ref'                 => $ref,
-        'note'                => sanitize_text_field( $args['note'] ?? '' ),
-        'created_by'          => (int) ( $args['created_by'] ?? get_current_user_id() ),
-        'created_at'          => current_time( 'mysql' ),
+        'user_id'            => $user_id,
+        'type'               => sanitize_key( $type ),
+        'amount_paid'        => $delta,
+        'balance_paid_after' => $new_balance,
+        'order_id'           => (int) ( $args['order_id'] ?? 0 ),
+        'ref'                => $ref,
+        'note'               => sanitize_text_field( $args['note'] ?? '' ),
+        'created_by'         => (int) ( $args['created_by'] ?? get_current_user_id() ),
+        'created_at'         => current_time( 'mysql' ),
     );
-    $formats = array( '%d', '%s', '%f', '%f', '%f', '%f', '%d', '%s', '%s', '%d', '%s' );
-    if ( ! empty( $args['bonus_expire_at'] ) ) {
-        $insert['bonus_expire_at'] = $args['bonus_expire_at'];
-        $formats[] = '%s';
-    }
+    $formats = array( '%d', '%s', '%f', '%f', '%d', '%s', '%s', '%d', '%s' );
 
     $inserted = $wpdb->insert( $ledger_table, $insert, $formats );
     if ( false === $inserted ) {
@@ -218,21 +251,6 @@ function twshop_wallet_apply( $user_id, $paid_delta, $bonus_delta, $type, $ref, 
 }
 
 /**
- * 折抵／扣款專用：給定要扣的總額，依「先扣本金、本金不夠才扣加贈金」的固定順序
- * （使用者已確認，非設定項）拆成 paid／bonus 兩個負數（或 0）。純計算，不查資料庫、
- * 不驗證餘額是否足夠——是否透支交給 twshop_wallet_apply() 的交易本身把關，這支只負責
- * 「同一筆扣款金額該怎麼分配」。
- *
- * @return array{paid: float, bonus: float} 皆為 <= 0 的負數（或 0）
- */
-function twshop_wallet_split_spend_amount( $amount, $balance_paid ) {
-    $amount     = round( max( 0, (float) $amount ), 2 );
-    $from_paid  = round( min( $amount, max( 0, (float) $balance_paid ) ), 2 );
-    $from_bonus = round( $amount - $from_paid, 2 );
-    return array( 'paid' => -$from_paid, 'bonus' => -$from_bonus );
-}
-
-/**
  * 讀取某會員的異動紀錄（新到舊），供會員中心「我的儲值金」與後台個人資料頁共用。
  */
 function twshop_wallet_get_ledger( $user_id, $limit = 50, $offset = 0 ) {
@@ -245,8 +263,7 @@ function twshop_wallet_get_ledger( $user_id, $limit = 50, $offset = 0 ) {
 
 function twshop_wallet_get_type_labels() {
     return array(
-        'topup'        => '線上儲值（本金）',
-        'topup_bonus'  => '線上儲值（加贈）',
+        'topup'        => '線上儲值',
         'spend'        => '購物折抵',
         'spend_return' => '訂單退回',
         'topup_revoke' => '儲值訂單退款扣回',
@@ -266,17 +283,17 @@ function twshop_wallet_signed_amount( $amount ) {
 }
 
 /**
- * 後台「儲值金 ▸ 會員餘額」頁的總覽清單：目前有餘額（本金或加贈金任一 > 0）的會員，
- * 依總餘額由高到低排序。純讀取、不分頁（`$limit` 已經足夠涵蓋一般站台的「有餘額會員」
- * 規模，真的需要逐頁瀏覽全部會員時應該用下方 twshop_wallet_query_ledger() 依會員篩選
- * 交易紀錄，而不是在這裡加分頁）。
+ * 後台「儲值金 ▸ 會員餘額」頁的總覽清單：目前有餘額（> 0）的會員，依餘額由高到低排序。
+ * 純讀取、不分頁（`$limit` 已經足夠涵蓋一般站台的「有餘額會員」規模，真的需要逐頁瀏覽
+ * 全部會員時應該用下方 twshop_wallet_query_ledger() 依會員篩選交易紀錄，而不是在這裡
+ * 加分頁）。
  */
 function twshop_wallet_get_balances_overview( $limit = 50 ) {
     global $wpdb;
     return $wpdb->get_results( $wpdb->prepare(
         "SELECT * FROM " . twshop_wallet_balances_table() . "
-         WHERE balance_paid > 0 OR balance_bonus > 0
-         ORDER BY (balance_paid + balance_bonus) DESC
+         WHERE balance_paid > 0
+         ORDER BY balance_paid DESC
          LIMIT %d",
         (int) $limit
     ), ARRAY_A );

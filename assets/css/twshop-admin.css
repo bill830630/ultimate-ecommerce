@@ -1,8 +1,20 @@
 /* 終極電商 — 後台設定頁共用視覺樣式（比照短代碼說明頁的卡片風格） */
 
+/* 全站文字用色統一收斂成 3 個（2026-09-16）：唯一真實來源，往後要調色只改這三行。
+   三色沿用 WordPress 5.9+ 後台本身的標準色票（主文字／次要文字／破壞性動作色），
+   不是自創新色。危險與警告已合併成同一色；「成功」文字改用主文字色，靠既有的
+   淺綠背景色塊（不算文字顏色，不受這個限制）延續視覺意涵，細節見 CLAUDE.md。 */
+:root {
+	--twshop-color-text: #1d2327;   /* 主文字：標題、數值、標籤、一般重要文字 */
+	--twshop-color-muted: #646970;  /* 次要文字：提示、說明、停用狀態、拖曳把手、佔位文字 */
+	--twshop-color-danger: #b32d2e; /* 唯一強調色：危險/刪除/錯誤/警告（已合併）*/
+}
+.twshop-text-muted { color: var(--twshop-color-muted); }
+.twshop-text-danger { color: var(--twshop-color-danger); }
+
 .twshop-admin-wrap { max-width: 960px; }
 .twshop-admin-wrap > h1 { margin-bottom: 4px; }
-.twshop-admin-intro { color: #72777c; margin-top: 0; margin-bottom: 24px; }
+.twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
 .twshop-panel {
 	background: #fff;
@@ -40,30 +52,20 @@
 	height: 22px;
 	border-radius: 6px;
 	background: #eef4fb;
-	color: #2271b1;
+	color: var(--twshop-color-text);
 	flex-shrink: 0;
 }
 .twshop-panel-head-icon svg { width: 13px; height: 13px; stroke: currentColor; }
 
-/* 頁首列（<h1> + twshop_render_license_badge() 的授權狀態徽章），儀表板／行銷／會員／
-   系統／短代碼說明頁共用，見 twshop_render_license_badge() */
 .twshop-dash-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.twshop-dash-license-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--twshop-license-color) 12%, #fff); color: var(--twshop-license-color); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.twshop-dash-license-badge:hover { text-decoration: underline; }
-.twshop-dash-license-badge svg { width: 14px; height: 14px; stroke: currentColor; flex-shrink: 0; }
 
-/* 放大版，僅供「系統 ▸ 授權」頁籤本身取代原本純文字的「目前狀態：xxx」使用，見
-   twshop_render_license_badge( $large = true ) */
-.twshop-dash-license-badge--lg { margin-top: 0; padding: 10px 18px; font-size: 15px; gap: 8px; }
-.twshop-dash-license-badge--lg svg { width: 18px; height: 18px; }
-
-/* 「系統 ▸ 授權」頁籤儲存/重新驗證按鈕送出中的視覺提示，見 twshop_system_license_tab() */
+/* 按鈕送出中的視覺提示，見 points-import.js（原本也給已移除的授權頁籤共用，現在只剩這一處） */
 .twshop-btn-busy { opacity: .7; cursor: wait !important; }
 
 .twshop-panel-hint {
 	flex-basis: 100%;
 	font-size: 12px;
-	color: #72777c;
+	color: var(--twshop-color-muted);
 	margin: 0;
 }
 
@@ -77,17 +79,19 @@
 	padding: 2px 8px;
 	border-radius: 20px;
 	background: #e8f0fe;
-	color: #2271b1;
+	color: var(--twshop-color-text);
 	white-space: nowrap;
 }
 
-.twshop-badge--warn { background: #fdf0e8; color: #a1590a; }
-.twshop-badge--ok { background: #eafaf1; color: #166534; }
+/* 警告與危險已合併成同一個文字色（--twshop-color-danger），淺色底跟著從橘改成紅，
+   避免「橘底但紅字」的不一致；成功文字改用主文字色，靠淺綠底延續視覺意涵 */
+.twshop-badge--warn { background: #fbeaea; color: var(--twshop-color-danger); }
+.twshop-badge--ok { background: #eafaf1; color: var(--twshop-color-text); }
 
 .twshop-hint {
 	font-size: 13px;
 	font-weight: normal;
-	color: #d63384;
+	color: var(--twshop-color-muted);
 }
 
 .twshop-two-col {
@@ -116,10 +120,10 @@
 /* 儀表板頁面，見 twshop_dashboard_render_page() */
 .twshop-dash-stats{ display:flex; flex-wrap:wrap; gap:16px; margin:20px 0; }
 .twshop-dash-stat{ display:flex; flex-direction:column; align-items:center; background:#fff; border:1px solid #e2e4e7; border-radius:8px; padding:18px 20px; flex:1; min-width:140px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.03); }
-.twshop-dash-stat__icon{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin-bottom:8px; border-radius:50%; background:#eef4fb; color:#2271b1; }
+.twshop-dash-stat__icon{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin-bottom:8px; border-radius:50%; background:#eef4fb; color:var(--twshop-color-text); }
 .twshop-dash-stat__icon svg{ width:18px; height:18px; stroke:currentColor; }
-.twshop-dash-stat__value{ display:block; font-size:24px; font-weight:600; color:#1d2327; }
-.twshop-dash-stat__label{ display:block; font-size:12px; color:#72777c; margin-top:4px; }
+.twshop-dash-stat__value{ display:block; font-size:24px; font-weight:600; color:var(--twshop-color-text); }
+.twshop-dash-stat__label{ display:block; font-size:12px; color:var(--twshop-color-muted); margin-top:4px; }
 
 .twshop-dash-modules{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
 .twshop-dash-module{ display:block; border:1px solid #e2e4e7; border-radius:6px; padding:14px; background:#fbfbfc; text-decoration:none; color:inherit; transition:.15s; }
@@ -127,17 +131,17 @@ a.twshop-dash-module:hover{ border-color:#2271b1; box-shadow:0 1px 4px rgba(0,0,
 .twshop-dash-module.is-disabled{ opacity:.6; }
 .twshop-dash-module__head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .twshop-dash-module__head strong{ flex:1; }
-.twshop-dash-module__icon{ display:flex; color:#72777c; }
+.twshop-dash-module__icon{ display:flex; color:var(--twshop-color-muted); }
 .twshop-dash-module__icon svg{ width:15px; height:15px; stroke:currentColor; }
-.twshop-dash-module__desc{ margin:0; font-size:12px; color:#72777c; line-height:1.5; }
+.twshop-dash-module__desc{ margin:0; font-size:12px; color:var(--twshop-color-muted); line-height:1.5; }
 
 .twshop-dash-tiers{ display:flex; flex-direction:column; gap:10px; }
 .twshop-dash-tier-row{ display:flex; align-items:center; gap:12px; }
-.twshop-dash-tier-name{ width:120px; flex-shrink:0; font-size:13px; font-weight:600; color:#1d2327; }
+.twshop-dash-tier-name{ width:120px; flex-shrink:0; font-size:13px; font-weight:600; color:var(--twshop-color-text); }
 .twshop-dash-tier-bar-track{ flex:1; height:10px; border-radius:5px; background:#f0f0f1; overflow:hidden; }
 .twshop-dash-tier-bar-fill{ height:100%; border-radius:5px; background:#2271b1; }
-.twshop-dash-tier-count{ width:56px; flex-shrink:0; text-align:right; font-size:12px; color:#72777c; }
-.twshop-dash-tiers-empty{ color:#72777c; font-size:13px; margin:0; }
+.twshop-dash-tier-count{ width:56px; flex-shrink:0; text-align:right; font-size:12px; color:var(--twshop-color-muted); }
+.twshop-dash-tiers-empty{ color:var(--twshop-color-muted); font-size:13px; margin:0; }
 
 /* WordPress 原生控制台的 dashboard widget，見 twshop_render_dashboard_widget()。
    這一段是本檔唯一不在本外掛自己的後台頁面上使用的樣式——widget 掛在 wp-admin/index.php，
@@ -146,16 +150,16 @@ a.twshop-dash-module:hover{ border-color:#2271b1; box-shadow:0 1px 4px rgba(0,0,
 .twshop-widget__modules{ margin:0 0 14px; padding:0; list-style:none; }
 .twshop-widget__module{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f0f0f1; font-size:13px; }
 .twshop-widget__module:last-child{ border-bottom:none; }
-.twshop-widget__module-icon{ display:flex; color:#72777c; flex-shrink:0; }
+.twshop-widget__module-icon{ display:flex; color:var(--twshop-color-muted); flex-shrink:0; }
 .twshop-widget__module-icon svg{ width:14px; height:14px; stroke:currentColor; }
 .twshop-widget__module a{ flex:1; text-decoration:none; }
 .twshop-widget__module span:not(.twshop-widget__module-dot){ flex:1; }
-.twshop-widget__module.is-disabled{ color:#a7aaad; }
+.twshop-widget__module.is-disabled{ color:var(--twshop-color-muted); }
 .twshop-widget__module-dot{ width:8px; height:8px; border-radius:50%; background:#00a32a; flex-shrink:0; }
 .twshop-widget__module.is-disabled .twshop-widget__module-dot{ background:#dcdcde; }
 .twshop-widget__stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; text-align:center; padding-top:10px; border-top:1px solid #f0f0f1; }
-.twshop-widget__stats strong{ display:block; font-size:18px; color:#1d2327; }
-.twshop-widget__stats span{ display:block; font-size:11px; color:#72777c; margin-top:2px; }
+.twshop-widget__stats strong{ display:block; font-size:18px; color:var(--twshop-color-text); }
+.twshop-widget__stats span{ display:block; font-size:11px; color:var(--twshop-color-muted); margin-top:2px; }
 .twshop-widget__more{ margin:12px 0 0; text-align:right; font-size:13px; }
 
 /* 「系統設定 ▸ 模組開關」的滑動開關與模組列，見 twshop_system_modules_tab() */
@@ -168,18 +172,18 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-module-row { display:flex; align-items:center; gap:16px; padding:13px 0; border-bottom:1px solid #f0f0f0; }
 .twshop-module-row:last-child { border-bottom:none; }
 .twshop-module-label { font-weight:600; width:120px; flex-shrink:0; }
-.twshop-module-desc { color:#72777c; font-size:13px; }
+.twshop-module-desc { color:var(--twshop-color-muted); font-size:13px; }
 
 /* 可摺疊卡片（折扣規則卡片與會員等級卡片共用）。這三條原本在
    twshop_marketing_rules_tab() 與 twshop_member_tiers_tab() 各寫了一份、逐字相同。 */
 .twshop-card-header:hover{ background:#eee!important; }
-.twshop-card-toggle-icon{ color:#666; transition:transform 0.2s; }
+.twshop-card-toggle-icon{ color:var(--twshop-color-muted); transition:transform 0.2s; }
 .twshop-card-toggle-icon.is-open{ transform:rotate(180deg); }
 .drag-handle svg,
 .twshop-card-toggle-icon svg{ display:inline-block; vertical-align:middle; width:16px; height:16px; stroke:currentColor; }
 
 /* 折扣規則卡片專屬（會員等級卡片沒有這幾個），見 twshop_marketing_rules_tab() */
-.twshop-clear-datetime{ color:#b32d2e; text-decoration:none; font-size:12px; white-space:nowrap; }
+.twshop-clear-datetime{ color:var(--twshop-color-danger); text-decoration:none; font-size:12px; white-space:nowrap; }
 .twshop-rule-disabled{ opacity:0.55; }
 .twshop-rule-disabled .twshop-card-header{ background:#f0f0f0!important; }
 
@@ -198,23 +202,23 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    baseline 下方的行高空間，即使外層按鈕已經 flex 置中，這截空間還是會讓圖示視覺上偏下，
    沒有真正垂直置中在框內。svg 額外加 display:block 徹底移除這個 inline 行為。 */
 .twshop-icon-picker-preview{ display:flex; align-items:center; justify-content:center; line-height:0; }
-.twshop-icon-picker-toggle svg{ display:block; width:18px; height:18px; color:#555; }
-.twshop-icon-picker-toggle.is-empty svg{ color:#bbb; }
+.twshop-icon-picker-toggle svg{ display:block; width:18px; height:18px; color:var(--twshop-color-muted); }
+.twshop-icon-picker-toggle.is-empty svg{ color:var(--twshop-color-muted); }
 .twshop-icon-picker-panel{ display:none; position:absolute; z-index:10; top:36px; left:0; width:236px; max-height:220px; overflow-y:auto; background:#fff; border:1px solid #ccd0d4; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.15); padding:6px; grid-template-columns:repeat(6,1fr); gap:2px; }
 .twshop-icon-picker-panel.is-open{ display:grid; }
 .twshop-icon-picker-option{ display:flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; background:transparent; border:1px solid transparent; border-radius:3px; cursor:pointer; }
 .twshop-icon-picker-option:hover{ background:#f0f0f1; border-color:#ccd0d4; }
-.twshop-icon-picker-option svg{ display:block; width:18px; height:18px; color:#444; }
+.twshop-icon-picker-option svg{ display:block; width:18px; height:18px; color:var(--twshop-color-muted); }
 .twshop-icon-picker-option--none{ grid-column:1/-1; width:auto; justify-content:flex-start; gap:6px; padding:0 6px; }
-.twshop-icon-picker-option--none svg{ width:16px; height:16px; color:#b32d2e; }
-.twshop-icon-picker-option--none span{ font-size:12px; color:#555; }
+.twshop-icon-picker-option--none svg{ width:16px; height:16px; color:var(--twshop-color-danger); }
+.twshop-icon-picker-option--none span{ font-size:12px; color:var(--twshop-color-muted); }
 
 /* 「下拉挑選、已選項目以方塊呈現」欄位，見 twshop_render_chip_field_assets() */
 .twshop-chip-box{ display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:6px; border:1px solid #ddd; border-radius:4px; background:#fff; margin-bottom:6px; }
-.twshop-chip-box:empty::before{ content:'尚未選擇項目'; color:#999; font-size:12px; padding:2px; }
-.twshop-chip{ display:inline-flex; align-items:center; gap:6px; background:#e7f2fa; color:#007cba; border:1px solid #b8e0f5; border-radius:3px; padding:3px 8px; font-size:12px; }
-.twshop-chip-remove{ color:#b32d2e; text-decoration:none; font-weight:bold; cursor:pointer; }
-.twshop-chip-remove:hover{ color:#761b19; }
+.twshop-chip-box:empty::before{ content:'尚未選擇項目'; color:var(--twshop-color-muted); font-size:12px; padding:2px; }
+.twshop-chip{ display:inline-flex; align-items:center; gap:6px; background:#e7f2fa; color:var(--twshop-color-text); border:1px solid #b8e0f5; border-radius:3px; padding:3px 8px; font-size:12px; }
+.twshop-chip-remove{ color:var(--twshop-color-danger); text-decoration:none; font-weight:bold; cursor:pointer; }
+.twshop-chip-remove:hover{ color:var(--twshop-color-danger); text-decoration:underline; }
 
 /* 序號未授權時的唯讀提示與被鎖住的設定區塊，見 twshop_render_readonly_notice() */
 .twshop-readonly-notice .twshop-panel-body{ padding:14px 20px; }
@@ -232,22 +236,22 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 /* 點數兌換商品清單的 chip 就地編輯點數，見 twshop_render_redeemable_products_field()／
    assets/js/admin/redeemable-products.js */
 .redeem-chip-cost{ cursor:pointer; text-decoration:underline dotted; }
-.redeem-chip-cost:hover{ color:#005177; }
+.redeem-chip-cost:hover{ color:var(--twshop-color-text); }
 .redeem-chip-cost-input{ width:70px; }
-.redeem-chip-cost-note{ color:#72777c; font-style:italic; font-size:12px; }
+.redeem-chip-cost-note{ color:var(--twshop-color-muted); font-style:italic; font-size:12px; }
 /* 單次兌換上限數量 chip，v25.8.32 新增，跟 .redeem-chip-cost 同一套就地編輯樣式 */
-.redeem-chip-maxqty{ cursor:pointer; text-decoration:underline dotted; color:#72777c; font-size:12px; }
-.redeem-chip-maxqty:hover{ color:#005177; }
+.redeem-chip-maxqty{ cursor:pointer; text-decoration:underline dotted; color:var(--twshop-color-muted); font-size:12px; }
+.redeem-chip-maxqty:hover{ color:var(--twshop-color-text); }
 
 /* 折扣規則卡片（v25.8.38）：區段標題、欄位說明、狀態文字、優先順序編號 */
-.twshop-rule-section-title{ margin:0 0 10px; font-size:13px; font-weight:600; color:#1d2327; }
-.twshop-rule-hint{ font-size:12px; color:#646970; }
-.twshop-rule-value-hint{ display:block; margin:4px 0 0; font-size:12px; color:#2271b1; }
-.twshop-rule-value-hint.is-warn{ color:#b32d2e; font-weight:600; }
+.twshop-rule-section-title{ margin:0 0 10px; font-size:13px; font-weight:600; color:var(--twshop-color-text); }
+.twshop-rule-hint{ font-size:12px; color:var(--twshop-color-muted); }
+.twshop-rule-value-hint{ display:block; margin:4px 0 0; font-size:12px; color:var(--twshop-color-text); }
+.twshop-rule-value-hint.is-warn{ color:var(--twshop-color-danger); font-weight:600; }
 .twshop-rule-status{ font-size:12px; font-weight:600; }
 .twshop-rule-status:empty{ display:none; }
-.twshop-rule-status.is-success{ color:#166534; }
-.twshop-rule-status.is-error{ color:#b32d2e; }
+.twshop-rule-status.is-success{ color:var(--twshop-color-text); }
+.twshop-rule-status.is-error{ color:var(--twshop-color-danger); }
 .twshop-rule-card.is-dirty{ border-color:#dba617 !important; }
 .twshop-rule-card.is-dirty .save-rule-btn{ box-shadow:0 0 0 2px #f0c33c; }
 /* 規則啟用切換鈕（v25.8.40）：底層仍是 name="enabled" 的 checkbox，只改外觀 */
@@ -264,7 +268,7 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-rule-name-input{ flex:1 1 200px; min-width:160px; max-width:420px; font-weight:600; }
 /* 規則卡片標題列單行排列（v25.8.45）：名稱欄固定寬度，其餘為立即生效的時間與切換鈕，窄螢幕自動換行 */
 .twshop-rule-card .twshop-card-header{ padding:10px 15px; background:#f7f7f7; cursor:pointer; border-bottom:1px solid #eee; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
-.twshop-rule-card .twshop-card-header .drag-handle{ cursor:move; color:#999; display:inline-flex; }
+.twshop-rule-card .twshop-card-header .drag-handle{ cursor:move; color:var(--twshop-color-muted); display:inline-flex; }
 .twshop-rule-card .twshop-card-header .twshop-card-toggle-icon{ margin-left:auto; display:inline-flex; }
 .twshop-rule-card .twshop-rule-name-input{ flex:0 1 200px; width:200px; min-width:120px; max-width:none; }
 .twshop-card-header-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:12px; }
@@ -280,8 +284,8 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-rule-grid > .is-full{ grid-column:1 / -1; }
 .twshop-rule-grid > .is-row-start{ grid-column-start:1; }
 .twshop-rule-field{ min-width:0; }
-.twshop-rule-label{ display:block; margin:0 0 4px; font-size:13px; font-weight:600; color:#1d2327; }
-.twshop-rule-label small, .twshop-rule-checklist small{ font-weight:normal; color:#8c8f94; margin-left:4px; }
+.twshop-rule-label{ display:block; margin:0 0 4px; font-size:13px; font-weight:600; color:var(--twshop-color-text); }
+.twshop-rule-label small, .twshop-rule-checklist small{ font-weight:normal; color:var(--twshop-color-muted); margin-left:4px; }
 .twshop-rule-field input[type="text"], .twshop-rule-field input[type="number"], .twshop-rule-field select{ width:100%; max-width:100%; box-sizing:border-box; }
 .twshop-rule-field .select2-container{ width:100% !important; }
 .twshop-rule-grid > .twshop-rule-hint{ margin:0; }
@@ -291,7 +295,7 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-tier-row .twshop-rule-value-hint{ position:absolute; }
 .twshop-tier-row .twshop-rule-field{ position:relative; padding-bottom:18px; }
 .twshop-tier-row .twshop-remove-tier-row{ margin-bottom:18px; }
-.twshop-button-danger{ color:#b32d2e !important; border-color:#b32d2e !important; }
+.twshop-button-danger{ color:var(--twshop-color-danger) !important; border-color:#b32d2e !important; }
 .twshop-rule-footer{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding-top:14px; border-top:1px solid #eee; }
 .twshop-rule-footer-group{ display:flex; align-items:center; flex-wrap:wrap; gap:10px 14px; }
 .twshop-rule-footer .rule-stack-wrap{ font-weight:normal; }

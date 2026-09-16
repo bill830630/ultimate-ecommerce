@@ -52,7 +52,7 @@ jQuery( function ( $ ) {
     // 用 placeholder 即時顯示出來，讓管理員不用等存檔完重新整理頁面才看到「原來留空
     // 就是這個數字」。刻意只更新 placeholder、不寫入欄位的實際 value：寫入 value 會
     // 讓「管理員特意留空、想沿用預設值」跟「管理員填了一個剛好等於價格的數字」在畫面上
-    // 分不出來，也可能不小心蓋掉管理員已經手動填過、想做加贈的數字。
+    // 分不出來，也可能不小心蓋掉管理員已經手動填過、比商品價格更高的數字。
     var $creditAmount = $( '#_twshop_wallet_credit_amount' );
     var $regularPrice = $( '#_regular_price' );
 

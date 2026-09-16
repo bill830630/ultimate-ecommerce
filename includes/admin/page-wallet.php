@@ -10,7 +10,8 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 function twshop_wallet_render_page() {
-    twshop_render_admin_page( '儲值金', function () {
+    // 頁面 H1 標題 v25.8.71 改為「儲值中心」，跟側邊選單新名稱一致；三個頁籤名稱不變。
+    twshop_render_admin_page( '儲值中心', function () {
         $tabs = array(
             'balances' => '會員餘額',
             'ledger'   => '交易紀錄',
@@ -26,8 +27,8 @@ function twshop_wallet_render_page() {
 
 function twshop_wallet_render_ledger_table_rows( $rows, $show_user_column = false ) {
     if ( empty( $rows ) ) {
-        $colspan = $show_user_column ? 7 : 6;
-        echo '<tr><td colspan="' . esc_attr( $colspan ) . '" style="text-align:center; color:#666;">沒有符合條件的紀錄</td></tr>';
+        $colspan = $show_user_column ? 6 : 5;
+        echo '<tr><td colspan="' . esc_attr( $colspan ) . '" class="twshop-text-muted" style="text-align:center;">沒有符合條件的紀錄</td></tr>';
         return;
     }
     foreach ( $rows as $row ) {
@@ -41,8 +42,7 @@ function twshop_wallet_render_ledger_table_rows( $rows, $show_user_column = fals
             <?php endif; ?>
             <td><?php echo esc_html( twshop_wallet_type_label( $row['type'] ) ); ?></td>
             <td><?php echo esc_html( twshop_wallet_signed_amount( $row['amount_paid'] ) ); ?></td>
-            <td><?php echo esc_html( twshop_wallet_signed_amount( $row['amount_bonus'] ) ); ?></td>
-            <td><?php echo esc_html( number_format( (float) $row['balance_paid_after'], 2 ) . ' / ' . number_format( (float) $row['balance_bonus_after'], 2 ) ); ?></td>
+            <td><?php echo esc_html( number_format( (float) $row['balance_paid_after'], 2 ) ); ?></td>
             <td>
                 <?php echo esc_html( $row['note'] ); ?>
                 <?php if ( $order_id ) : ?>
@@ -65,14 +65,13 @@ function twshop_wallet_handle_manual_adjust( $user_id ) {
     check_admin_referer( 'twshop_wallet_manual_adjust' );
     if ( ! current_user_can( 'manage_woocommerce' ) ) return '';
 
-    $paid  = isset( $_POST['twshop_wallet_manual_paid'] ) ? (float) wp_unslash( $_POST['twshop_wallet_manual_paid'] ) : 0.0;
-    $bonus = isset( $_POST['twshop_wallet_manual_bonus'] ) ? (float) wp_unslash( $_POST['twshop_wallet_manual_bonus'] ) : 0.0;
-    if ( 0.0 === round( $paid, 2 ) && 0.0 === round( $bonus, 2 ) ) return '本金與加贈金請至少填一個非 0 的數字。';
+    $amount = isset( $_POST['twshop_wallet_manual_amount'] ) ? (float) wp_unslash( $_POST['twshop_wallet_manual_amount'] ) : 0.0;
+    if ( 0.0 === round( $amount, 2 ) ) return '請輸入一個非 0 的數字。';
 
     $reason = sanitize_text_field( wp_unslash( $_POST['twshop_wallet_reason'] ?? '' ) );
     if ( '' === $reason ) $reason = '管理員手動調整';
 
-    $result = twshop_wallet_apply( $user_id, $paid, $bonus, 'adjust', 'adjust:' . wp_generate_uuid4(), array(
+    $result = twshop_wallet_apply( $user_id, $amount, 'adjust', 'adjust:' . wp_generate_uuid4(), array(
         'note'       => $reason,
         'created_by' => get_current_user_id(),
     ) );
@@ -115,25 +114,29 @@ function twshop_wallet_balances_tab() {
                     esc_html( $user->display_name ) . '（' . esc_html( $user->user_email ) . '）的儲值金'
                 ); ?>
                 <div class="twshop-panel-body">
-                    <p style="font-size:22px; font-weight:bold; margin-bottom:4px;">NT$<?php echo esc_html( number_format( $balance['total'], 2 ) ); ?></p>
-                    <p style="color:#666; margin-top:0;">本金 NT$<?php echo esc_html( number_format( $balance['paid'], 2 ) ); ?>／加贈金 NT$<?php echo esc_html( number_format( $balance['bonus'], 2 ) ); ?></p>
+                    <p style="font-size:22px; font-weight:bold; margin-bottom:4px;">NT$<?php echo esc_html( number_format( $balance, 2 ) ); ?></p>
 
                     <h4>手動增減儲值金</h4>
                     <form method="post">
                         <?php wp_nonce_field( 'twshop_wallet_manual_adjust' ); ?>
-                        <label>本金 <input type="number" step="0.01" name="twshop_wallet_manual_paid" value="" class="regular-text" placeholder="例如 500 或 -100" style="width:160px;"></label>
-                        &nbsp;
-                        <label>加贈金 <input type="number" step="0.01" name="twshop_wallet_manual_bonus" value="" class="regular-text" placeholder="例如 50" style="width:160px;"></label>
-                        <br><br>
-                        備註原因：<input type="text" name="twshop_wallet_reason" value="" class="regular-text" placeholder="手動調整">
-                        <button type="submit" name="twshop_wallet_manual_adjust" value="1" class="button button-primary" style="margin-left:8px;">儲存儲值金</button>
-                        <p class="description">本金／加贈金分開填寫，正數為增加、負數為扣除，留空視為 0；兩者皆為 0 時不會產生任何紀錄。</p>
+                        <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end; margin-bottom:10px;">
+                            <div>
+                                <label style="display:block; font-weight:bold; margin-bottom:5px;">金額增減</label>
+                                <input type="number" step="0.01" name="twshop_wallet_manual_amount" value="" class="regular-text" placeholder="例如 500 或 -100" style="width:200px;">
+                            </div>
+                            <div style="flex:1; min-width:220px;">
+                                <label style="display:block; font-weight:bold; margin-bottom:5px;">備註原因</label>
+                                <input type="text" name="twshop_wallet_reason" value="" class="regular-text" placeholder="手動調整" style="width:100%;">
+                            </div>
+                        </div>
+                        <button type="submit" name="twshop_wallet_manual_adjust" value="1" class="button button-primary">儲存儲值金</button>
+                        <p class="description">輸入正數為增加，輸入負數為扣除。</p>
                     </form>
 
                     <h4>最近異動（最新 20 筆）</h4>
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
-                            <tr><th>時間</th><th>類型</th><th>本金異動</th><th>加贈異動</th><th>餘額（本金/加贈）</th><th>備註</th></tr>
+                            <tr><th>時間</th><th>類型</th><th>金額異動</th><th>餘額</th><th>備註</th></tr>
                         </thead>
                         <tbody>
                             <?php twshop_wallet_render_ledger_table_rows( $history, false ); ?>
@@ -149,26 +152,23 @@ function twshop_wallet_balances_tab() {
     ?>
 
     <div class="twshop-panel">
-        <?php twshop_panel_head( 'list', '餘額總覽（依總額排序，前 50 名）' ); ?>
+        <?php twshop_panel_head( 'list', '餘額總覽（依餘額排序，前 50 名）' ); ?>
         <div class="twshop-panel-body">
             <?php $overview = twshop_wallet_get_balances_overview( 50 ); ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
-                    <tr><th>會員</th><th>本金</th><th>加贈金</th><th>合計</th><th></th></tr>
+                    <tr><th>會員</th><th>餘額</th><th></th></tr>
                 </thead>
                 <tbody>
                     <?php if ( empty( $overview ) ) : ?>
-                        <tr><td colspan="5" style="text-align:center; color:#666;">目前沒有任何會員持有儲值金</td></tr>
+                        <tr><td colspan="3" class="twshop-text-muted" style="text-align:center;">目前沒有任何會員持有儲值金</td></tr>
                     <?php else : foreach ( $overview as $row ) :
                         $u = get_userdata( (int) $row['user_id'] );
                         if ( ! $u ) continue;
-                        $total = (float) $row['balance_paid'] + (float) $row['balance_bonus'];
                         ?>
                         <tr>
                             <td><?php echo esc_html( $u->display_name . '（' . $u->user_email . '）' ); ?></td>
                             <td><?php echo esc_html( number_format( (float) $row['balance_paid'], 2 ) ); ?></td>
-                            <td><?php echo esc_html( number_format( (float) $row['balance_bonus'], 2 ) ); ?></td>
-                            <td><?php echo esc_html( number_format( $total, 2 ) ); ?></td>
                             <td><a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-wallet&tab=balances&user_id=' . $row['user_id'] ) ); ?>">查看</a></td>
                         </tr>
                     <?php endforeach; endif; ?>
@@ -239,7 +239,7 @@ function twshop_wallet_ledger_tab() {
         <div class="twshop-panel-body">
             <table class="wp-list-table widefat fixed striped">
                 <thead>
-                    <tr><th>時間</th><th>會員</th><th>類型</th><th>本金異動</th><th>加贈異動</th><th>餘額（本金/加贈）</th><th>備註</th></tr>
+                    <tr><th>時間</th><th>會員</th><th>類型</th><th>金額異動</th><th>餘額</th><th>備註</th></tr>
                 </thead>
                 <tbody>
                     <?php twshop_wallet_render_ledger_table_rows( $result['rows'], true ); ?>
@@ -275,7 +275,7 @@ function twshop_wallet_settings_tab() {
     $full_amount   = twshop_option( 'wc_wallet_tier_spend_full_amount' );
     $email_enabled = twshop_option( 'wc_wallet_topup_email_enabled' );
     $email_subject = twshop_option( 'wc_wallet_topup_email_subject' );
-    $email_body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n加贈金額：NT{bonus}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
+    $email_body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
     ?>
     <form action="options.php" method="post">
         <?php settings_fields( 'wc_wallet_settings_group' ); ?>
@@ -310,7 +310,7 @@ function twshop_wallet_settings_tab() {
                         <th scope="row">內容</th>
                         <td>
                             <textarea name="wc_wallet_topup_email_body" rows="6" class="regular-text" style="width:100%; max-width:500px;"><?php echo esc_textarea( $email_body ); ?></textarea>
-                            <p class="description">可用 <code>{name}</code>／<code>{amount}</code>（本次儲值本金）／<code>{bonus}</code>（本次加贈金額）／<code>{balance}</code>（目前總餘額）／<code>{order_id}</code>。</p>
+                            <p class="description">可用 <code>{name}</code>／<code>{amount}</code>（本次儲值金額）／<code>{balance}</code>（目前總餘額）／<code>{order_id}</code>。</p>
                         </td>
                     </tr>
                 </table>

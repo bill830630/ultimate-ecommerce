@@ -12,7 +12,7 @@ jQuery(document).ready(function($) {
         let html = '';
         arr.forEach((g, i) => {
             let tName = g.type === 'percent' ? '打折(%)' : (g.type === 'points' ? twshopMemberTiers.pointsTerm : '折抵($)');
-            html += `<span style="display:inline-block; background:#fff; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px; margin:4px 6px 4px 0;">${tName}: ${g.amount} <a href="#" class="remove-gift-btn" data-idx="${i}" style="color:red; text-decoration:none; margin-left:8px; font-weight:bold;">[移除]</a></span>`;
+            html += `<span style="display:inline-block; background:#fff; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px; margin:4px 6px 4px 0;">${tName}: ${g.amount} <a href="#" class="remove-gift-btn twshop-text-danger" data-idx="${i}" style="text-decoration:none; margin-left:8px; font-weight:bold;">[移除]</a></span>`;
         });
         $wrap.find('.gifts-list').html(html);
     }

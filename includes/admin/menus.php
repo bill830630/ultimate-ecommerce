@@ -77,9 +77,8 @@ function twshop_register_menus() {
     if ( twshop_module_enabled( 'discount_rules' ) ) {
         add_submenu_page( 'wc-general-settings', '折扣規則', '折扣規則', 'manage_woocommerce', 'twshop-discount-rules', 'twshop_discount_rules_render_page' );
     }
-    // 視覺化優惠券刻意不受模組開關影響、永遠顯示——優惠券措辭設定不只給視覺化優惠券用，
-    // 也用在折扣規則的「排他性優惠券」錯誤提示文字，即使 visual_coupons 模組關閉仍需要能編輯。
-    add_submenu_page( 'wc-general-settings', '優惠卡券', '優惠卡券', 'manage_woocommerce', 'twshop-visual-coupons', 'twshop_visual_coupons_render_page' );
+    // 優惠卡券（v25.8.71 起不再是獨立頂層選單）移到「系統設定 ▸ 優惠卡券」頁籤，
+    // 比照蝦皮串接搬遷的既有先例，見 twshop_system_render_page()（pages.php）。
     if ( twshop_module_enabled( 'points' ) ) {
         add_submenu_page( 'wc-general-settings', '紅利點數', '紅利點數', 'manage_woocommerce', 'twshop-points', 'twshop_points_render_page' );
     }
@@ -87,7 +86,9 @@ function twshop_register_menus() {
     // 蝦皮串接」頁籤，見 twshop_system_render_page()（pages.php）與 CLAUDE.md「蝦皮串接
     // 模組」一節。
     if ( twshop_module_enabled( 'wallet' ) ) {
-        add_submenu_page( 'wc-general-settings', '儲值金', '儲值金', 'manage_woocommerce', 'twshop-wallet', 'twshop_wallet_render_page' );
+        // 選單顯示名稱 v25.8.71 改為「儲值中心」（湊足四字，跟其餘頂層選單一致）；
+        // slug／函式名／option key／功能本身的既有用詞「儲值金」不變，只換外殼。
+        add_submenu_page( 'wc-general-settings', '儲值中心', '儲值中心', 'manage_woocommerce', 'twshop-wallet', 'twshop_wallet_render_page' );
     }
     add_submenu_page( 'wc-general-settings', '系統設定', '系統設定', 'manage_woocommerce', 'twshop-system', 'twshop_system_render_page' );
 }

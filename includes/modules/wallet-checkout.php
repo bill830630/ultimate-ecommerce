@@ -25,7 +25,7 @@ function twshop_get_wallet_discount_amount( $requested_amount ) {
     if ( $amount <= 0 ) return 0.0;
 
     $balance = twshop_wallet_get_balance( get_current_user_id() );
-    $amount  = min( $amount, $balance['total'] );
+    $amount  = min( $amount, $balance );
 
     // 上限另外不能超過「扣掉優惠券與其他折扣後實際還要付的金額」：WooCommerce 會把負費用
     // 夾到總額不低於 0，超出的部分沒有真的折到錢，儲值金卻照扣（比照點數的既有踩坑修正）。
@@ -113,7 +113,7 @@ function twshop_validate_wallet_balance( $data, $errors ) {
     if ( $applied <= 0 ) return;
 
     $balance = twshop_wallet_get_balance( get_current_user_id() );
-    if ( $applied > $balance['total'] + 0.001 ) {
+    if ( $applied > $balance + 0.001 ) {
         $errors->add( 'validation', '儲值金餘額不足以完成本次折抵，請重新確認購物車。' );
     }
 }
@@ -125,16 +125,11 @@ function twshop_validate_wallet_balance( $data, $errors ) {
  */
 function twshop_wallet_get_order_spent( $order_id ) {
     global $wpdb;
-    $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT COALESCE(SUM(amount_paid),0) AS paid, COALESCE(SUM(amount_bonus),0) AS bonus
-         FROM " . twshop_wallet_ledger_table() . " WHERE order_id = %d AND type = 'spend'",
-        (int) $order_id
-    ), ARRAY_A );
     // spend 紀錄的 amount 皆為負數，取絕對值還原成正數的「扣了多少」
-    return array(
-        'paid'  => $row ? abs( (float) $row['paid'] ) : 0.0,
-        'bonus' => $row ? abs( (float) $row['bonus'] ) : 0.0,
-    );
+    return abs( (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount_paid),0) FROM " . twshop_wallet_ledger_table() . " WHERE order_id = %d AND type = 'spend'",
+        (int) $order_id
+    ) ) );
 }
 
 /**
@@ -142,35 +137,10 @@ function twshop_wallet_get_order_spent( $order_id ) {
  */
 function twshop_wallet_get_order_returned( $order_id ) {
     global $wpdb;
-    $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT COALESCE(SUM(amount_paid),0) AS paid, COALESCE(SUM(amount_bonus),0) AS bonus
-         FROM " . twshop_wallet_ledger_table() . " WHERE order_id = %d AND type = 'spend_return'",
+    return (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount_paid),0) FROM " . twshop_wallet_ledger_table() . " WHERE order_id = %d AND type = 'spend_return'",
         (int) $order_id
-    ), ARRAY_A );
-    return array(
-        'paid'  => $row ? (float) $row['paid'] : 0.0,
-        'bonus' => $row ? (float) $row['bonus'] : 0.0,
-    );
-}
-
-/**
- * 依這張訂單「spend」紀錄裡本金/加贈金各自佔用的比例，把 $amount 這筆退回金額拆成
- * paid／bonus——用於（1）訂單取消/退款全額或部分退回、（2）結帳重送時折抵金額比
- * 之前少、需要退回差額。找不到任何 spend 紀錄可參考時（理論上不會發生，這裡只是防禦）
- * 全退本金，最單純、對店家最保守。
- */
-function twshop_wallet_split_return_amount( $order_id, $amount ) {
-    $amount = round( max( 0, (float) $amount ), 2 );
-    if ( $amount <= 0 ) return array( 'paid' => 0.0, 'bonus' => 0.0 );
-
-    $spent = twshop_wallet_get_order_spent( $order_id );
-    $spent_total = $spent['paid'] + $spent['bonus'];
-    if ( $spent_total <= 0 ) return array( 'paid' => $amount, 'bonus' => 0.0 );
-
-    $amount = min( $amount, $spent_total ); // 不會退超過當初扣的
-    $return_paid  = round( $amount * ( $spent['paid'] / $spent_total ), 2 );
-    $return_bonus = round( $amount - $return_paid, 2 );
-    return array( 'paid' => $return_paid, 'bonus' => $return_bonus );
+    ) );
 }
 
 /**
@@ -188,7 +158,7 @@ function twshop_deduct_wallet_on_checkout( $order_id, $posted_data, $order ) {
 
     $spent    = twshop_wallet_get_order_spent( $order_id );
     $returned = twshop_wallet_get_order_returned( $order_id );
-    $already  = round( ( $spent['paid'] + $spent['bonus'] ) - ( $returned['paid'] + $returned['bonus'] ), 2 );
+    $already  = round( $spent - $returned, 2 );
 
     if ( $target <= 0 && $already <= 0 ) return;
 
@@ -198,17 +168,14 @@ function twshop_deduct_wallet_on_checkout( $order_id, $posted_data, $order ) {
     $ref = 'wallet_settle:' . $order_id . ':' . number_format( $target, 2, '.', '' );
 
     if ( $delta > 0 ) {
-        $balance = twshop_wallet_get_balance( $user_id );
-        $split   = twshop_wallet_split_spend_amount( $delta, $balance['paid'] );
-        twshop_wallet_apply( $user_id, $split['paid'], $split['bonus'], 'spend', $ref, array(
+        twshop_wallet_apply( $user_id, -$delta, 'spend', $ref, array(
             'order_id' => $order_id,
             'note'     => '訂單 #' . $order_id . ' 儲值金折抵',
         ) );
     } else {
         // 重新結帳時折抵金額比之前少（例如餘額被另一個分頁花掉、套用金額被自動夾小），
-        // 退回差額——依這張訂單當初扣款的本金/加贈金比例退，不是猜測。
-        $split = twshop_wallet_split_return_amount( $order_id, -$delta );
-        twshop_wallet_apply( $user_id, $split['paid'], $split['bonus'], 'spend_return', $ref, array(
+        // 退回差額。
+        twshop_wallet_apply( $user_id, -$delta, 'spend_return', $ref, array(
             'order_id' => $order_id,
             'note'     => '訂單 #' . $order_id . ' 重新結帳，儲值金差額退還',
         ) );
@@ -229,15 +196,14 @@ function twshop_refund_wallet_on_order_cancel( $order_id ) {
 
     $spent    = twshop_wallet_get_order_spent( $order_id );
     $returned = twshop_wallet_get_order_returned( $order_id );
-    $remaining = round( ( $spent['paid'] + $spent['bonus'] ) - ( $returned['paid'] + $returned['bonus'] ), 2 );
+    $remaining = round( $spent - $returned, 2 );
     if ( $remaining <= 0 ) return;
 
-    $split = twshop_wallet_split_return_amount( $order_id, $remaining );
     // ref 只跟 order_id 綁定（沒有金額變數）：這支的語意是「全額退回剩餘部分」，
     // 同一張訂單只應該被這條路徑完整處理一次；就算因為狀態變化被觸發多次
     // （例如同時符合多個退回狀態的轉換），第二次進來時 $remaining 已經是 0，
     // 函式在上面就直接 return 了，不會走到這裡產生第二個 ref。
-    twshop_wallet_apply( $user_id, $split['paid'], $split['bonus'], 'spend_return', 'wallet_cancel_return:' . $order_id, array(
+    twshop_wallet_apply( $user_id, $remaining, 'spend_return', 'wallet_cancel_return:' . $order_id, array(
         'order_id' => $order_id,
         'note'     => '訂單 #' . $order_id . ' 取消/退款，儲值金折抵退還',
     ) );
@@ -266,21 +232,18 @@ function twshop_handle_order_refund_wallet( $order_id, $refund_id ) {
     // 訂單編輯頁的「手動退回儲值金」按鈕處理（見下方 metabox），這裡直接不處理避免除以 0。
     if ( $order_total <= 0 ) return;
 
-    $spent = twshop_wallet_get_order_spent( $order_id );
-    $spent_total = $spent['paid'] + $spent['bonus'];
+    $spent_total = twshop_wallet_get_order_spent( $order_id );
     if ( $spent_total <= 0 ) return;
 
     $proportion    = min( 1, $refunded_amount / $order_total );
     $target_return = round( $spent_total * $proportion, 2 );
 
-    $returned = twshop_wallet_get_order_returned( $order_id );
-    $already_returned = round( $returned['paid'] + $returned['bonus'], 2 );
+    $already_returned = twshop_wallet_get_order_returned( $order_id );
 
     $delta = round( $target_return - $already_returned, 2 );
     if ( $delta <= 0 ) return;
 
-    $split = twshop_wallet_split_return_amount( $order_id, $delta );
-    twshop_wallet_apply( $user_id, $split['paid'], $split['bonus'], 'spend_return', 'wallet_partial_return:' . $refund_id, array(
+    twshop_wallet_apply( $user_id, $delta, 'spend_return', 'wallet_partial_return:' . $refund_id, array(
         'order_id' => $order_id,
         'note'     => '訂單 #' . $order_id . ' 部分退款（' . round( $proportion * 100 ) . '%），儲值金折抵退還',
     ) );
@@ -303,17 +266,17 @@ function twshop_render_wallet_redemption_ui() {
     $balance = twshop_wallet_get_balance( $user_id );
     $applied = WC()->session ? (float) WC()->session->get( 'twshop_wallet_applied', 0 ) : 0;
 
-    if ( $balance['total'] <= 0 && $applied <= 0 ) {
+    if ( $balance <= 0 && $applied <= 0 ) {
         echo '</div>';
         return;
     }
     ?>
     <div class="twshop-wallet-redemption">
         <h4>使用儲值金折抵</h4>
-        <p>目前餘額：NT$<?php echo esc_html( number_format( $balance['total'], 2 ) ); ?></p>
+        <p>目前餘額：NT$<?php echo esc_html( number_format( $balance, 2 ) ); ?></p>
         <div class="twshop-wallet-input-row">
             <input type="number" inputmode="decimal" id="twshop_wallet_input" min="0" step="1"
-                   max="<?php echo esc_attr( $balance['total'] ); ?>"
+                   max="<?php echo esc_attr( $balance ); ?>"
                    placeholder="輸入要折抵的金額"
                    value="<?php echo esc_attr( $applied ?: '' ); ?>">
             <button type="button" class="button" id="twshop_apply_wallet_btn"><?php echo $applied ? '更新折抵' : '套用折抵'; ?></button>
@@ -352,7 +315,7 @@ function twshop_register_order_wallet_metabox( $post_or_order ) {
     // 避免每張訂單編輯頁都多一個空白區塊。
     $has_meta = '' !== $order->get_meta( '_twshop_wallet_applied' );
     $spent = twshop_wallet_get_order_spent( $order->get_id() );
-    if ( ! $has_meta && ( $spent['paid'] + $spent['bonus'] ) <= 0 ) return;
+    if ( ! $has_meta && $spent <= 0 ) return;
 
     $screen = get_current_screen();
     if ( ! $screen ) return;
@@ -374,14 +337,12 @@ function twshop_render_order_wallet_metabox( $post_or_order, $box ) {
 
     $order_id = $order->get_id();
     $applied  = round( (float) $order->get_meta( '_twshop_wallet_applied' ), 2 );
-    $spent    = twshop_wallet_get_order_spent( $order_id );
-    $returned = twshop_wallet_get_order_returned( $order_id );
-    $spent_total    = round( $spent['paid'] + $spent['bonus'], 2 );
-    $returned_total = round( $returned['paid'] + $returned['bonus'], 2 );
+    $spent_total    = twshop_wallet_get_order_spent( $order_id );
+    $returned_total = twshop_wallet_get_order_returned( $order_id );
     $remaining      = round( $spent_total - $returned_total, 2 );
     ?>
     <p>套用折抵：NT$<?php echo esc_html( number_format( $applied, 2 ) ); ?></p>
-    <p>已扣款：NT$<?php echo esc_html( number_format( $spent_total, 2 ) ); ?>（本金 <?php echo esc_html( number_format( $spent['paid'], 2 ) ); ?>／加贈金 <?php echo esc_html( number_format( $spent['bonus'], 2 ) ); ?>）</p>
+    <p>已扣款：NT$<?php echo esc_html( number_format( $spent_total, 2 ) ); ?></p>
     <p>已退回：NT$<?php echo esc_html( number_format( $returned_total, 2 ) ); ?></p>
     <?php if ( $remaining > 0 ) : ?>
         <p style="color:#b32d2e;">尚未退回：NT$<?php echo esc_html( number_format( $remaining, 2 ) ); ?></p>

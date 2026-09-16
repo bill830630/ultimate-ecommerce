@@ -23,10 +23,7 @@ function twshop_my_wallet_endpoint_content() {
     ?>
     <div class="twshop-wallet-account">
         <p style="font-size:22px; font-weight:bold; margin-bottom:4px;">
-            NT$<?php echo esc_html( number_format( $balance['total'], 2 ) ); ?>
-        </p>
-        <p style="color:#666; margin-top:0;">
-            本金 NT$<?php echo esc_html( number_format( $balance['paid'], 2 ) ); ?>／加贈金 NT$<?php echo esc_html( number_format( $balance['bonus'], 2 ) ); ?>
+            NT$<?php echo esc_html( number_format( $balance, 2 ) ); ?>
         </p>
 
         <h4>交易紀錄</h4>
@@ -36,7 +33,7 @@ function twshop_my_wallet_endpoint_content() {
             <table class="woocommerce-table shop_table twshop-wallet-history">
                 <thead>
                     <tr>
-                        <th>時間</th><th>類型</th><th>本金</th><th>加贈金</th><th>備註</th>
+                        <th>時間</th><th>類型</th><th>金額</th><th>備註</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -45,7 +42,6 @@ function twshop_my_wallet_endpoint_content() {
                         <td><?php echo esc_html( $row['created_at'] ); ?></td>
                         <td><?php echo esc_html( twshop_wallet_type_label( $row['type'] ) ); ?></td>
                         <td><?php echo esc_html( twshop_wallet_signed_amount( $row['amount_paid'] ) ); ?></td>
-                        <td><?php echo esc_html( twshop_wallet_signed_amount( $row['amount_bonus'] ) ); ?></td>
                         <td><?php echo esc_html( $row['note'] ); ?></td>
                     </tr>
                 <?php endforeach; ?>

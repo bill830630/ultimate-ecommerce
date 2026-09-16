@@ -30,7 +30,7 @@ function twshop_get_dashboard_stats() {
     $module_urls = array(
         'member_tiers'    => admin_url( 'admin.php?page=twshop-member-tiers' ),
         'discount_rules'  => admin_url( 'admin.php?page=twshop-discount-rules' ),
-        'visual_coupons'  => admin_url( 'admin.php?page=twshop-visual-coupons' ),
+        'visual_coupons'  => admin_url( 'admin.php?page=twshop-system&tab=coupons' ),
         'points'          => admin_url( 'admin.php?page=twshop-points' ),
     );
     $enabled_count = 0;

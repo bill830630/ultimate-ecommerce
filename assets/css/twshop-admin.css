@@ -16,6 +16,51 @@
 .twshop-admin-wrap > h1 { margin-bottom: 4px; }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
+/* 最外層「功能」選單（twshop_render_admin_section_tabs()，v25.8.81 選單收攏新增）：
+   刻意跟下面「功能內部頁籤」（twshop_render_admin_tabs()，未加這個 class，維持 WP 原生
+   底線頁籤樣式）做視覺分層——兩者都是 <h2 class="nav-tab-wrapper"> + <a class="nav-tab">，
+   若不额外處理，兩排長得一模一樣的底線頁籤會直接緊貼著疊在一起，使用者分不出這是「切換
+   功能」還是「同一功能裡的子頁籤」。改成分段式（segmented control）藥丸外觀＋底部留白，
+   讓「功能」層級一眼跟下面的子頁籤區隔開。 */
+.twshop-section-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+	background: #f0f0f1;
+	border: none;
+	border-radius: 6px;
+	padding: 4px;
+	margin: 0 0 20px;
+}
+.twshop-section-nav .nav-tab {
+	float: none;
+	border: none;
+	background: transparent;
+	border-radius: 4px;
+	margin: 0;
+	padding: 8px 14px;
+	font-weight: 600;
+	color: var(--twshop-color-muted);
+}
+.twshop-section-nav .nav-tab:hover,
+.twshop-section-nav .nav-tab:focus {
+	background: rgba(255, 255, 255, .6);
+	color: var(--twshop-color-text);
+}
+.twshop-section-nav .nav-tab-active,
+.twshop-section-nav .nav-tab-active:hover,
+.twshop-section-nav .nav-tab-active:focus,
+.twshop-section-nav .nav-tab-active:focus:active {
+	background: #fff;
+	color: #2962ff;
+	border: none;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+@media (max-width: 480px) {
+	.twshop-section-nav { width: 100%; }
+	.twshop-section-nav .nav-tab { flex: 1 1 auto; text-align: center; }
+}
+
 .twshop-panel {
 	background: #fff;
 	border: 1px solid #ccd0d4;

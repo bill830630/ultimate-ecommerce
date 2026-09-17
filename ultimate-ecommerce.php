@@ -3,7 +3,7 @@
  * Plugin Name: Ultimate E-commerce
  * Plugin URI: https://nibill-studio.com/
  * Description: 具備會員分級、動態折扣規則、優惠卡券、紅利點數系統、智能贈品與加購引擎的終極電商。
- * Version: 25.8.82
+ * Version: 25.8.83
  * Author: NiBill
  * Author URI: https://nibill-studio.com/
  * Text Domain: ultimate-ecommerce

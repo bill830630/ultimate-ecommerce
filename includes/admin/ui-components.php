@@ -16,17 +16,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * 不再依賴「twshop-member」剛好是「twshop-member-tiers」子字串這種巧合式的 str_contains 命中。
  * v25.5.86：短代碼說明頁（原本是唯一不需要 sortable/flatpickr 的頁面，CSS/腳本清單因此得分兩份）
  * 移除後，兩份清單完全相同，合併成一份。
+ * v25.8.81：後台選單收攏成單一入口（見 twshop_admin_render_page()），6 個 slug 收成 1 個，
+ * 改成跟 twshop_admin_page_hook() 記錄的唯一 hook suffix 精準比對，不用清單/str_contains 了
+ * ——這個 hook 值本身是動態的（「快捷鍵」父選單 owner/attach 兩種情境下 hook suffix 格式不同，
+ * 見 twshop_register_menus()），寫死字串會在其中一種情境下靜默失效，比照 ultimate-login 的
+ * WCLON_Settings::$page_hook 既有模式，一律讀 add_submenu_page() 的實際回傳值。
  */
 function twshop_admin_external_scripts($hook) {
-    $twshop_pages = array(
-        'wc-general-settings', 'twshop-member-tiers', 'twshop-discount-rules',
-        'twshop-points', 'twshop-system', 'twshop-wallet',
-    );
-
-    $on_page = false;
-    foreach ( $twshop_pages as $slug ) {
-        if ( str_contains( $hook, $slug ) ) { $on_page = true; break; }
-    }
+    $on_page = ( '' !== twshop_admin_page_hook() && $hook === twshop_admin_page_hook() );
 
     // WordPress 原生控制台（wp-admin/index.php）不是本外掛的頁面，但控制台 widget
     // （twshop_render_dashboard_widget()）在那裡渲染，.twshop-widget__* 的樣式原本是
@@ -113,9 +110,10 @@ function twshop_panel_head( $icon, $title, $hint = '', array $button = array() )
 /**
  * 後台頁面的共用外框：權限檢查、`.wrap` 容器、標題列，內容交給 $content 輸出。
  *
- * 六個後台頁面（儀表板、會員分級、折扣規則、優惠卡券、紅利點數、系統設定）原本各自寫了
- * 一份逐字相同的外框，連權限檢查的 wp_die 訊息都重複六次。改動外框樣式（例如標題列要加東西）
- * 得同時改六個地方，漏掉一個不會有任何錯誤、只有那一頁長得不一樣。
+ * v25.8.79 前，六個後台頁面（儀表板、會員分級、折扣規則、優惠卡券、紅利點數、系統設定）
+ * 各自呼叫一次這支函式；v25.8.81 起後台選單收攏成單一入口，全站只剩
+ * twshop_admin_render_page()（pages.php）這**唯一一處**呼叫它，六個功能收成最外層的
+ * section 頁籤，共用同一個 `<h1>終極電商</h1>`，不再各自有自己的標題。
  *
  * $intro 只有儀表板用得到：有簡介文字時標題與簡介要包在同一個 <div> 內，
  * 才不會被 .twshop-dash-header 的 space-between 拆到左右兩端。
@@ -147,24 +145,22 @@ function twshop_render_admin_page( $title, callable $content, $intro = '' ) {
 }
 
 /**
- * 單一頁籤的後台頁面——會員分級／折扣規則／優惠卡券／紅利點數四頁的形狀完全相同：
- * 共用外框裡面就只有一個頁籤內容。
- */
-function twshop_render_single_tab_page( $title, $tab_callback ) {
-    twshop_render_admin_page( $title, function () use ( $tab_callback ) {
-        call_user_func( $tab_callback );
-    } );
-}
-
-/**
  * 後台頁面共用的頁籤導覽列，沿用 WordPress 核心 nav-tab-wrapper 樣式（比照 WooCommerce 設定頁），不需額外 CSS。
  * $tabs 格式 slug => 標籤；只有 1 個頁籤時不輸出導覽列（沒有切換的必要）。
+ *
+ * $extra_args（v25.8.81 新增，預設空陣列，向後相容）：後台選單收攏成單一入口後，紅利點數／
+ * 儲值中心／系統設定三個功能區塊都掛在同一個 $page_slug（wc-general-settings）底下，光靠
+ * page+tab 兩個參數組出的網址會弄丟「目前在哪個功能區塊（section）」這件事，點頁籤連結會
+ * 跳回預設的儀表板。呼叫端各自補 array('section'=>'points') 之類的參數即可正確保留。
  */
-function twshop_render_admin_tabs( array $tabs, $current, $page_slug ) {
+function twshop_render_admin_tabs( array $tabs, $current, $page_slug, array $extra_args = array() ) {
     if ( count( $tabs ) < 2 ) return;
     echo '<h2 class="nav-tab-wrapper">';
     foreach ( $tabs as $slug => $label ) {
         $url = admin_url( 'admin.php?page=' . $page_slug . '&tab=' . $slug );
+        if ( $extra_args ) {
+            $url = add_query_arg( $extra_args, $url );
+        }
         $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
         echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $label ) . '</a>';
     }
@@ -180,6 +176,77 @@ function twshop_get_current_admin_tab( array $tabs ) {
     if ( $requested && isset( $tabs[ $requested ] ) ) return $requested;
     $keys = array_keys( $tabs );
     return $keys[0];
+}
+
+/**
+ * 終極電商唯一後台入口頁面（v25.8.81 選單收攏新增）的頂層「功能」清單，取代原本 6 個獨立
+ * 子選單頁面。'dashboard' 必須是第一個 key——twshop_get_current_admin_section() 在請求的
+ * section 不存在（含對應模組已停用）時會退回 array_keys()[0]，這是「模組關閉時內容不會被
+ * dispatch 到」這條防線的基礎，順序不能亂動。'render' 直接指向各功能既有的內容函式。
+ */
+function twshop_get_admin_sections() {
+    $sections = array(
+        'dashboard' => array( 'label' => '儀表板', 'render' => 'twshop_dashboard_section' ),
+    );
+    if ( twshop_module_enabled( 'member_tiers' ) ) {
+        $sections['member-tiers'] = array( 'label' => '會員分級', 'render' => 'twshop_member_tiers_tab' );
+    }
+    if ( twshop_module_enabled( 'discount_rules' ) ) {
+        $sections['discount-rules'] = array( 'label' => '折扣規則', 'render' => 'twshop_marketing_rules_tab' );
+    }
+    if ( twshop_module_enabled( 'points' ) ) {
+        $sections['points'] = array( 'label' => '紅利點數', 'render' => 'twshop_points_section' );
+    }
+    if ( twshop_module_enabled( 'wallet' ) ) {
+        $sections['wallet'] = array( 'label' => '儲值中心', 'render' => 'twshop_wallet_section' );
+    }
+    $sections['system'] = array( 'label' => '系統設定', 'render' => 'twshop_system_section' );
+    return $sections;
+}
+
+/**
+ * 依 $_GET['section'] 決定目前顯示哪個功能區塊，找不到或對應的模組已停用（因此根本
+ * 沒出現在 $sections 裡）時安全退回第一個項目（恆為 'dashboard'，見上方函式的順序說明）。
+ * 跟 twshop_get_current_admin_tab() 是同一套退回慣例，刻意獨立成一支函式而非幫舊函式加
+ * 參數——這層讀寫的是獨立的 section 參數，跟各功能區塊自己的 tab（甚至蝦皮串接自己的
+ * subtab）語意上是不同層級，分開有明確的函式名比較不會混淆。
+ */
+function twshop_get_current_admin_section( array $sections ) {
+    $requested = isset( $_GET['section'] ) ? sanitize_key( wp_unslash( $_GET['section'] ) ) : '';
+    if ( $requested && isset( $sections[ $requested ] ) ) return $requested;
+    $keys = array_keys( $sections );
+    return $keys[0];
+}
+
+/**
+ * 最外層「功能」導覽列（v25.8.81 選單收攏新增）。跟 twshop_render_admin_tabs() 的差異：
+ * 固定用 section 參數（避免跟內層 tab/subtab 撞名），頁面本身只有一個 slug，不需要
+ * $page_slug 參數，改呼叫 twshop_admin_url() 組網址。
+ */
+function twshop_render_admin_section_tabs( array $sections, $current ) {
+    if ( count( $sections ) < 2 ) return;
+    echo '<h2 class="nav-tab-wrapper twshop-section-nav">';
+    foreach ( $sections as $slug => $info ) {
+        $url   = twshop_admin_url( $slug );
+        $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
+        echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $info['label'] ) . '</a>';
+    }
+    echo '</h2>';
+}
+
+/**
+ * 終極電商唯一後台頁面（wc-general-settings）網址組裝的唯一入口（v25.8.81 選單收攏新增），
+ * 取代 13 處分散手寫的 admin_url('admin.php?page=twshop-xxx...') 字串。$section 對應
+ * twshop_get_admin_sections() 的 key，留空只回到最外層網址（落在預設的儀表板 section）。
+ * $args 可再帶 tab/subtab/user_id 等參數，直接透傳給 add_query_arg()。
+ */
+function twshop_admin_url( $section = '', array $args = array() ) {
+    $query = $args;
+    if ( '' !== $section ) {
+        $query = array_merge( array( 'section' => $section ), $args );
+    }
+    $url = admin_url( 'admin.php?page=wc-general-settings' );
+    return $query ? add_query_arg( $query, $url ) : $url;
 }
 
 // 「下拉選單挑選、已選項目以方塊呈現」欄位的共用資源（JS + CSS），供折扣系統／點數系統等後台頁面共用；

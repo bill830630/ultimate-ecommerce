@@ -9,20 +9,23 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-function twshop_wallet_render_page() {
-    // 頁面 H1 標題 v25.8.71 改為「儲值中心」，跟側邊選單新名稱一致；三個頁籤名稱不變。
-    twshop_render_admin_page( '儲值中心', function () {
-        $tabs = array(
-            'balances' => '會員餘額',
-            'ledger'   => '交易紀錄',
-            'settings' => '設定',
-        );
-        $current = twshop_get_current_admin_tab( $tabs );
-        twshop_render_admin_tabs( $tabs, $current, 'twshop-wallet' );
-        if ( 'balances' === $current ) twshop_wallet_balances_tab();
-        elseif ( 'ledger' === $current ) twshop_wallet_ledger_tab();
-        elseif ( 'settings' === $current ) twshop_wallet_settings_tab();
-    } );
+/**
+ * v25.8.81 起改名為 twshop_wallet_section()：後台選單收攏成單一入口，這支不再自己呼叫
+ * twshop_render_admin_page() 包外框（外框與標題只在最外層的 twshop_admin_render_page()
+ * 呼叫一次），組內部頁籤網址時額外帶 section=wallet，避免點頁籤連結時弄丟「目前在儲值
+ * 中心這個功能區塊」的資訊。三個頁籤名稱不變。
+ */
+function twshop_wallet_section() {
+    $tabs = array(
+        'balances' => '會員餘額',
+        'ledger'   => '交易紀錄',
+        'settings' => '設定',
+    );
+    $current = twshop_get_current_admin_tab( $tabs );
+    twshop_render_admin_tabs( $tabs, $current, 'wc-general-settings', array( 'section' => 'wallet' ) );
+    if ( 'balances' === $current ) twshop_wallet_balances_tab();
+    elseif ( 'ledger' === $current ) twshop_wallet_ledger_tab();
+    elseif ( 'settings' === $current ) twshop_wallet_settings_tab();
 }
 
 function twshop_wallet_render_ledger_table_rows( $rows, $show_user_column = false ) {
@@ -87,7 +90,8 @@ function twshop_wallet_balances_tab() {
         <?php twshop_panel_head( 'search', '搜尋會員' ); ?>
         <div class="twshop-panel-body">
             <form method="get">
-                <input type="hidden" name="page" value="twshop-wallet">
+                <input type="hidden" name="page" value="wc-general-settings">
+                <input type="hidden" name="section" value="wallet">
                 <input type="hidden" name="tab" value="balances">
                 <?php twshop_render_customer_search_field( 'user_id', $user_id ); ?>
                 <button type="submit" class="button">查看</button>
@@ -169,7 +173,7 @@ function twshop_wallet_balances_tab() {
                         <tr>
                             <td><?php echo esc_html( $u->display_name . '（' . $u->user_email . '）' ); ?></td>
                             <td><?php echo esc_html( number_format( (float) $row['balance_paid'], 2 ) ); ?></td>
-                            <td><a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-wallet&tab=balances&user_id=' . $row['user_id'] ) ); ?>">查看</a></td>
+                            <td><a href="<?php echo esc_url( twshop_admin_url( 'wallet', array( 'tab' => 'balances', 'user_id' => $row['user_id'] ) ) ); ?>">查看</a></td>
                         </tr>
                     <?php endforeach; endif; ?>
                 </tbody>
@@ -201,7 +205,8 @@ function twshop_wallet_ledger_tab() {
         <?php twshop_panel_head( 'filter', '篩選' ); ?>
         <div class="twshop-panel-body">
             <form method="get">
-                <input type="hidden" name="page" value="twshop-wallet">
+                <input type="hidden" name="page" value="wc-general-settings">
+                <input type="hidden" name="section" value="wallet">
                 <input type="hidden" name="tab" value="ledger">
                 <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end;">
                     <div>
@@ -227,7 +232,7 @@ function twshop_wallet_ledger_tab() {
                     </div>
                     <div>
                         <button type="submit" class="button button-primary">篩選</button>
-                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-wallet&tab=ledger' ) ); ?>" class="button">清除</a>
+                        <a href="<?php echo esc_url( twshop_admin_url( 'wallet', array( 'tab' => 'ledger' ) ) ); ?>" class="button">清除</a>
                     </div>
                 </div>
             </form>
@@ -248,7 +253,8 @@ function twshop_wallet_ledger_tab() {
 
             <?php if ( $total_pages > 1 ) :
                 $base_args = array_filter( array(
-                    'page'        => 'twshop-wallet',
+                    'page'        => 'wc-general-settings',
+                    'section'     => 'wallet',
                     'tab'         => 'ledger',
                     'user_id'     => $user_id ?: null,
                     'ledger_type' => $type ?: null,

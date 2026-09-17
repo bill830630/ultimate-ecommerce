@@ -277,7 +277,7 @@ function twshop_maybe_reset_account_tabs() {
         delete_option( 'wc_membership_tab_name' );
         delete_option( 'wc_general_tab_name' );
         // 導向乾淨網址，避免此觸發參數殘留在網址列上，導致下次在本頁儲存表單時（redirect 會帶回同一個網址）重複觸發、把剛存好的設定又清空一次
-        wp_safe_redirect( admin_url( 'admin.php?page=twshop-system&tab=tabs&account_tabs_reset=1' ) );
+        wp_safe_redirect( twshop_admin_url( 'system', array( 'tab' => 'tabs', 'account_tabs_reset' => 1 ) ) );
         exit;
     }
 }

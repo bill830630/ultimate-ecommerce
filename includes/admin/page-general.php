@@ -338,7 +338,7 @@ function twshop_member_tabs_tab() {
             <?php settings_fields( 'wc_member_tabs_group' ); ?>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'list', '會員中心頁籤排序與開關', '拖曳左側圖示排序，取消勾選「啟用」即可從會員中心導覽隱藏該頁籤；點擊頁籤時已不會重新載入頁面；名稱皆可直接於下方輸入框編輯，留空則沿用預設名稱。', array( 'url' => wp_nonce_url( admin_url( 'admin.php?page=twshop-system&tab=tabs&reset_account_tabs=1' ), 'twshop_reset_account_tabs' ), 'label' => '恢復預設值', 'class' => 'button button-secondary', 'confirm' => '確定要將頁籤排序、開關與名稱恢復為預設值嗎？此動作會立即儲存，無法復原。' ) ); ?>
+                <?php twshop_panel_head( 'list', '會員中心頁籤排序與開關', '拖曳左側圖示排序，取消勾選「啟用」即可從會員中心導覽隱藏該頁籤；點擊頁籤時已不會重新載入頁面；名稱皆可直接於下方輸入框編輯，留空則沿用預設名稱。', array( 'url' => wp_nonce_url( twshop_admin_url( 'system', array( 'tab' => 'tabs', 'reset_account_tabs' => 1 ) ), 'twshop_reset_account_tabs' ), 'label' => '恢復預設值', 'class' => 'button button-secondary', 'confirm' => '確定要將頁籤排序、開關與名稱恢復為預設值嗎？此動作會立即儲存，無法復原。' ) ); ?>
                 <div class="twshop-panel-body">
                     <div id="account-tabs-repeater-container">
                         <?php foreach ( $account_tabs_settings as $row ) {

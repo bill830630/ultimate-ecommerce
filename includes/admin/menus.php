@@ -62,34 +62,52 @@ function twshop_system_modules_tab() {
     <?php
 }
 
+// 終極電商與終極登入（ultimate-login）v25.8.80 起共用一個「快捷鍵」頂層選單。
+// 兩邊互相 fallback：誰的 admin_menu 先跑、誰的既有 slug 就當父選單，另一邊偵測到
+// 父選單已存在就把自己的頁面掛成子選單。不寫死載入順序，任一外掛單獨啟用時「快捷鍵」
+// 父選單依然正常顯示，見 CLAUDE.md「快捷鍵父選單合併」一節。
+function twshop_shortcut_parent_slug() {
+    global $admin_page_hooks;
+    if ( isset( $admin_page_hooks['wclon-settings'] ) ) {
+        return 'wclon-settings';
+    }
+    return 'wc-general-settings';
+}
+
+/**
+ * 終極電商唯一後台頁面（wc-general-settings）的 hook suffix（v25.8.81 選單收攏新增），
+ * procedural 版本的 ultimate-login WCLON_Settings::$page_hook——供
+ * twshop_admin_external_scripts()（ui-components.php）精準比對用，取代 v25.5.84～v25.8.80
+ * 那套「明確 slug 清單逐一 str_contains 比對」寫法。這個值本身是動態的（「快捷鍵」父選單
+ * owner/attach 兩種情境下 hook suffix 格式不同，見 twshop_shortcut_parent_slug()），一律
+ * 從 add_submenu_page() 的實際回傳值取得，不寫死字串。$hook 傳 null（預設）當 getter，
+ * 傳實際值當 setter，只在 twshop_register_menus() 內呼叫一次；admin_menu 一定早於
+ * admin_enqueue_scripts 執行，讀取時保證已經 set 過。
+ */
+function twshop_admin_page_hook( $hook = null ) {
+    static $stored = '';
+    if ( null !== $hook ) {
+        $stored = $hook;
+    }
+    return $stored;
+}
+
 function twshop_register_menus() {
-    add_menu_page( '終極電商', '終極電商', 'manage_woocommerce', 'wc-general-settings', 'twshop_dashboard_render_page', 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJ3aGl0ZSIgaWQ9Il/lnJblsaRfMiIgZGF0YS1uYW1lPSLlnJblsaQgMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgNDEzLjExIDQxMy4xMSI+CiAgPGcgaWQ9Il/lnJblsaRfMS0yIiBkYXRhLW5hbWU9IuWcluWxpCAxIj4KICAgIDxnPgogICAgICA8cGF0aCBkPSJNMjA2LjU1LDBDMTM5LjI1LDAsNzkuNDcsMzIuMiw0MS43Niw4Mi4wMmw4MC40Niw4MC40Niw0NC4wNy00NC4wN2MxMy42NC0xMy42NCwyOS42NS0yMy40NCw0Ni43LTI5LjQ0LDEwLjIzLTMuNTksMjAuODMtNS44MiwzMS41NC02LjY3LDM1LjExLTIuNzksNzEuMTksOS4yNSw5OC4wNCwzNi4xMSw0OC42OSw0OC42OCw0OC42OCwxMjcuNjIsMCwxNzYuMy0yNi44NSwyNi44Ny02Mi45NCwzOC45MS05OC4wNSwzNi4xMS0xMC42Mi0uODQtMjEuMTYtMy4wMy0zMS4zMy02LjU4LTE3LjE0LTUuOTktMzMuMjItMTUuODQtNDYuOTEtMjkuNTMtLjA0LS4wMy0uMDYtLjA3LS4xLS4xMmwtNDMuOTYtNDMuOTYtODAuNDYsODAuNDZjMzcuNzEsNDkuODIsOTcuNDksODIuMDIsMTY0Ljc5LDgyLjAyLDExNC4wOCwwLDIwNi41NS05Mi40OCwyMDYuNTUtMjA2LjU1UzMyMC42MywwLDIwNi41NSwwWiIvPgogICAgICA8cGF0aCBkPSJNMTEuMTMsMTM5LjUzQzMuOTIsMTYwLjU1LDAsMTgzLjA5LDAsMjA2LjU1czMuOTIsNDYuMDEsMTEuMTMsNjcuMDJsNjcuMDItNjcuMDJMMTEuMTMsMTM5LjUzWiIvPgogICAgICA8cGF0aCBkPSJNMjQ0LjUzLDI2OC4wOGMxOS4wNywzLjA3LDM5LjI5LTIuNzUsNTMuOTktMTcuNDYsMjQuMzMtMjQuMzMsMjQuMzItNjMuOC0uMDEtODguMTQtMTQuNy0xNC43LTM0LjkxLTIwLjUxLTUzLjk3LTE3LjQ1LTExLjM3LDEuODEtMjIuMzMsNi43Ny0zMS40NiwxNC45Mi0uOTMuODEtMS44MywxLjY2LTIuNzEsMi41NGwtNDQuMDYsNDQuMDcsNDQuMDcsNDQuMDdjLjkuOSwxLjgzLDEuNzcsMi43NywyLjYxLDkuMTQsOC4wOCwyMC4wNiwxMy4wNCwzMS4zOSwxNC44NFoiLz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPg==', 56 );
-    remove_submenu_page( 'wc-general-settings', 'wc-general-settings' );
-    add_submenu_page( 'wc-general-settings', '儀表板', '儀表板', 'manage_woocommerce', 'wc-general-settings', 'twshop_dashboard_render_page' );
-    // v25.5.84：後台選單改成跟「系統設定 ▸ 模組開關」的模組清單對齊，原本「行銷／會員」兩個大分類、
-    // 底下再切頁籤的結構拆開，每個有獨立設定內容的模組各自變成一個頂層選單項目，模組停用時
-    // 該選單項目直接不註冊（沿用改版前「模組停用時對應頁籤從導覽列消失」的既有精神，只是
-    // 現在消失的單位是整個選單項目而非頁籤）。`order_checkout_enhancements` 模組本身沒有任何
-    // 可調整設定（純粹是 hook 開關），故不建立對應選單項目，開關維持只在「系統設定 ▸ 模組開關」操作。
-    if ( twshop_module_enabled( 'member_tiers' ) ) {
-        add_submenu_page( 'wc-general-settings', '會員分級', '會員分級', 'manage_woocommerce', 'twshop-member-tiers', 'twshop_member_tiers_render_page' );
+    $parent_slug = twshop_shortcut_parent_slug();
+    $is_owner    = ( 'wc-general-settings' === $parent_slug );
+
+    if ( $is_owner ) {
+        add_menu_page( '快捷鍵', '快捷鍵', 'manage_woocommerce', $parent_slug, 'twshop_admin_render_page', 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJ3aGl0ZSIgaWQ9Il/lnJblsaRfMiIgZGF0YS1uYW1lPSLlnJblsaQgMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgNDEzLjExIDQxMy4xMSI+CiAgPGcgaWQ9Il/lnJblsaRfMS0yIiBkYXRhLW5hbWU9IuWcluWxpCAxIj4KICAgIDxnPgogICAgICA8cGF0aCBkPSJNMjA2LjU1LDBDMTM5LjI1LDAsNzkuNDcsMzIuMiw0MS43Niw4Mi4wMmw4MC40Niw4MC40Niw0NC4wNy00NC4wN2MxMy42NC0xMy42NCwyOS42NS0yMy40NCw0Ni43LTI5LjQ0LDEwLjIzLTMuNTksMjAuODMtNS44MiwzMS41NC02LjY3LDM1LjExLTIuNzksNzEuMTksOS4yNSw5OC4wNCwzNi4xMSw0OC42OSw0OC42OCw0OC42OCwxMjcuNjIsMCwxNzYuMy0yNi44NSwyNi44Ny02Mi45NCwzOC45MS05OC4wNSwzNi4xMS0xMC42Mi0uODQtMjEuMTYtMy4wMy0zMS4zMy02LjU4LTE3LjE0LTUuOTktMzMuMjItMTUuODQtNDYuOTEtMjkuNTMtLjA0LS4wMy0uMDYtLjA3LS4xLS4xMmwtNDMuOTYtNDMuOTYtODAuNDYsODAuNDZjMzcuNzEsNDkuODIsOTcuNDksODIuMDIsMTY0Ljc5LDgyLjAyLDExNC4wOCwwLDIwNi41NS05Mi40OCwyMDYuNTUtMjA2LjU1UzMyMC42MywwLDIwNi41NSwwWiIvPgogICAgICA8cGF0aCBkPSJNMTEuMTMsMTM5LjUzQzMuOTIsMTYwLjU1LDAsMTgzLjA5LDAsMjA2LjU1czMuOTIsNDYuMDEsMTEuMTMsNjcuMDJsNjcuMDItNjcuMDJMMTEuMTMsMTM5LjUzWiIvPgogICAgICA8cGF0aCBkPSJNMjQ0LjUzLDI2OC4wOGMxOS4wNywzLjA3LDM5LjI5LTIuNzUsNTMuOTktMTcuNDYsMjQuMzMtMjQuMzMsMjQuMzItNjMuOC0uMDEtODguMTQtMTQuNy0xNC43LTM0LjkxLTIwLjUxLTUzLjk3LTE3LjQ1LTExLjM3LDEuODEtMjIuMzMsNi43Ny0zMS40NiwxNC45Mi0uOTMuODEtMS44MywxLjY2LTIuNzEsMi41NGwtNDQuMDYsNDQuMDcsNDQuMDcsNDQuMDdjLjkuOSwxLjgzLDEuNzcsMi43NywyLjYxLDkuMTQsOC4wOCwyMC4wNiwxMy4wNCwzMS4zOSwxNC44NFoiLz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPg==', 56 );
+        remove_submenu_page( $parent_slug, $parent_slug );
     }
-    if ( twshop_module_enabled( 'discount_rules' ) ) {
-        add_submenu_page( 'wc-general-settings', '折扣規則', '折扣規則', 'manage_woocommerce', 'twshop-discount-rules', 'twshop_discount_rules_render_page' );
-    }
-    // 優惠卡券（v25.8.71 起不再是獨立頂層選單）移到「系統設定 ▸ 優惠卡券」頁籤，
-    // 比照蝦皮串接搬遷的既有先例，見 twshop_system_render_page()（pages.php）。
-    if ( twshop_module_enabled( 'points' ) ) {
-        add_submenu_page( 'wc-general-settings', '紅利點數', '紅利點數', 'manage_woocommerce', 'twshop-points', 'twshop_points_render_page' );
-    }
-    // 蝦皮串接（v25.8.65 起不再是獨立頂層選單／不再受模組開關影響）移到「系統設定 ▸
-    // 蝦皮串接」頁籤，見 twshop_system_render_page()（pages.php）與 CLAUDE.md「蝦皮串接
-    // 模組」一節。
-    if ( twshop_module_enabled( 'wallet' ) ) {
-        // 選單顯示名稱 v25.8.71 改為「儲值中心」（湊足四字，跟其餘頂層選單一致）；
-        // slug／函式名／option key／功能本身的既有用詞「儲值金」不變，只換外殼。
-        add_submenu_page( 'wc-general-settings', '儲值中心', '儲值中心', 'manage_woocommerce', 'twshop-wallet', 'twshop_wallet_render_page' );
-    }
-    add_submenu_page( 'wc-general-settings', '系統設定', '系統設定', 'manage_woocommerce', 'twshop-system', 'twshop_system_render_page' );
+
+    // 6 個獨立子選單（v25.8.80 前）收成 1 個（v25.8.81 起）：slug 仍是 wc-general-settings
+    // （owner 情境下第一筆 slug 需等於 parent slug 的既有規則不變，只是現在也是唯一一筆）；
+    // 標題「儀表板」改「終極電商」，跟同一父選單下的「終極登入」命名對稱。6 個功能收成頁面
+    // 內的 section 頁籤，見 twshop_admin_render_page()（pages.php）與 CLAUDE.md
+    // 「後台選單收攏成單一入口」一節，模組開關的判斷也搬到那裡（twshop_get_admin_sections()），
+    // 不再是這裡的 add_submenu_page() 條件式註冊。
+    $hook = add_submenu_page( $parent_slug, '終極電商', '終極電商', 'manage_woocommerce', 'wc-general-settings', 'twshop_admin_render_page' );
+    twshop_admin_page_hook( $hook );
 }
 

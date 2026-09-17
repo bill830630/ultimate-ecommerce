@@ -374,13 +374,14 @@ function twshop_shopee_request( $path, $args = array(), $method = 'GET', $with_s
 
 /**
  * 蝦皮串接頁面（v25.8.65 起是「系統設定 ▸ 蝦皮串接」頁籤，不再是獨立的 `twshop-shopee`
- * 頂層頁面）的網址組成，統一收在這支，避免 OAuth 回呼/重導向與頁面內部連結各自拼一份、
- * 改頁面結構時漏改其中一處。`$subtab` 對應 twshop_shopee_settings_tab()（page-shopee.php）
- * 認得的 `auth`/`mapping`/`sync`/`log`。
+ * 頂層頁面；v25.8.81 起「系統設定」本身也不再是獨立頁面，而是後台唯一入口底下的
+ * `section=system`，見 twshop_admin_url()／twshop_get_admin_sections()）的網址組成，
+ * 統一收在這支，避免 OAuth 回呼/重導向與頁面內部連結各自拼一份、改頁面結構時漏改其中一處。
+ * `$subtab` 對應 twshop_shopee_settings_tab()（page-shopee.php）認得的
+ * `auth`/`mapping`/`sync`/`log`。
  */
 function twshop_shopee_admin_url( $subtab = 'auth', $args = array() ) {
-    $url = admin_url( 'admin.php?page=twshop-system&tab=shopee&subtab=' . $subtab );
-    return $args ? add_query_arg( $args, $url ) : $url;
+    return twshop_admin_url( 'system', array_merge( array( 'tab' => 'shopee', 'subtab' => $subtab ), $args ) );
 }
 
 /**
@@ -398,19 +399,20 @@ function twshop_shopee_auth_state_key() {
  * CSRF 防線，理由與攻擊情境見 `twshop_shopee_handle_auth_callback()`。
  *
  * **蝦皮會原樣帶回 `redirect` 上的查詢字串**：現行回呼的第一道判斷就是比對
- * `$_GET['page']`／`$_GET['tab']` 是否為 `twshop-system`／`shopee`，而這兩個都是寫在
- * `redirect` 查詢字串裡的，也就是說「查詢參數會被保留」本來就是這個流程能運作的前提。
+ * `$_GET['page']`／`$_GET['section']`／`$_GET['tab']` 是否為
+ * `wc-general-settings`／`system`／`shopee`，而這三個都是寫在 `redirect` 查詢字串裡的，
+ * 也就是說「查詢參數會被保留」本來就是這個流程能運作的前提。
  *
  * **外層必須用 `http_build_query()`，不能用 `add_query_arg()`**（2026-09 加 `state` 時實測抓到）：
  * WordPress 的 `add_query_arg()` **不做 URL 編碼**（`build_query()` 傳給 `_http_build_query()` 的
  * `$urlencode` 是 false），`redirect` 的值會原樣拼進外層查詢字串。`redirect` 網址本身含
- * `&`（`page=twshop-system&tab=shopee&subtab=auth&state=…`）時，若外層也用 `add_query_arg()`
- * 疊上去，後面那一截會脫離 `redirect`、變成**蝦皮請求自己的頂層參數**，蝦皮直接忽略。
- * 也就是說 `state` 根本不會被帶去、回呼永遠拿不到，而畫面上只會顯示「授權驗證失敗」，
- * 看不出跟編碼有關——這是 v25.8.65 把頁面從獨立的 `twshop-shopee`（網址本身沒有 `&`）
- * 搬進「系統設定」子頁籤（網址天生就帶 `&`）後，這個既有陷阱變得更容易踩到的地方，
- * 務必維持下面這個外層 `http_build_query( …, PHP_QUERY_RFC3986 )` 的寫法不要改回
- * `add_query_arg()`。
+ * `&`（`page=wc-general-settings&section=system&tab=shopee&subtab=auth&state=…`）時，
+ * 若外層也用 `add_query_arg()` 疊上去，後面那一截會脫離 `redirect`、變成**蝦皮請求自己的
+ * 頂層參數**，蝦皮直接忽略。也就是說 `state` 根本不會被帶去、回呼永遠拿不到，而畫面上
+ * 只會顯示「授權驗證失敗」，看不出跟編碼有關——這是 v25.8.65 把頁面從獨立的
+ * `twshop-shopee`（網址本身沒有 `&`）搬進「系統設定」子頁籤後就已經存在、v25.8.81 選單
+ * 再收攏成單一入口後網址又多一層 `section` 參數，同一個陷阱依然成立，務必維持下面這個
+ * 外層 `http_build_query( …, PHP_QUERY_RFC3986 )` 的寫法不要改回 `add_query_arg()`。
  *
  * 15 分鐘 TTL：授權要跳去蝦皮登入、選賣場、按確認，給足時間；過期就重按一次授權。
  */
@@ -445,13 +447,13 @@ function twshop_shopee_get_auth_url() {
  */
 function twshop_shopee_handle_auth_callback() {
     if ( ! is_admin() ) return;
-    if ( ! isset( $_GET['page'], $_GET['tab'] ) || 'twshop-system' !== $_GET['page'] || 'shopee' !== $_GET['tab'] ) return;
+    if ( ! isset( $_GET['page'], $_GET['section'], $_GET['tab'] ) || 'wc-general-settings' !== $_GET['page'] || 'system' !== $_GET['section'] || 'shopee' !== $_GET['tab'] ) return;
     if ( empty( $_GET['code'] ) || empty( $_GET['shop_id'] ) ) return;
     if ( ! current_user_can( 'manage_woocommerce' ) ) return;
 
     // ── CSRF 防線：一次性 state ───────────────────────────────────────────
     // 光有 current_user_can() 擋不住這種攻擊：誘使一位已登入的管理員載入
-    // /wp-admin/admin.php?page=twshop-system&tab=shopee&code=<攻擊者的>&shop_id=<攻擊者的>，
+    // /wp-admin/admin.php?page=wc-general-settings&section=system&tab=shopee&code=<攻擊者的>&shop_id=<攻擊者的>，
     // 底下那段 update_option() 就會把本站綁到**攻擊者的蝦皮賣場**上。後果不只是資料外洩——
     // 之後庫存/價格會推去攻擊者的賣場，訂單輪詢還會把攻擊者控制的蝦皮訂單當成真實 Woo 訂單
     // 用 wc_create_order() 建進來、實際扣掉庫存。
@@ -567,7 +569,7 @@ function twshop_shopee_maybe_refresh_token() {
 // =========================================================================
 
 function twshop_shopee_handle_manual_refresh() {
-    if ( ! isset( $_GET['page'], $_GET['tab'] ) || 'twshop-system' !== $_GET['page'] || 'shopee' !== $_GET['tab'] ) return;
+    if ( ! isset( $_GET['page'], $_GET['section'], $_GET['tab'] ) || 'wc-general-settings' !== $_GET['page'] || 'system' !== $_GET['section'] || 'shopee' !== $_GET['tab'] ) return;
     if ( ! isset( $_GET['twshop_shopee_manual_refresh'] ) ) return;
     if ( ! current_user_can( 'manage_woocommerce' ) ) return;
     check_admin_referer( 'twshop_shopee_manual_refresh' );

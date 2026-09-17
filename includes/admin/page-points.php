@@ -3,7 +3,7 @@
  * 介面 2：紅利點數獨立設定頁面
  *
  * 自 twshop.php 拆出（Phase 4 拆檔重構）。v25.8.25 起改成 5 個真正的頁籤（比照
- * twshop_system_render_page() 的既有模式），原本單一函式 twshop_marketing_points_tab()
+ * twshop_system_section() 的既有模式），原本單一函式 twshop_marketing_points_tab()
  * 依畫面區塊拆成 5 支獨立頁籤函式，settings group 同步拆開（見 includes/admin/settings.php）。
  */
 
@@ -77,7 +77,8 @@ function twshop_points_balances_tab() {
         <?php twshop_panel_head( 'search', '搜尋會員' ); ?>
         <div class="twshop-panel-body">
             <form method="get">
-                <input type="hidden" name="page" value="twshop-points">
+                <input type="hidden" name="page" value="wc-general-settings">
+                <input type="hidden" name="section" value="points">
                 <input type="hidden" name="tab" value="balances">
                 <?php twshop_render_customer_search_field( 'user_id', $user_id ); ?>
                 <button type="submit" class="button">查看</button>
@@ -185,7 +186,7 @@ function twshop_points_balances_tab() {
                         <tr>
                             <td><?php echo esc_html( $u->display_name . '（' . $u->user_email . '）' ); ?></td>
                             <td><?php echo esc_html( number_format( $bal ) ); ?></td>
-                            <td><a href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-points&tab=balances&user_id=' . $u->ID ) ); ?>">查看</a></td>
+                            <td><a href="<?php echo esc_url( twshop_admin_url( 'points', array( 'tab' => 'balances', 'user_id' => $u->ID ) ) ); ?>">查看</a></td>
                         </tr>
                     <?php endforeach; endif; ?>
                 </tbody>

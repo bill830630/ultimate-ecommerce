@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * 儀表板統計資料的共用計算入口，供後台「儀表板」頁面（`twshop_dashboard_render_page()`）與
+ * 儀表板統計資料的共用計算入口，供後台「儀表板」section（`twshop_dashboard_section()`）與
  * WordPress 原生控制台儀表板 widget（`twshop_render_dashboard_widget()`）共用，避免兩處
  * 分別查詢同一批資料、日後改一邊忘了改另一邊。含 per-request static cache（同一次請求內
  * 兩處都會呼叫時，例如理論上不會同時發生但仍保守處理，只查一次）。
@@ -28,10 +28,13 @@ function twshop_get_dashboard_stats() {
     // order_checkout_enhancements 沒有對應選單頁（純 hook 開關，無可調整設定，見
     // twshop_register_menus() 的說明），卡片維持唯讀、不可點擊。
     $module_urls = array(
-        'member_tiers'    => admin_url( 'admin.php?page=twshop-member-tiers' ),
-        'discount_rules'  => admin_url( 'admin.php?page=twshop-discount-rules' ),
-        'visual_coupons'  => admin_url( 'admin.php?page=twshop-system&tab=coupons' ),
-        'points'          => admin_url( 'admin.php?page=twshop-points' ),
+        'member_tiers'    => twshop_admin_url( 'member-tiers' ),
+        'discount_rules'  => twshop_admin_url( 'discount-rules' ),
+        'visual_coupons'  => twshop_admin_url( 'system', array( 'tab' => 'coupons' ) ),
+        'points'          => twshop_admin_url( 'points' ),
+        // v25.8.81 補上原本缺漏的一項——選單收攏前這裡漏了 wallet，儀表板的儲值中心
+        // 卡片因此一直是唯讀、點不進去，這次順手修正。
+        'wallet'          => twshop_admin_url( 'wallet' ),
     );
     $enabled_count = 0;
     foreach ( $modules as $mod_key => $info ) {
@@ -82,26 +85,28 @@ function twshop_get_dashboard_stats() {
  * 儀表板：功能總覽（v25.5.86 起「常用連結」與「模組狀態」合併成一個區塊——每張模組卡片
  * 本身就是連到該模組設定頁的連結，不再需要另外一組獨立的連結清單重複列出同樣的 5 個項目）。
  * 模組的啟用/停用狀態唯讀顯示於此，實際開關在「系統設定 ▸ 模組開關」。
+ *
+ * v25.8.81 起改名為 twshop_dashboard_section()：後台選單收攏成單一入口＋section 頁籤
+ * （見 twshop_admin_render_page()，pages.php），這支不再自己呼叫 twshop_render_admin_page()
+ * 包外框，外框與 <h1>「終極電商」只在最外層呼叫一次，這裡只負責輸出儀表板本身的內容。
+ * 權限檢查（manage_woocommerce）已在最外層做過，不需要在這裡重複。
  */
-function twshop_dashboard_render_page() {
-    // 統計資料的計算刻意寫在 closure 內：twshop_render_admin_page() 的權限檢查要先跑，
-    // 才輪得到 twshop_get_dashboard_stats() 去查一整批訂單/使用者/規則。
-    twshop_render_admin_page( '終極電商', function () {
-        $stats            = twshop_get_dashboard_stats();
-        $modules          = $stats['modules'];
-        $module_icons     = $stats['module_icons'];
-        $module_urls      = $stats['module_urls'];
-        $enabled_count    = $stats['enabled_count'];
-        $tiers            = $stats['tiers'];
-        $tier_count       = $stats['tier_count'];
-        $rule_count       = $stats['rule_count'];
-        $points_rate      = $stats['points_rate'];
-        $coupon_count     = $stats['coupon_count'];
-        $addon_count      = $stats['addon_count'];
-        $tier_user_counts = $stats['tier_user_counts'];
-        $tier_max_count   = $stats['tier_max_count'];
+function twshop_dashboard_section() {
+    $stats            = twshop_get_dashboard_stats();
+    $modules          = $stats['modules'];
+    $module_icons     = $stats['module_icons'];
+    $module_urls      = $stats['module_urls'];
+    $enabled_count    = $stats['enabled_count'];
+    $tiers            = $stats['tiers'];
+    $tier_count       = $stats['tier_count'];
+    $rule_count       = $stats['rule_count'];
+    $points_rate      = $stats['points_rate'];
+    $coupon_count     = $stats['coupon_count'];
+    $addon_count      = $stats['addon_count'];
+    $tier_user_counts = $stats['tier_user_counts'];
+    $tier_max_count   = $stats['tier_max_count'];
 
-        ?>
+    ?>
         <div class="twshop-dash-stats">
             <div class="twshop-dash-stat">
                 <span class="twshop-dash-stat__icon"><?php echo twshop_get_account_tab_icon_svg( 'layout-dashboard' ); ?></span>
@@ -136,7 +141,7 @@ function twshop_dashboard_render_page() {
         </div>
 
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'layout-dashboard', '功能總覽', '', array( 'url' => admin_url( 'admin.php?page=twshop-system&tab=modules' ), 'label' => '前往模組開關' ) ); ?>
+            <?php twshop_panel_head( 'layout-dashboard', '功能總覽', '', array( 'url' => twshop_admin_url( 'system', array( 'tab' => 'modules' ) ), 'label' => '前往模組開關' ) ); ?>
             <div class="twshop-panel-body">
                 <div class="twshop-dash-modules">
                     <?php foreach ( $modules as $mod_key => $info ) :
@@ -153,7 +158,7 @@ function twshop_dashboard_render_page() {
                         <p class="twshop-dash-module__desc"><?php echo esc_html( $info['desc'] ); ?></p>
                     </<?php echo $tag; ?>>
                     <?php endforeach; ?>
-                    <a class="twshop-dash-module" href="<?php echo esc_url( admin_url( 'admin.php?page=twshop-system' ) ); ?>">
+                    <a class="twshop-dash-module" href="<?php echo esc_url( twshop_admin_url( 'system' ) ); ?>">
                         <div class="twshop-dash-module__head">
                             <span class="twshop-dash-module__icon"><?php echo twshop_get_account_tab_icon_svg( 'settings' ); ?></span>
                             <strong>系統設定</strong>
@@ -165,7 +170,7 @@ function twshop_dashboard_render_page() {
         </div>
 
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'crown', '會員等級分佈', '', array( 'url' => admin_url( 'admin.php?page=twshop-member-tiers' ), 'label' => '前往會員分級' ) ); ?>
+            <?php twshop_panel_head( 'crown', '會員等級分佈', '', array( 'url' => twshop_admin_url( 'member-tiers' ), 'label' => '前往會員分級' ) ); ?>
             <div class="twshop-panel-body">
                 <?php if ( empty( $tiers ) ) : ?>
                 <p class="twshop-dash-tiers-empty">尚未設定任何會員等級。</p>
@@ -185,9 +190,6 @@ function twshop_dashboard_render_page() {
                 <?php endif; ?>
             </div>
         </div>
-<?php
-    }, '功能依模組各自獨立成一個選單頁面，不受模組開關影響的一般設定則統一收在「系統設定」。' );
-    ?>
     <?php
 }
 
@@ -239,7 +241,7 @@ function twshop_render_dashboard_widget() {
             <div><strong><?php echo esc_html( $stats['addon_count'] ); ?></strong><span>加購品規則</span></div>
         </div>
 
-        <p class="twshop-widget__more"><a href="<?php echo esc_url( admin_url( 'admin.php?page=wc-general-settings' ) ); ?>">查看完整儀表板 &rarr;</a></p>
+        <p class="twshop-widget__more"><a href="<?php echo esc_url( twshop_admin_url( 'dashboard' ) ); ?>">查看完整儀表板 &rarr;</a></p>
     </div>
     <?php
 }

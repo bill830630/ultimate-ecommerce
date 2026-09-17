@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // =========================================================================
 
 /**
- * 被 twshop_system_render_page()（pages.php）以 `tab=shopee` 呼叫，是「系統設定」頁的
+ * 被 twshop_system_section()（pages.php）以 `tab=shopee` 呼叫，是「系統設定」頁的
  * 其中一個頁籤內容，不再自帶 twshop_render_admin_page() 外框（外層已經包過一次）。
  *
  * 內部的四個子頁籤（授權/商品對應/同步設定/同步紀錄）用獨立的 `subtab` GET 參數導覽，
@@ -57,7 +57,10 @@ function twshop_shopee_settings_tab() {
     ?>
     <h2 class="nav-tab-wrapper" style="margin-top:10px;">
         <?php foreach ( $sub_tabs as $slug => $label ) :
-            $url   = admin_url( 'admin.php?page=twshop-system&tab=shopee&subtab=' . $slug );
+            // v25.8.81 起改呼叫 twshop_shopee_admin_url()（唯一入口）取代自己重複組字串，
+            // 這裡原本沒帶 section 參數，選單收攏成單一入口後若漏這一步，點子頁籤會被
+            // twshop_get_current_admin_section() 判定 section 不存在而退回儀表板。
+            $url   = twshop_shopee_admin_url( $slug );
             $class = 'nav-tab' . ( $slug === $current_sub ? ' nav-tab-active' : '' );
             ?>
             <a href="<?php echo esc_url( $url ); ?>" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $label ); ?></a>

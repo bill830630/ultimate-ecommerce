@@ -16,16 +16,28 @@
 .twshop-admin-wrap > h1 { margin-bottom: 4px; }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
-/* 最外層「功能」導覽（v25.8.83 改版，取代 v25.8.81~82 短命的雙層頁籤/分段藥丸做法）：
-   改成左側垂直選單＋右側內容的兩欄版面，`twshop_render_admin_sidebar_nav()` 輸出
-   `<nav class="twshop-admin-sidebar">`，跟下方各功能自己的子頁籤
-   （`twshop_render_admin_tabs()`，維持 WordPress 原生 `nav-tab-wrapper` 底線樣式不變）
-   在元件形狀上就是兩種完全不同的東西（垂直清單 vs. 水平底線頁籤），不會再被誤認成
-   同一層級疊在一起。 */
+/* 最外層「功能」導覽（v25.8.84 改版）：左側垂直選單＋右側內容的兩欄版面，
+   `twshop_render_admin_sidebar_nav()` 輸出 `<nav class="twshop-admin-sidebar">`，跟
+   下方各功能自己的子頁籤（`twshop_render_admin_tabs()`，維持 WordPress 原生
+   `nav-tab-wrapper` 底線樣式不變）在元件形狀上是兩種完全不同的東西。
+
+   v25.8.85 修正兩個實測發現的問題：
+   1. `.twshop-admin-layout` 補上 `margin-top`，跟上方 `<h1>終極電商` 拉開間距——原本
+      完全沒有設，`.twshop-admin-wrap > h1 { margin-bottom: 4px }` 這條舊規則其實選不到
+      實際的 h1（h1 巢狀在 `.twshop-dash-header` 裡，不是 `.twshop-admin-wrap` 的直接
+      子元素），標題跟側邊選單框幾乎貼在一起。
+   2. **手機斷點下側邊選單整個跑版的根因**：`.twshop-admin-sidebar` 的 `flex: 0 0 180px`
+      是替「桌面版橫向排列」（`.twshop-admin-layout` 主軸是水平）設計的固定寬度，但手機
+      斷點把 `.twshop-admin-layout` 的 `flex-direction` 改成 `column` 後，主軸變成垂直，
+      同一個 `flex-basis: 180px` 這時候意義完全不同——變成強迫側邊選單本身的「高度」
+      鎖死在 180px，裡面 `flex-wrap` 的選單項目被硬塞進這個過矮的固定高度，擠壓變形。
+      斷點內必須明確把 `flex` 覆寫成 `none`（高度改回依內容自然撐開），這是純 CSS
+      推理沒抓到、用瀏覽器 iframe 實際渲染 390px 寬版面才看出來的落差。 */
 .twshop-admin-layout {
 	display: flex;
 	align-items: flex-start;
 	gap: 24px;
+	margin-top: 20px;
 }
 .twshop-admin-sidebar {
 	flex: 0 0 180px;
@@ -61,9 +73,18 @@
 	flex: 1 1 auto;
 	min-width: 0; /* flex item 預設 min-width:auto，內容（例如寬表格）會撐爆容器，需明確歸零 */
 }
+/* 每個功能區塊自己的標題（twshop_admin_render_page()，v25.8.85 新增），輸出在
+   `.twshop-admin-content` 最前面，取代原本「不管切到哪個功能，畫面上只看得到最外層
+   固定的『終極電商』」的落差。 */
+.twshop-admin-section-title {
+	margin: 0 0 16px;
+	font-size: 20px;
+	line-height: 1.4;
+}
 @media (max-width: 600px) {
 	.twshop-admin-layout { flex-direction: column; }
 	.twshop-admin-sidebar {
+		flex: none; /* 見上方說明：桌面版的 flex-basis:180px 在直向排列下會變成鎖死高度 */
 		flex-direction: row;
 		flex-wrap: wrap;
 		width: 100%;

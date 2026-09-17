@@ -21,9 +21,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * dispatch 到」，取代舊版「該 slug 從未 add_submenu_page()，WordPress 核心直接擋下」
  * 的副作用式防線。
  *
- * v25.8.83 起版面改成左側垂直選單（twshop_render_admin_sidebar_nav()）＋右側內容的
+ * v25.8.84 起版面改成左側垂直選單（twshop_render_admin_sidebar_nav()）＋右側內容的
  * 兩欄版面（`.twshop-admin-layout`／`.twshop-admin-content`，assets/css/twshop-admin.css），
  * 取代前兩版疊在一起的雙層頁籤／分段藥丸做法，見該函式與 CLAUDE.md 對應章節。
+ *
+ * v25.8.85 起內容區最上方多印一個 `<h2>` 顯示目前功能名稱（例如「紅利點數」）——改版前
+ * 不管切到哪個功能，畫面上唯一的標題永遠是最外層固定的「終極電商」，使用者切換側邊選單
+ * 後不容易確認自己現在在哪一頁；直接用 $sections[$current]['label']，跟側邊選單顯示的
+ * 名稱保證一致，不需要另外維護一份標題文字。
  */
 function twshop_admin_render_page() {
     $sections = twshop_get_admin_sections();
@@ -33,6 +38,7 @@ function twshop_admin_render_page() {
         echo '<div class="twshop-admin-layout">';
         twshop_render_admin_sidebar_nav( $sections, $current );
         echo '<div class="twshop-admin-content">';
+        echo '<h2 class="twshop-admin-section-title">' . esc_html( $sections[ $current ]['label'] ) . '</h2>';
         call_user_func( $sections[ $current ]['render'] );
         echo '</div>';
         echo '</div>';

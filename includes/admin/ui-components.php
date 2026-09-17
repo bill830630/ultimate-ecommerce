@@ -219,19 +219,24 @@ function twshop_get_current_admin_section( array $sections ) {
 }
 
 /**
- * 最外層「功能」導覽列（v25.8.81 選單收攏新增）。跟 twshop_render_admin_tabs() 的差異：
- * 固定用 section 參數（避免跟內層 tab/subtab 撞名），頁面本身只有一個 slug，不需要
- * $page_slug 參數，改呼叫 twshop_admin_url() 組網址。
+ * 最外層「功能」導覽（v25.8.83 改版：左側垂直選單，取代 v25.8.81~82 的雙層頁籤／分段
+ * 藥丸做法——使用者實測回報那兩版看起來都像「兩排頁籤疊在一起」，分不清層級，改成跟
+ * `twshop_render_admin_tabs()`（各功能自己的子頁籤，維持原生底線頁籤樣式）形狀完全不同
+ * 的垂直清單，兩者不會再被誤認成同一種元件）。跟舊版 `twshop_render_admin_tabs()` 的
+ * 差異：固定用 section 參數（避免跟內層 tab/subtab 撞名），頁面本身只有一個 slug，不需要
+ * $page_slug 參數，改呼叫 twshop_admin_url() 組網址。只有 1 個功能（例如其餘可關閉模組
+ * 全部停用，只剩「儀表板」＋恆常存在的「系統設定」時仍會有 2 個，實務上不會發生 <2 的
+ * 情況，但沿用舊版「只有 1 個頁籤不輸出導覽」的既有慣例防呆）時不輸出。
  */
-function twshop_render_admin_section_tabs( array $sections, $current ) {
+function twshop_render_admin_sidebar_nav( array $sections, $current ) {
     if ( count( $sections ) < 2 ) return;
-    echo '<h2 class="nav-tab-wrapper twshop-section-nav">';
+    echo '<nav class="twshop-admin-sidebar">';
     foreach ( $sections as $slug => $info ) {
         $url   = twshop_admin_url( $slug );
-        $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
+        $class = 'twshop-admin-sidebar-link' . ( $slug === $current ? ' is-active' : '' );
         echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $info['label'] ) . '</a>';
     }
-    echo '</h2>';
+    echo '</nav>';
 }
 
 /**

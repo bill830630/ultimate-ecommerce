@@ -12,53 +12,69 @@
 .twshop-text-muted { color: var(--twshop-color-muted); }
 .twshop-text-danger { color: var(--twshop-color-danger); }
 
-.twshop-admin-wrap { max-width: 960px; }
+.twshop-admin-wrap { max-width: 1180px; }
 .twshop-admin-wrap > h1 { margin-bottom: 4px; }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
-/* 最外層「功能」選單（twshop_render_admin_section_tabs()，v25.8.81 選單收攏新增）：
-   刻意跟下面「功能內部頁籤」（twshop_render_admin_tabs()，未加這個 class，維持 WP 原生
-   底線頁籤樣式）做視覺分層——兩者都是 <h2 class="nav-tab-wrapper"> + <a class="nav-tab">，
-   若不额外處理，兩排長得一模一樣的底線頁籤會直接緊貼著疊在一起，使用者分不出這是「切換
-   功能」還是「同一功能裡的子頁籤」。改成分段式（segmented control）藥丸外觀＋底部留白，
-   讓「功能」層級一眼跟下面的子頁籤區隔開。 */
-.twshop-section-nav {
+/* 最外層「功能」導覽（v25.8.83 改版，取代 v25.8.81~82 短命的雙層頁籤/分段藥丸做法）：
+   改成左側垂直選單＋右側內容的兩欄版面，`twshop_render_admin_sidebar_nav()` 輸出
+   `<nav class="twshop-admin-sidebar">`，跟下方各功能自己的子頁籤
+   （`twshop_render_admin_tabs()`，維持 WordPress 原生 `nav-tab-wrapper` 底線樣式不變）
+   在元件形狀上就是兩種完全不同的東西（垂直清單 vs. 水平底線頁籤），不會再被誤認成
+   同一層級疊在一起。 */
+.twshop-admin-layout {
 	display: flex;
-	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 24px;
+}
+.twshop-admin-sidebar {
+	flex: 0 0 180px;
+	display: flex;
+	flex-direction: column;
 	gap: 2px;
-	background: #f0f0f1;
-	border: none;
+	background: #fff;
+	border: 1px solid #ccd0d4;
 	border-radius: 6px;
-	padding: 4px;
-	margin: 0 0 20px;
+	padding: 6px;
 }
-.twshop-section-nav .nav-tab {
-	float: none;
-	border: none;
-	background: transparent;
+.twshop-admin-sidebar-link {
+	display: block;
+	padding: 10px 12px;
 	border-radius: 4px;
-	margin: 0;
-	padding: 8px 14px;
-	font-weight: 600;
-	color: var(--twshop-color-muted);
+	border-left: 3px solid transparent;
+	color: var(--twshop-color-text);
+	text-decoration: none;
+	font-weight: 500;
 }
-.twshop-section-nav .nav-tab:hover,
-.twshop-section-nav .nav-tab:focus {
-	background: rgba(255, 255, 255, .6);
+.twshop-admin-sidebar-link:hover,
+.twshop-admin-sidebar-link:focus {
+	background: #f6f7f7;
 	color: var(--twshop-color-text);
 }
-.twshop-section-nav .nav-tab-active,
-.twshop-section-nav .nav-tab-active:hover,
-.twshop-section-nav .nav-tab-active:focus,
-.twshop-section-nav .nav-tab-active:focus:active {
-	background: #fff;
+.twshop-admin-sidebar-link.is-active {
+	background: #f0f6ff;
+	border-left-color: #2962ff;
 	color: #2962ff;
-	border: none;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+	font-weight: 600;
 }
-@media (max-width: 480px) {
-	.twshop-section-nav { width: 100%; }
-	.twshop-section-nav .nav-tab { flex: 1 1 auto; text-align: center; }
+.twshop-admin-content {
+	flex: 1 1 auto;
+	min-width: 0; /* flex item 預設 min-width:auto，內容（例如寬表格）會撐爆容器，需明確歸零 */
+}
+@media (max-width: 600px) {
+	.twshop-admin-layout { flex-direction: column; }
+	.twshop-admin-sidebar {
+		flex-direction: row;
+		flex-wrap: wrap;
+		width: 100%;
+	}
+	.twshop-admin-sidebar-link {
+		flex: 1 1 auto;
+		text-align: center;
+		border-left: none;
+		border-bottom: 3px solid transparent;
+	}
+	.twshop-admin-sidebar-link.is-active { border-left: none; border-bottom-color: #2962ff; }
 }
 
 .twshop-panel {

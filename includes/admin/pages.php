@@ -20,14 +20,22 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * call_user_func()，沒有第二條路徑能繞過這個查找，等同於「模組關閉的功能永遠不會被
  * dispatch 到」，取代舊版「該 slug 從未 add_submenu_page()，WordPress 核心直接擋下」
  * 的副作用式防線。
+ *
+ * v25.8.83 起版面改成左側垂直選單（twshop_render_admin_sidebar_nav()）＋右側內容的
+ * 兩欄版面（`.twshop-admin-layout`／`.twshop-admin-content`，assets/css/twshop-admin.css），
+ * 取代前兩版疊在一起的雙層頁籤／分段藥丸做法，見該函式與 CLAUDE.md 對應章節。
  */
 function twshop_admin_render_page() {
     $sections = twshop_get_admin_sections();
     $current  = twshop_get_current_admin_section( $sections );
 
     twshop_render_admin_page( '終極電商', function () use ( $sections, $current ) {
-        twshop_render_admin_section_tabs( $sections, $current );
+        echo '<div class="twshop-admin-layout">';
+        twshop_render_admin_sidebar_nav( $sections, $current );
+        echo '<div class="twshop-admin-content">';
         call_user_func( $sections[ $current ]['render'] );
+        echo '</div>';
+        echo '</div>';
     } );
 }
 

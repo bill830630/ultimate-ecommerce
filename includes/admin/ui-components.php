@@ -230,6 +230,7 @@ function twshop_get_current_admin_section( array $sections ) {
  */
 function twshop_render_admin_sidebar_nav( array $sections, $current ) {
     if ( count( $sections ) < 2 ) return;
+
     echo '<nav class="twshop-admin-sidebar">';
     foreach ( $sections as $slug => $info ) {
         $url   = twshop_admin_url( $slug );
@@ -237,6 +238,19 @@ function twshop_render_admin_sidebar_nav( array $sections, $current ) {
         echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $info['label'] ) . '</a>';
     }
     echo '</nav>';
+
+    // 手機斷點（≤600px，assets/css/twshop-admin.css）改用下拉選單取代垂直選單，CSS 讓
+    // 兩者互斥顯示（v25.8.85 手機版垂直選單擠壓變形的問題確認修好後，使用者接著要求
+    // 手機版乾脆換成下拉選單，比擠成一團的清單更好操作）。用 onchange 直接導頁是
+    // WordPress 核心自己在月份/分類篩選下拉選單的既有寫法（例如 wp-admin 的
+    // `?php the_taxonomy_dropdown()` 系列），不需要為了這一個 onchange 額外建立、
+    // 註冊一支 JS 檔案。
+    echo '<select class="twshop-admin-sidebar-select" onchange="if(this.value)window.location.href=this.value;">';
+    foreach ( $sections as $slug => $info ) {
+        $url = twshop_admin_url( $slug );
+        echo '<option value="' . esc_url( $url ) . '"' . selected( $slug, $current, false ) . '>' . esc_html( $info['label'] ) . '</option>';
+    }
+    echo '</select>';
 }
 
 /**

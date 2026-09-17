@@ -81,21 +81,26 @@
 	font-size: 20px;
 	line-height: 1.4;
 }
+/* 手機版切換下拉選單（v25.8.86）：桌面版預設隱藏，跟垂直選單互斥顯示，見下方斷點。 */
+.twshop-admin-sidebar-select { display: none; }
 @media (max-width: 600px) {
 	.twshop-admin-layout { flex-direction: column; }
-	.twshop-admin-sidebar {
-		flex: none; /* 見上方說明：桌面版的 flex-basis:180px 在直向排列下會變成鎖死高度 */
-		flex-direction: row;
-		flex-wrap: wrap;
+	/* v25.8.85 曾讓垂直選單在手機版改成橫向換行排列，使用者實測後認為擠成一團的按鈕格
+	   不好操作，改成完全隱藏垂直選單、換成上面的下拉選單（.twshop-admin-sidebar-select，
+	   twshop_render_admin_sidebar_nav()）——同一份 $sections 資料兩種輸出都有，CSS 只
+	   負責二選一顯示，不是靠 JS 動態切換，也不需要判斷斷點的 JS。 */
+	.twshop-admin-sidebar { display: none; }
+	.twshop-admin-sidebar-select {
+		display: block;
 		width: 100%;
+		padding: 10px 12px;
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--twshop-color-text);
+		background: #fff;
+		border: 1px solid #ccd0d4;
+		border-radius: 6px;
 	}
-	.twshop-admin-sidebar-link {
-		flex: 1 1 auto;
-		text-align: center;
-		border-left: none;
-		border-bottom: 3px solid transparent;
-	}
-	.twshop-admin-sidebar-link.is-active { border-left: none; border-bottom-color: #2962ff; }
 }
 
 .twshop-panel {

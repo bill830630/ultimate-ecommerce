@@ -34,7 +34,9 @@ function twshop_admin_render_page() {
 
     twshop_render_admin_page( '終極電商', function () use ( $sections, $current ) {
         twshop_render_admin_section_tabs( $sections, $current );
+        echo '<div class="twshop-admin-content">';
         call_user_func( $sections[ $current ]['render'] );
+        echo '</div>';
     } );
 }
 
@@ -106,4 +108,3 @@ function twshop_system_section() {
     elseif ( 'coupons' === $current ) twshop_marketing_coupons_tab();
     elseif ( 'shopee' === $current ) twshop_shopee_settings_tab();
 }
-

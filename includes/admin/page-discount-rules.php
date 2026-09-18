@@ -78,7 +78,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
     ob_start();
     ?>
     <?php // novalidate：卡片裡有依類型隱藏的欄位（例如買N送N 數量存著 0），瀏覽器內建驗證會因為隱藏欄位不合格而靜默擋下送出、又無法顯示提示；改由 discount-rules.js 自行檢查。 ?>
-    <form novalidate class="twshop-rule-form twshop-rule-card<?php echo $enabled === 'no' ? ' twshop-rule-disabled' : ''; ?>" data-rule-name="<?php echo esc_attr( $name ); ?>" data-rule-type="<?php echo esc_attr( $type ); ?>" data-rule-enabled="<?php echo esc_attr( $enabled ); ?>" style="background:#fff; border:1px solid #ccd0d4; margin-bottom:20px; border-radius:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <form novalidate class="twshop-rule-form twshop-rule-card<?php echo $enabled === 'no' ? ' twshop-rule-disabled' : ''; ?>" data-rule-name="<?php echo esc_attr( $name ); ?>" data-rule-type="<?php echo esc_attr( $type ); ?>" data-rule-enabled="<?php echo esc_attr( $enabled ); ?>">
         <input type="hidden" name="rule_id" value="<?php echo esc_attr($r_id); ?>" />
         <?php wp_nonce_field( 'twshop_admin_action', 'twshop_nonce' ); ?>
 
@@ -525,4 +525,3 @@ function twshop_ajax_reorder_rules() {
     twshop_get_rules( true );
     wp_send_json_success();
 }
-

@@ -129,7 +129,7 @@ function twshop_get_account_tab_row_html( $slug, $label, $enabled, $icon = '' ) 
     $name_option = array( 'my-membership' => 'wc_membership_tab_name', 'my-coupons' => 'wc_general_tab_name' );
     ob_start();
     ?>
-    <div class="twshop-tab-row" style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #ccd0d4; border-radius:4px; padding:10px 14px; margin-bottom:8px;">
+    <div class="twshop-tab-row">
         <span class="drag-handle twshop-text-muted" style="cursor:move;"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
         <input type="hidden" name="wc_account_tabs_settings[slug][]" value="<?php echo esc_attr( $slug ); ?>" />
         <input type="hidden" class="tab-enabled-input" name="wc_account_tabs_settings[enabled][]" value="<?php echo esc_attr( $is_logout ? 'yes' : $enabled ); ?>" />
@@ -206,8 +206,8 @@ function twshop_get_tier_row_html( $t ) {
     $point_multiplier = $t['point_multiplier'] ?? '1';
     ob_start();
     ?>
-    <div class="twshop-tier-card" style="background:#fff; border:1px solid #ccd0d4; margin-bottom:15px; border-radius:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <div class="twshop-card-header" style="padding:15px; background:#f7f7f7; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-weight:bold; border-bottom:1px solid #eee;">
+    <div class="twshop-tier-card">
+        <div class="twshop-card-header">
             <span>
                 <span class="drag-handle twshop-text-muted" style="cursor:move; margin-right:10px;" title="拖曳排序"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
                 <?php echo $name ? esc_html($name) : '新等級'; ?>
@@ -253,4 +253,3 @@ function twshop_get_tier_row_html( $t ) {
     </div>
     <?php return ob_get_clean();
 }
-

@@ -15,7 +15,9 @@
 .twshop-admin-wrap {
 	max-width: none;
 	margin: 0;
-	padding: 0 0 40px;
+	padding: 0;
+	min-height: calc(100vh - 32px);
+	box-sizing: border-box;
 	background: #f0f0f1;
 }
 /* v25.8.89：大標題字級比照終極登入（ultimate-login）的 .wclon-admin-header h1，統一 21px
@@ -27,29 +29,14 @@
 .twshop-dash-header h1 { font-size: 21px; margin-bottom: 4px; }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
-/* v25.8.88：最外層「功能」導覽 v25.8.84~86 那段左側垂直選單／手機版下拉選單的自訂元件
-   與這裡對應的 CSS 已整個移除。使用者拿 WooCommerce 設定頁（設定 ▸ 運送方式）當參考，
-   指出 WooCommerce 對這種「大分類 + 分類內子項目」的兩層導覽，用的是兩種原生元件疊出來
-   的層次感，不是自創一個新元件去跟下一層做視覺區隔：
-     - 最外層（一般／商品／運送方式…）＝ `<h2 class="nav-tab-wrapper">`（帶邊框的分頁籤）
-     - 分類內子項目（運送區域｜送貨設定｜類別）＝ `<ul class="subsubsub">`（純文字＋豎線）
-   這兩種都是 wp-admin 內建、隨處可見的核心樣式，不需要任何額外 CSS，換頁時瀏覽器早就
-   看得懂、也肯定跟其他所有 wp-admin 頁面的既有視覺語言一致——這才是「融入原本的介面」
-   實際的意思，不是「顏色調得多順眼」。改版對照：
-     - 最外層「功能」導覽（儀表板／會員分級／…／系統設定）：改回 nav-tab-wrapper，見
-       `twshop_render_admin_section_tabs()`（`ui-components.php`）。
-     - 各功能自己的子頁籤（例如紅利點數的 6 個頁籤）：從 nav-tab-wrapper 改成 subsubsub，
-       見 `twshop_render_admin_tabs()`（`ui-components.php`）——這才是原本 v25.8.81 兩層
-       都用 nav-tab-wrapper「疊在一起分不清層級」的真正解法：兩層本來就該用不同的原生
-       元件，而不是把其中一層改造成自訂元件。
-   兩者皆為 wp-admin 內建樣式，故這裡不需要任何自訂 CSS；比照 v25.8.85 之前，`<h1>終極
-   電商` 與底下 nav-tab-wrapper 之間的間距完全交給瀏覽器預設 margin，不需要手動调整。 */
+/* 主頁籤沿用 nav-tab-wrapper、分類內頁籤沿用 subsubsub；下方樣式只調整這兩層在
+   WooCommerce 設定頁中的位置與外觀，保留 WordPress 原生導覽語意。 */
 
 .twshop-panel {
 	background: #fff;
 	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	margin: 24px 30px 0;
+	border-radius: 0;
+	margin: 24px 0 0;
 	overflow: hidden;
 }
 
@@ -125,6 +112,10 @@
 	color: var(--wp-admin-theme-color, #2271b1);
 	box-shadow: none;
 }
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+	outline-offset: 3px;
+}
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active,
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:hover,
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:focus {
@@ -134,8 +125,10 @@
 .twshop-admin-wrap > .subsubsub {
 	float: none;
 	margin: 0;
-	padding: 16px 30px 0;
+	padding: 0;
 }
+.twshop-admin-content { padding: 24px 30px 40px; }
+.twshop-admin-content > .subsubsub:first-child { padding: 0 0 8px; }
 
 /* 按鈕送出中的視覺提示，見 points-import.js（原本也給已移除的授權頁籤共用，現在只剩這一處） */
 .twshop-btn-busy { opacity: .7; cursor: wait !important; }
@@ -196,15 +189,15 @@
    ========================================================================= */
 
 /* 儀表板頁面，見 twshop_dashboard_render_page() */
-.twshop-dash-stats{ display:flex; flex-wrap:wrap; gap:16px; margin:24px 30px; }
-.twshop-dash-stat{ display:flex; flex-direction:column; align-items:center; background:#fff; border:1px solid #c3c4c7; border-radius:4px; padding:18px 20px; flex:1; min-width:140px; text-align:center; box-shadow:none; }
+.twshop-dash-stats{ display:flex; flex-wrap:wrap; gap:16px; margin:0 0 24px; }
+.twshop-dash-stat{ display:flex; flex-direction:column; align-items:center; background:#fff; border:1px solid #c3c4c7; border-radius:0; padding:18px 20px; flex:1; min-width:140px; text-align:center; box-shadow:none; }
 .twshop-dash-stat__icon{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin-bottom:8px; border-radius:50%; background:#eef4fb; color:var(--twshop-color-text); }
 .twshop-dash-stat__icon svg{ width:18px; height:18px; stroke:currentColor; }
 .twshop-dash-stat__value{ display:block; font-size:24px; font-weight:600; color:var(--twshop-color-text); }
 .twshop-dash-stat__label{ display:block; font-size:12px; color:var(--twshop-color-muted); margin-top:4px; }
 
 .twshop-dash-modules{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
-.twshop-dash-module{ display:block; border:1px solid #dcdcde; border-radius:4px; padding:14px; background:#fff; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
+.twshop-dash-module{ display:block; border:1px solid #dcdcde; border-radius:0; padding:14px; background:#fff; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
 a.twshop-dash-module:hover, a.twshop-dash-module:focus{ border-color:var(--wp-admin-theme-color, #2271b1); box-shadow:0 0 0 1px var(--wp-admin-theme-color, #2271b1); background:#fff; }
 .twshop-dash-module.is-disabled{ opacity:.6; }
 .twshop-dash-module__head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
@@ -254,6 +247,11 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 
 /* 可摺疊卡片（折扣規則卡片與會員等級卡片共用）。這三條原本在
    twshop_marketing_rules_tab() 與 twshop_member_tiers_tab() 各寫了一份、逐字相同。 */
+.twshop-tier-card, .twshop-rule-card{ background:#fff; border:1px solid #c3c4c7; border-radius:0; box-shadow:none; }
+.twshop-tier-card{ margin-bottom:15px; }
+.twshop-tier-card .twshop-card-header{ display:flex; justify-content:space-between; align-items:center; padding:15px; background:#fff; border-bottom:1px solid #dcdcde; cursor:pointer; font-weight:600; }
+.twshop-rule-card{ margin-bottom:20px; }
+.twshop-tab-row{ display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #c3c4c7; padding:10px 14px; margin-bottom:8px; }
 .twshop-card-header:hover{ background:#eee!important; }
 .twshop-card-toggle-icon{ color:var(--twshop-color-muted); transition:transform 0.2s; }
 .twshop-card-toggle-icon.is-open{ transform:rotate(180deg); }
@@ -345,7 +343,7 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 /* 規則名稱輸入欄在卡片標題列（v25.8.42） */
 .twshop-rule-name-input{ flex:1 1 200px; min-width:160px; max-width:420px; font-weight:600; }
 /* 規則卡片標題列單行排列（v25.8.45）：名稱欄固定寬度，其餘為立即生效的時間與切換鈕，窄螢幕自動換行 */
-.twshop-rule-card .twshop-card-header{ padding:10px 15px; background:#f7f7f7; cursor:pointer; border-bottom:1px solid #eee; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+.twshop-rule-card .twshop-card-header{ padding:10px 15px; background:#fff; cursor:pointer; border-bottom:1px solid #dcdcde; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
 .twshop-rule-card .twshop-card-header .drag-handle{ cursor:move; color:var(--twshop-color-muted); display:inline-flex; }
 .twshop-rule-card .twshop-card-header .twshop-card-toggle-icon{ margin-left:auto; display:inline-flex; }
 .twshop-rule-card .twshop-rule-name-input{ flex:0 1 200px; width:200px; min-width:120px; max-width:none; }
@@ -384,12 +382,15 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    清除連結硬擠在同一行，寬度加總遠超過手機螢幕，只能整批被壓縮到難以辨識或直接橫向溢出。
    規則名稱欄同理是固定寬度，窄螢幕沒有縮的空間。這裡只調整這兩處，欄位格線本身在 700px
    已經是單欄、不需要再處理。 */
-@media (max-width: 480px){
+@media (max-width: 782px){
 	.twshop-dash-header{ padding:20px 16px 12px; }
 	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
-	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; font-size:14px; }
-	.twshop-admin-wrap > .subsubsub{ padding-left:16px; padding-right:16px; }
-	.twshop-panel, .twshop-dash-stats{ margin-left:16px; margin-right:16px; }
+	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
+	.twshop-admin-content{ padding:20px 16px 32px; }
+}
+@media (max-width: 480px){
+	.twshop-admin-wrap{ min-height:calc(100vh - 46px); }
+	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ font-size:16px; }
 	.twshop-rule-card .twshop-card-header{ gap:8px 10px; }
 	.twshop-rule-card .twshop-rule-name-input{ flex:1 1 100%; width:auto; min-width:0; }
 	.twshop-header-schedule{ width:100%; }

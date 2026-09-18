@@ -14,17 +14,19 @@
 
 .twshop-admin-wrap {
 	max-width: none;
-	margin: 0;
+	margin: 0 0 0 -20px;
 	padding: 0;
+	width: calc(100% + 20px);
 	min-height: calc(100vh - 32px);
 	box-sizing: border-box;
 	background: #f0f0f1;
 }
 .twshop-dash-header h1 {
 	margin: 0;
-	font-size: 18px;
-	font-weight: 600;
-	line-height: 1.35;
+	padding: 0;
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 21px;
 }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
@@ -64,10 +66,12 @@
 .twshop-dash-header {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 22px 30px 12px;
+	min-height: 60px;
+	padding: 0 24px;
+	box-sizing: border-box;
 }
 
 /* 沿用 WooCommerce 設定頁的無框線頁籤與淺灰設定工作區；選擇器限於本外掛，
@@ -77,18 +81,18 @@
 	flex-wrap: wrap;
 	gap: 24px;
 	margin: 0;
-	padding: 0 30px;
+	padding: 9px 24px 0;
 	border: 0;
 	border-bottom: 1px solid #dcdcde;
 }
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab {
 	float: none;
 	margin: 0;
-	padding: 0 0 12px;
+	padding: 0 0 10px;
 	border: 0;
 	background: transparent;
 	color: #50575e;
-	font-size: 14px;
+	font-size: 13px;
 	font-weight: 500;
 	line-height: 20px;
 	text-decoration: none;
@@ -106,11 +110,13 @@
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:hover,
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:focus {
 	border-bottom: 2px solid var(--wp-admin-theme-color, #2271b1);
+	margin-bottom: -1px;
 	color: #1d2327;
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
 /* 分類內一律是文字型次頁籤；分隔線由 CSS 產生，換行時可隱藏。 */
 .twshop-subtabs { margin: 0 0 24px; }
+.twshop-admin-content > .twshop-subtabs:first-child { margin: -8px 0 16px; }
 .twshop-subtabs .subsubsub {
 	display: flex;
 	flex-wrap: wrap;
@@ -119,14 +125,15 @@
 	float: none;
 	margin: 0;
 	padding: 0;
+	line-height: 26px;
 }
 .twshop-subtabs .subsubsub li { display: inline-flex; align-items: center; }
 .twshop-subtabs .subsubsub li + li::before {
 	content: "|";
-	margin: 0 10px;
-	color: #646970;
+	margin: 0 4px;
+	color: #2271b1;
 }
-.twshop-subtabs .subsubsub a { padding: 0; line-height: 1.6; }
+.twshop-subtabs .subsubsub a { padding: 0; line-height: 26px; }
 .twshop-admin-content .twshop-section-title {
 	margin: 0 0 16px;
 	font-size: 16px;
@@ -393,8 +400,9 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    規則名稱欄同理是固定寬度，窄螢幕沒有縮的空間。這裡只調整這兩處，欄位格線本身在 700px
    已經是單欄、不需要再處理。 */
 @media (max-width: 782px){
-	.twshop-dash-header{ padding:20px 16px 12px; }
-	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
+	.twshop-admin-wrap{ margin-left:-10px; width:calc(100% + 10px); }
+	.twshop-dash-header{ padding:0 16px; }
+	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:9px 16px 0; overflow-x:auto; flex-wrap:nowrap; }
 	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
 	.twshop-admin-content{ padding:20px 16px 32px; }
 	.twshop-subtabs .subsubsub{ column-gap:16px; }

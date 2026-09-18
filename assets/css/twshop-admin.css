@@ -12,7 +12,12 @@
 .twshop-text-muted { color: var(--twshop-color-muted); }
 .twshop-text-danger { color: var(--twshop-color-danger); }
 
-.twshop-admin-wrap { max-width: 960px; }
+.twshop-admin-wrap {
+	max-width: none;
+	margin: 0;
+	padding: 0 0 40px;
+	background: #f0f0f1;
+}
 /* v25.8.89：大標題字級比照終極登入（ultimate-login）的 .wclon-admin-header h1，統一 21px
    ——WP 核心 .wrap h1 預設是 23px，兩個外掛共用「快捷鍵」父選單、後台側邊欄兩個子選單
    來回切換時字級忽大忽小，使用者回報「終極電商和終極登入的大標題字級不一致」。
@@ -42,9 +47,9 @@
 
 .twshop-panel {
 	background: #fff;
-	border: 1px solid #ccd0d4;
-	border-radius: 6px;
-	margin-top: 24px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	margin: 24px 30px 0;
 	overflow: hidden;
 }
 
@@ -55,9 +60,9 @@
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 12px;
-	padding: 14px 20px;
-	background: #f6f7f7;
-	border-bottom: 1px solid #ccd0d4;
+	padding: 16px 20px;
+	background: #fff;
+	border-bottom: 1px solid #dcdcde;
 }
 
 .twshop-panel-head h2,
@@ -74,14 +79,63 @@
 	justify-content: center;
 	width: 22px;
 	height: 22px;
-	border-radius: 6px;
-	background: #eef4fb;
-	color: var(--twshop-color-text);
+	border-radius: 4px;
+	background: #f0f6fc;
+	color: var(--wp-admin-theme-color, #2271b1);
 	flex-shrink: 0;
 }
 .twshop-panel-head-icon svg { width: 13px; height: 13px; stroke: currentColor; }
 
-.twshop-dash-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.twshop-dash-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 24px 30px 16px;
+	background: #fff;
+}
+
+/* 沿用 WooCommerce 設定頁的白色頁首、無框線頁籤與淺灰設定工作區；選擇器限於本外掛，
+   不覆寫 wp-admin 其他頁面的原生 nav-tab。 */
+.twshop-admin-wrap > .nav-tab-wrapper {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 24px;
+	margin: 0;
+	padding: 0 30px;
+	border: 0;
+	border-bottom: 1px solid #dcdcde;
+	background: #fff;
+}
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab {
+	float: none;
+	margin: 0;
+	padding: 0 0 10px;
+	border: 0;
+	background: transparent;
+	color: #50575e;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 20px;
+	text-decoration: none;
+}
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab:hover,
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab:focus {
+	color: var(--wp-admin-theme-color, #2271b1);
+	box-shadow: none;
+}
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active,
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:hover,
+.twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active:focus {
+	border-bottom: 2px solid var(--wp-admin-theme-color, #2271b1);
+	color: #1d2327;
+}
+.twshop-admin-wrap > .subsubsub {
+	float: none;
+	margin: 0;
+	padding: 16px 30px 0;
+}
 
 /* 按鈕送出中的視覺提示，見 points-import.js（原本也給已移除的授權頁籤共用，現在只剩這一處） */
 .twshop-btn-busy { opacity: .7; cursor: wait !important; }
@@ -142,16 +196,16 @@
    ========================================================================= */
 
 /* 儀表板頁面，見 twshop_dashboard_render_page() */
-.twshop-dash-stats{ display:flex; flex-wrap:wrap; gap:16px; margin:20px 0; }
-.twshop-dash-stat{ display:flex; flex-direction:column; align-items:center; background:#fff; border:1px solid #e2e4e7; border-radius:8px; padding:18px 20px; flex:1; min-width:140px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+.twshop-dash-stats{ display:flex; flex-wrap:wrap; gap:16px; margin:24px 30px; }
+.twshop-dash-stat{ display:flex; flex-direction:column; align-items:center; background:#fff; border:1px solid #c3c4c7; border-radius:4px; padding:18px 20px; flex:1; min-width:140px; text-align:center; box-shadow:none; }
 .twshop-dash-stat__icon{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin-bottom:8px; border-radius:50%; background:#eef4fb; color:var(--twshop-color-text); }
 .twshop-dash-stat__icon svg{ width:18px; height:18px; stroke:currentColor; }
 .twshop-dash-stat__value{ display:block; font-size:24px; font-weight:600; color:var(--twshop-color-text); }
 .twshop-dash-stat__label{ display:block; font-size:12px; color:var(--twshop-color-muted); margin-top:4px; }
 
 .twshop-dash-modules{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
-.twshop-dash-module{ display:block; border:1px solid #e2e4e7; border-radius:6px; padding:14px; background:#fbfbfc; text-decoration:none; color:inherit; transition:.15s; }
-a.twshop-dash-module:hover{ border-color:#2271b1; box-shadow:0 1px 4px rgba(0,0,0,.06); background:#fff; }
+.twshop-dash-module{ display:block; border:1px solid #dcdcde; border-radius:4px; padding:14px; background:#fff; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
+a.twshop-dash-module:hover, a.twshop-dash-module:focus{ border-color:var(--wp-admin-theme-color, #2271b1); box-shadow:0 0 0 1px var(--wp-admin-theme-color, #2271b1); background:#fff; }
 .twshop-dash-module.is-disabled{ opacity:.6; }
 .twshop-dash-module__head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .twshop-dash-module__head strong{ flex:1; }
@@ -331,6 +385,11 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    規則名稱欄同理是固定寬度，窄螢幕沒有縮的空間。這裡只調整這兩處，欄位格線本身在 700px
    已經是單欄、不需要再處理。 */
 @media (max-width: 480px){
+	.twshop-dash-header{ padding:20px 16px 12px; }
+	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
+	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; font-size:14px; }
+	.twshop-admin-wrap > .subsubsub{ padding-left:16px; padding-right:16px; }
+	.twshop-panel, .twshop-dash-stats{ margin-left:16px; margin-right:16px; }
 	.twshop-rule-card .twshop-card-header{ gap:8px 10px; }
 	.twshop-rule-card .twshop-rule-name-input{ flex:1 1 100%; width:auto; min-width:0; }
 	.twshop-header-schedule{ width:100%; }

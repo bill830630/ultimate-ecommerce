@@ -395,7 +395,7 @@ function twshop_wallet_settings_tab() {
         </div>
 
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'pencil', '儲值金提示文字', '購物車/結帳頁儲值金折抵區塊與不可使用時的提示文字。可用 <code>{amount}</code>/<code>{names}</code> 依欄位說明代入對應數值。' ); ?>
+            <?php twshop_panel_head( 'pencil', '儲值金提示文字', '設定購物車與結帳頁的儲值金文案；可用變數請參照各欄位說明。' ); ?>
             <div class="twshop-panel-body">
                 <table class="form-table">
                     <tr><th scope="row">區塊標題</th><td><input type="text" name="wc_wallet_ui_heading" value="<?php echo esc_attr( $w_ui_heading ); ?>" class="regular-text" /></td></tr>

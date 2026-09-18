@@ -344,7 +344,7 @@ function twshop_points_texts_tab() {
             <?php settings_fields( 'wc_points_texts_group' ); ?>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'pencil', '點數提示文字', '購物車/結帳頁點數折抵區塊與不可使用時的提示文字。可用 <code>{term}</code> 代表上方設定的點數名稱，其餘 <code>{amount}</code>/<code>{date}</code>/<code>{rate}</code>/<code>{discount}</code>/<code>{names}</code> 依欄位說明代入對應數值。' ); ?>
+                <?php twshop_panel_head( 'pencil', '點數提示文字', '設定購物車與結帳頁的點數文案；可用變數請參照各欄位說明。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">
                         <tr><th scope="row">區塊標題</th><td><input type="text" name="wc_points_ui_heading" value="<?php echo esc_attr( $p_ui_heading ); ?>" class="regular-text" /></td></tr>
@@ -438,7 +438,7 @@ function twshop_points_redeem_tab() {
             <?php settings_fields( 'wc_points_redeem_group' ); ?>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'gift', '點數兌換商品', '設定會員可直接用' . esc_html( $p_term ) . '兌換的商品，與上方現金折抵機制分開運作：兌換時商品售價歸零、直接扣除對應' . esc_html( $p_term ) . '，不受「單筆最高折抵上限」影響。可個別加入單一商品，也可整批加入某個商品分類/標籤底下所有已上架商品（含日後新增進該分類/標籤的商品，不需要再手動加入）。' ); ?>
+                <?php twshop_panel_head( 'gift', '點數兌換商品', '選擇可用' . esc_html( $p_term ) . '直接兌換的商品、分類或標籤；此功能與現金折抵分開計算。' ); ?>
                 <div class="twshop-panel-body">
                     <?php echo twshop_render_redeemable_products_field( $redeemable_products, $cat_options, $tag_options ); ?>
                 </div>
@@ -457,7 +457,7 @@ function twshop_points_import_tab() {
     $p_term = twshop_points_term();
     ?>
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'upload', '匯入點數資料', '以 CSV 檔案批次為現有會員增加' . esc_html( $p_term ) . '，常用於從舊系統遷移會員點數餘額。<br>CSV 每行一筆，欄位依序為 <code>email,points,備註</code>：第一欄需為會員註冊 Email；第二欄為要疊加的' . esc_html( $p_term ) . '（正整數，會加總到會員目前餘額上，不會覆蓋既有點數）；第三欄為選填備註，會寫入該筆點數異動紀錄，留空則記錄為「資料匯入」。找不到對應會員或格式錯誤的行會略過並列出，不影響其他行的匯入。', array(
+            <?php twshop_panel_head( 'upload', '匯入點數資料', '上傳 CSV，欄位依序為 <code>email,points,備註</code>（備註選填）；只增加' . esc_html( $p_term ) . '，不覆蓋原有餘額。', array(
                     'url'   => wp_nonce_url( admin_url( 'admin-post.php?action=twshop_download_points_import_template' ), 'twshop_download_points_import_template' ),
                     'label' => '下載範例 CSV',
                     'class' => 'button',

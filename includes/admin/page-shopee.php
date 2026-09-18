@@ -117,7 +117,7 @@ function twshop_shopee_auth_tab() {
                 // $hint 會被 twshop_panel_head() 包進 <p class="twshop-panel-hint">，
                 // 這裡不能再自己包一層 <p>（瀏覽器遇到巢狀 <p> 會提前關閉外層，說明文字
                 // 就拿不到 .twshop-panel-hint 的樣式）。
-                '台灣蝦皮 Open API 目前只開放給商城賣家（Shopee Mall）或第三方系統供應商（ERP）申請，一般賣場帳號多半申請不過。尚未取得 <code>partner_id</code>/<code>partner_key</code> 前，以下設定僅供離線驗證架構，實際打蝦皮端點會失敗。<br>timestamp 是秒級 Unix time，蝦皮容忍誤差很小，本機（伺服器）時鐘偏移會讓全部簽章失敗。'
+                '需先取得蝦皮 Open API 的 Partner ID 與 Partner Key；未取得前無法呼叫蝦皮 API。請確認伺服器時間準確，以免簽章失敗。'
             );
             ?>
             <div class="twshop-panel-body">

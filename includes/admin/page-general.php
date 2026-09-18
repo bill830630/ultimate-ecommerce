@@ -49,7 +49,7 @@ function twshop_marketing_coupons_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'pencil', '優惠券卡片文字', '購物車/結帳頁彈出視窗與帳戶「我的優惠券」頁卡片上的按鈕文字。可用 <code>{noun}</code> 代表上方設定的「優惠券」名稱。' ); ?>
+                <?php twshop_panel_head( 'pencil', '優惠券卡片文字', '設定優惠券彈窗與卡片的按鈕文字；<code>{noun}</code> 代表優惠券名稱。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">
                         <tr><th scope="row">帳戶頁「已使用」按鈕</th><td><input type="text" name="wc_coupon_btn_used_text" value="<?php echo esc_attr( $btn_used_text ); ?>" class="regular-text" /></td></tr>
@@ -114,7 +114,7 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'badge', '商品折扣徽章', '商品彙整頁（商店、分類、標籤等列表頁）與商品頁上的折扣角標，直接沿用主題原生的特價角標樣式與位置，只替換裡面的文字。' ); ?>
+                <?php twshop_panel_head( 'badge', '商品折扣徽章', '只替換商店列表與商品頁特價角標的文字，保留主題樣式。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">
                         <tr>
@@ -138,7 +138,7 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'shopping-cart', '傳統購物車自動顯示區塊', '控制傳統（shortcode）購物車頁面是否自動注入以下區塊。使用 WooCommerce Cart Block 時不受影響。' ); ?>
+                <?php twshop_panel_head( 'shopping-cart', '傳統購物車自動顯示區塊', '僅適用傳統短代碼購物車；不影響 WooCommerce Cart Block。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">
                         <tr>
@@ -208,7 +208,7 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'package', '運送與付款方式名稱', '前台結帳頁顯示的名稱。<strong>留空則沿用該方式原本的名稱</strong>，不影響任何既有設定。WooCommerce 核心的運送/付款方式本來就能在自己的設定頁改名，這裡主要是給沒有開放名稱欄位的第三方外掛（例如綠界）用的。已成立的訂單不受影響——訂單上的名稱是結帳當下寫入的快照。' ); ?>
+                <?php twshop_panel_head( 'package', '運送與付款方式名稱', '修改結帳頁顯示名稱；留空沿用原名稱，已成立的訂單不受影響。' ); ?>
                 <div class="twshop-panel-body">
                     <?php
                     $shipping_titles = get_option( 'wc_shipping_method_titles', array() );
@@ -273,7 +273,7 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'tag', '商品網址（slug）', '中文商品名稱在網址上會變成 <code>%e8%b6%85%e8%b2%b4...</code> 這種編碼字串，難以複製、分享與辨識。啟用後商品網址一律改用商品編號，例如 <code>/product/486/</code>。' ); ?>
+                <?php twshop_panel_head( 'tag', '商品網址（slug）', '啟用後以商品編號產生網址，避免中文名稱轉成難辨識的編碼。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">
                         <tr>
@@ -338,7 +338,7 @@ function twshop_member_tabs_tab() {
             <?php settings_fields( 'wc_member_tabs_group' ); ?>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'list', '會員中心頁籤排序與開關', '拖曳左側圖示排序，取消勾選「啟用」即可從會員中心導覽隱藏該頁籤；點擊頁籤時已不會重新載入頁面；名稱皆可直接於下方輸入框編輯，留空則沿用預設名稱。', array( 'url' => wp_nonce_url( twshop_admin_url( 'system', array( 'tab' => 'tabs', 'reset_account_tabs' => 1 ) ), 'twshop_reset_account_tabs' ), 'label' => '恢復預設值', 'class' => 'button button-secondary', 'confirm' => '確定要將頁籤排序、開關與名稱恢復為預設值嗎？此動作會立即儲存，無法復原。' ) ); ?>
+                <?php twshop_panel_head( 'list', '會員中心頁籤排序與開關', '拖曳排序、勾選啟用狀態，或直接修改頁籤名稱；留空沿用預設名稱。', array( 'url' => wp_nonce_url( twshop_admin_url( 'system', array( 'tab' => 'tabs', 'reset_account_tabs' => 1 ) ), 'twshop_reset_account_tabs' ), 'label' => '恢復預設值', 'class' => 'button button-secondary', 'confirm' => '確定要將頁籤排序、開關與名稱恢復為預設值嗎？此動作會立即儲存，無法復原。' ) ); ?>
                 <div class="twshop-panel-body">
                     <div id="account-tabs-repeater-container">
                         <?php foreach ( $account_tabs_settings as $row ) {
@@ -448,4 +448,3 @@ function twshop_render_rule_overlap_warnings( $rules ) {
     <?php
     return ob_get_clean();
 }
-

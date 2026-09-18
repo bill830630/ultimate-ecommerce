@@ -61,16 +61,8 @@ function twshop_admin_external_scripts($hook) {
 }
 
 /**
- * 在 .twshop-panel-head 的 <h2>/<h3> 標題前加上一個 Lucide 圖示（沿用儀表板建立的圖示語彙，
- * 讀取函式與快取見 twshop_get_account_tab_icon_svg()），讓各後台頁面的區塊標題視覺一致。
- * 回傳 HTML 字串而非直接 echo，方便跟 <h2> 寫在同一行。
- */
-function twshop_panel_head_icon( $slug ) {
-    return '<span class="twshop-panel-head-icon">' . twshop_get_account_tab_icon_svg( $slug ) . '</span>';
-}
-
-/**
- * `.twshop-panel` 的標題列：圖示 ＋ `<h2>` ＋（可選）動作按鈕與說明文字。
+ * `.twshop-panel` 的標題列：`<h2>` ＋（可選）動作按鈕與說明文字。
+ * $icon 保留於函式簽名以相容既有呼叫，但設定頁不再顯示裝飾性圖示。
  * 十九個面板原本各自把這段 markup 抄一遍，順序（圖示→標題→按鈕→說明）也全靠人記。
  *
  * $hint 是**已經組好的 HTML**，不會再被跳脫——現有的說明文字裡本來就有 `<code>` 標籤，
@@ -82,7 +74,6 @@ function twshop_panel_head_icon( $slug ) {
  */
 function twshop_panel_head( $icon, $title, $hint = '', array $button = array() ) {
     echo '<div class="twshop-panel-head">';
-    echo twshop_panel_head_icon( $icon );
     echo '<h2>' . esc_html( $title ) . '</h2>';
 
     if ( ! empty( $button['url'] ) && ! empty( $button['label'] ) ) {
@@ -522,4 +513,3 @@ function twshop_get_typed_restriction( $type_option, $values_option, $legacy_map
     }
     return array( '', array() );
 }
-

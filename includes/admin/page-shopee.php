@@ -55,17 +55,17 @@ function twshop_shopee_settings_tab() {
     $requested   = isset( $_GET['subtab'] ) ? sanitize_key( wp_unslash( $_GET['subtab'] ) ) : '';
     $current_sub = ( $requested && isset( $sub_tabs[ $requested ] ) ) ? $requested : 'auth';
     ?>
-    <h2 class="nav-tab-wrapper" style="margin-top:10px;">
+    <nav class="twshop-subtabs" aria-label="蝦皮串接設定"><ul class="subsubsub">
         <?php foreach ( $sub_tabs as $slug => $label ) :
             // v25.8.81 起改呼叫 twshop_shopee_admin_url()（唯一入口）取代自己重複組字串，
             // 這裡原本沒帶 section 參數，選單收攏成單一入口後若漏這一步，點子頁籤會被
             // twshop_get_current_admin_section() 判定 section 不存在而退回儀表板。
             $url   = twshop_shopee_admin_url( $slug );
-            $class = 'nav-tab' . ( $slug === $current_sub ? ' nav-tab-active' : '' );
+            $is_current = ( $slug === $current_sub );
             ?>
-            <a href="<?php echo esc_url( $url ); ?>" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $label ); ?></a>
+            <li><a href="<?php echo esc_url( $url ); ?>"<?php echo $is_current ? ' class="current" aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a></li>
         <?php endforeach; ?>
-    </h2>
+    </ul></nav>
     <?php
     if ( 'auth' === $current_sub ) {
         twshop_shopee_auth_tab();

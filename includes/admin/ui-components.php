@@ -136,7 +136,7 @@ function twshop_render_admin_page( $title, callable $content, $intro = '' ) {
  * `<ul class="subsubsub">` 樣式——WooCommerce 自己的設定頁對這一層（例如「運送方式」
  * 頁籤內的「運送區域｜送貨設定｜類別」）用的就是這個元件，不是 nav-tab-wrapper。
  * 純文字＋豎線分隔，跟最外層「功能」導覽（`twshop_render_admin_section_tabs()`，
- * nav-tab-wrapper）在視覺上刻意是兩種不同的原生元件，不需要任何自訂 CSS 去區分它們
+ * nav-tab-wrapper）在視覺上刻意區分層級；豎線由共用樣式產生，方便窄螢幕隱藏。
  * （v25.8.88 改版，取代 v25.8.81~87 這層也用 nav-tab-wrapper、跟最外層形狀相同而分不清
  * 層級的舊做法，詳見 CLAUDE.md）。
  * $tabs 格式 slug => 標籤；只有 1 個頁籤時不輸出導覽列（沒有切換的必要）。
@@ -148,19 +148,16 @@ function twshop_render_admin_page( $title, callable $content, $intro = '' ) {
  */
 function twshop_render_admin_tabs( array $tabs, $current, $page_slug, array $extra_args = array() ) {
     if ( count( $tabs ) < 2 ) return;
-    $keys = array_keys( $tabs );
-    $last = end( $keys );
-    echo '<ul class="subsubsub">';
+    echo '<nav class="twshop-subtabs" aria-label="設定分類"><ul class="subsubsub">';
     foreach ( $tabs as $slug => $label ) {
         $url = admin_url( 'admin.php?page=' . $page_slug . '&tab=' . $slug );
         if ( $extra_args ) {
             $url = add_query_arg( $extra_args, $url );
         }
         $class = ( $slug === $current ) ? ' class="current" aria-current="page"' : '';
-        $sep   = ( $slug === $last ) ? '' : ' |';
-        echo '<li><a href="' . esc_url( $url ) . '"' . $class . '>' . esc_html( $label ) . '</a>' . $sep . '</li>';
+        echo '<li><a href="' . esc_url( $url ) . '"' . $class . '>' . esc_html( $label ) . '</a></li>';
     }
-    echo '</ul><br class="clear" />';
+    echo '</ul></nav>';
 }
 
 /**
@@ -235,13 +232,14 @@ function twshop_get_current_admin_section( array $sections ) {
  */
 function twshop_render_admin_section_tabs( array $sections, $current ) {
     if ( count( $sections ) < 2 ) return;
-    echo '<h2 class="nav-tab-wrapper">';
+    echo '<nav class="nav-tab-wrapper" aria-label="終極電商功能">';
     foreach ( $sections as $slug => $info ) {
         $url   = twshop_admin_url( $slug );
         $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
-        echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $info['label'] ) . '</a>';
+        $aria_current = ( $slug === $current ) ? ' aria-current="page"' : '';
+        echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '"' . $aria_current . '>' . esc_html( $info['label'] ) . '</a>';
     }
-    echo '</h2>';
+    echo '</nav>';
 }
 
 /**

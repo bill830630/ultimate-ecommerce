@@ -13,7 +13,7 @@
 .twshop-text-danger { color: var(--twshop-color-danger); }
 
 .twshop-admin-wrap {
-	max-width: none;
+	max-width: 960px;
 	margin: 0 0 0 -20px;
 	padding: 0;
 	width: calc(100% + 20px);

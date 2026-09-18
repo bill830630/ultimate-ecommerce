@@ -33,7 +33,6 @@ function twshop_member_tiers_tab() {
             <?php settings_fields( 'wc_member_tiers_group' ); ?>
 
             <h2 class="twshop-section-title">會員等級設定 <span class="twshop-hint">(提示：請利用卡片標題左側圖示拖曳排序，將最高等級放在最上方)</span></h2>
-            <p class="description">優惠券頁面文字請至<a href="<?php echo esc_url( twshop_admin_url( 'system', array( 'tab' => 'coupons' ) ) ); ?>">「優惠卡券」</a>頁面編輯。</p>
             <div id="tier-repeater-container">
                 <?php
                 if ( ! empty( $tiers ) ) { foreach ( $tiers as $tier ) echo twshop_get_tier_row_html( $tier ); }

@@ -75,7 +75,7 @@
 .twshop-admin-wrap > .nav-tab-wrapper {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 24px;
+	gap: 28px;
 	margin: 0;
 	padding: 0 30px;
 	border: 0;
@@ -115,13 +115,13 @@
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
 .twshop-admin-content > .subsubsub:first-child { padding: 0 0 8px; }
-/* 次層頁籤保留 WooCommerce 的「|」分隔，但讓文字與分隔線兩側有足夠留白。 */
-.twshop-admin-content .subsubsub li:not(:last-child) { margin-right: 12px; }
-.twshop-admin-content .subsubsub li:not(:last-child) a { margin-right: 12px; }
+/* 紅利點數、儲值中心、系統設定共用的次層頁籤。 */
+.twshop-admin-wrap .subsubsub li:not(:last-child) { margin-right: 12px; }
+.twshop-admin-wrap .subsubsub li:not(:last-child) a { margin-right: 12px; }
 .twshop-admin-content .nav-tab-wrapper {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 20px;
+	gap: 24px;
 	margin: 0 0 24px;
 	padding: 0;
 	border: 0;
@@ -425,7 +425,7 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    已經是單欄、不需要再處理。 */
 @media (max-width: 782px){
 	.twshop-dash-header{ padding:20px 16px 12px; }
-	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
+	.twshop-admin-wrap > .nav-tab-wrapper{ gap:24px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
 	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
 	.twshop-admin-content{ padding:20px 16px 32px; }
 	.twshop-admin-wrap .button{ min-height:40px; padding:0 14px; font-size:14px; }

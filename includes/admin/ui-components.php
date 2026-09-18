@@ -145,7 +145,13 @@ function twshop_render_admin_page( $title, callable $content, $intro = '' ) {
 }
 
 /**
- * 後台頁面共用的頁籤導覽列，沿用 WordPress 核心 nav-tab-wrapper 樣式（比照 WooCommerce 設定頁），不需額外 CSS。
+ * 各功能區塊「內部」的子頁籤導覽（例如紅利點數的 6 個頁籤），沿用 WordPress 核心
+ * `<ul class="subsubsub">` 樣式——WooCommerce 自己的設定頁對這一層（例如「運送方式」
+ * 頁籤內的「運送區域｜送貨設定｜類別」）用的就是這個元件，不是 nav-tab-wrapper。
+ * 純文字＋豎線分隔，跟最外層「功能」導覽（`twshop_render_admin_section_tabs()`，
+ * nav-tab-wrapper）在視覺上刻意是兩種不同的原生元件，不需要任何自訂 CSS 去區分它們
+ * （v25.8.88 改版，取代 v25.8.81~87 這層也用 nav-tab-wrapper、跟最外層形狀相同而分不清
+ * 層級的舊做法，詳見 CLAUDE.md）。
  * $tabs 格式 slug => 標籤；只有 1 個頁籤時不輸出導覽列（沒有切換的必要）。
  *
  * $extra_args（v25.8.81 新增，預設空陣列，向後相容）：後台選單收攏成單一入口後，紅利點數／
@@ -155,16 +161,19 @@ function twshop_render_admin_page( $title, callable $content, $intro = '' ) {
  */
 function twshop_render_admin_tabs( array $tabs, $current, $page_slug, array $extra_args = array() ) {
     if ( count( $tabs ) < 2 ) return;
-    echo '<h2 class="nav-tab-wrapper">';
+    $keys = array_keys( $tabs );
+    $last = end( $keys );
+    echo '<ul class="subsubsub">';
     foreach ( $tabs as $slug => $label ) {
         $url = admin_url( 'admin.php?page=' . $page_slug . '&tab=' . $slug );
         if ( $extra_args ) {
             $url = add_query_arg( $extra_args, $url );
         }
-        $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
-        echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $label ) . '</a>';
+        $class = ( $slug === $current ) ? ' class="current" aria-current="page"' : '';
+        $sep   = ( $slug === $last ) ? '' : ' |';
+        echo '<li><a href="' . esc_url( $url ) . '"' . $class . '>' . esc_html( $label ) . '</a>' . $sep . '</li>';
     }
-    echo '</h2>';
+    echo '</ul><br class="clear" />';
 }
 
 /**
@@ -219,38 +228,33 @@ function twshop_get_current_admin_section( array $sections ) {
 }
 
 /**
- * 最外層「功能」導覽（v25.8.83 改版：左側垂直選單，取代 v25.8.81~82 的雙層頁籤／分段
- * 藥丸做法——使用者實測回報那兩版看起來都像「兩排頁籤疊在一起」，分不清層級，改成跟
- * `twshop_render_admin_tabs()`（各功能自己的子頁籤，維持原生底線頁籤樣式）形狀完全不同
- * 的垂直清單，兩者不會再被誤認成同一種元件）。跟舊版 `twshop_render_admin_tabs()` 的
- * 差異：固定用 section 參數（避免跟內層 tab/subtab 撞名），頁面本身只有一個 slug，不需要
- * $page_slug 參數，改呼叫 twshop_admin_url() 組網址。只有 1 個功能（例如其餘可關閉模組
- * 全部停用，只剩「儀表板」＋恆常存在的「系統設定」時仍會有 2 個，實務上不會發生 <2 的
- * 情況，但沿用舊版「只有 1 個頁籤不輸出導覽」的既有慣例防呆）時不輸出。
+ * 最外層「功能」導覽（v25.8.88 改版：改回 nav-tab-wrapper，取代 v25.8.84~86 那套左側
+ * 垂直選單＋手機版下拉選單的自訂元件）。
+ *
+ * 改版理由：使用者拿 WooCommerce 自己的設定頁（設定 ▸ 運送方式）當參考，指出 WooCommerce
+ * 對這種「大分類 + 分類內子項目」的兩層導覽，兩層各用一種不同的 wp-admin 原生元件——
+ * 最外層（一般／商品／運送方式…）是 nav-tab-wrapper，分類內子項目（運送區域｜送貨設定｜
+ * 類別）是 subsubsub——而不是把其中一層改造成自訂元件去跟另一層拉開視覺差異。
+ * v25.8.81 剛把選單收攏成單一入口時，兩層都用 nav-tab-wrapper，確實會讓人分不清層級
+ * （這是真的問題），但 v25.8.83～86 一路把最外層換成分段藥丸、再換成左側垂直選單，
+ * 解法的方向是錯的：不是「這層要長得多獨特」，而是「這兩層本來就該對應到 wp-admin 既有
+ * 的兩種不同元件」。現在的正確分工：這一層維持 nav-tab-wrapper，各功能自己的子頁籤
+ * （`twshop_render_admin_tabs()`）改成 subsubsub，兩者形狀天生不同，也天生跟其他所有
+ * wp-admin 頁面一致——不需要為了「不要疊在一起」而發明新元件。
+ *
+ * 跟 `twshop_render_admin_tabs()` 的差異：固定用 section 參數（避免跟內層 tab/subtab
+ * 撞名），頁面本身只有一個 slug，不需要 $page_slug 參數，改呼叫 twshop_admin_url() 組
+ * 網址。只有 1 個功能時不輸出導覽（沿用既有慣例防呆，實務上不會發生）。
  */
-function twshop_render_admin_sidebar_nav( array $sections, $current ) {
+function twshop_render_admin_section_tabs( array $sections, $current ) {
     if ( count( $sections ) < 2 ) return;
-
-    echo '<nav class="twshop-admin-sidebar">';
+    echo '<h2 class="nav-tab-wrapper">';
     foreach ( $sections as $slug => $info ) {
         $url   = twshop_admin_url( $slug );
-        $class = 'twshop-admin-sidebar-link' . ( $slug === $current ? ' is-active' : '' );
+        $class = 'nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' );
         echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $info['label'] ) . '</a>';
     }
-    echo '</nav>';
-
-    // 手機斷點（≤600px，assets/css/twshop-admin.css）改用下拉選單取代垂直選單，CSS 讓
-    // 兩者互斥顯示（v25.8.85 手機版垂直選單擠壓變形的問題確認修好後，使用者接著要求
-    // 手機版乾脆換成下拉選單，比擠成一團的清單更好操作）。用 onchange 直接導頁是
-    // WordPress 核心自己在月份/分類篩選下拉選單的既有寫法（例如 wp-admin 的
-    // `?php the_taxonomy_dropdown()` 系列），不需要為了這一個 onchange 額外建立、
-    // 註冊一支 JS 檔案。
-    echo '<select class="twshop-admin-sidebar-select" onchange="if(this.value)window.location.href=this.value;">';
-    foreach ( $sections as $slug => $info ) {
-        $url = twshop_admin_url( $slug );
-        echo '<option value="' . esc_url( $url ) . '"' . selected( $slug, $current, false ) . '>' . esc_html( $info['label'] ) . '</option>';
-    }
-    echo '</select>';
+    echo '</h2>';
 }
 
 /**

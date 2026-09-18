@@ -21,8 +21,6 @@ function twshop_marketing_rules_tab() {
     if ( is_wp_error( $product_tags ) ) $product_tags = array();
 
     ?>
-        <p class="twshop-admin-intro">每一筆規則都可以單獨編輯與儲存，利用卡片標題左側圖示可拖曳變更優先順序！「加購商品顯示文字」設定已移至「系統設定 ▸ 一般」。</p>
-
         <?php echo twshop_render_rule_overlap_warnings( $rules ); ?>
 
         <p class="twshop-rule-status" id="twshop-rule-toolbar-status" aria-live="polite"></p>

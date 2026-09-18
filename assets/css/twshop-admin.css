@@ -12,96 +12,33 @@
 .twshop-text-muted { color: var(--twshop-color-muted); }
 .twshop-text-danger { color: var(--twshop-color-danger); }
 
-.twshop-admin-wrap { max-width: 1180px; }
-.twshop-admin-wrap > h1 { margin-bottom: 4px; }
+.twshop-admin-wrap { max-width: 960px; }
+/* v25.8.89：大標題字級比照終極登入（ultimate-login）的 .wclon-admin-header h1，統一 21px
+   ——WP 核心 .wrap h1 預設是 23px，兩個外掛共用「快捷鍵」父選單、後台側邊欄兩個子選單
+   來回切換時字級忽大忽小，使用者回報「終極電商和終極登入的大標題字級不一致」。
+   選擇器同時修正一個既有死選擇器：`.twshop-admin-wrap > h1` 從來選不到 h1（h1 巢狀在
+   `.twshop-dash-header` 裡，不是 `.twshop-admin-wrap` 的直接子元素），margin-bottom 一直
+   沒有生效，這次一併用正確的 `.twshop-dash-header h1` 選擇器修好。 */
+.twshop-dash-header h1 { font-size: 21px; margin-bottom: 4px; }
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
-/* 最外層「功能」導覽（v25.8.84 改版）：左側垂直選單＋右側內容的兩欄版面，
-   `twshop_render_admin_sidebar_nav()` 輸出 `<nav class="twshop-admin-sidebar">`，跟
-   下方各功能自己的子頁籤（`twshop_render_admin_tabs()`，維持 WordPress 原生
-   `nav-tab-wrapper` 底線樣式不變）在元件形狀上是兩種完全不同的東西。
-
-   v25.8.85 修正兩個實測發現的問題：
-   1. `.twshop-admin-layout` 補上 `margin-top`，跟上方 `<h1>終極電商` 拉開間距——原本
-      完全沒有設，`.twshop-admin-wrap > h1 { margin-bottom: 4px }` 這條舊規則其實選不到
-      實際的 h1（h1 巢狀在 `.twshop-dash-header` 裡，不是 `.twshop-admin-wrap` 的直接
-      子元素），標題跟側邊選單框幾乎貼在一起。
-   2. **手機斷點下側邊選單整個跑版的根因**：`.twshop-admin-sidebar` 的 `flex: 0 0 180px`
-      是替「桌面版橫向排列」（`.twshop-admin-layout` 主軸是水平）設計的固定寬度，但手機
-      斷點把 `.twshop-admin-layout` 的 `flex-direction` 改成 `column` 後，主軸變成垂直，
-      同一個 `flex-basis: 180px` 這時候意義完全不同——變成強迫側邊選單本身的「高度」
-      鎖死在 180px，裡面 `flex-wrap` 的選單項目被硬塞進這個過矮的固定高度，擠壓變形。
-      斷點內必須明確把 `flex` 覆寫成 `none`（高度改回依內容自然撐開），這是純 CSS
-      推理沒抓到、用瀏覽器 iframe 實際渲染 390px 寬版面才看出來的落差。 */
-.twshop-admin-layout {
-	display: flex;
-	align-items: flex-start;
-	gap: 24px;
-	margin-top: 20px;
-}
-.twshop-admin-sidebar {
-	flex: 0 0 180px;
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	background: #fff;
-	border: 1px solid #ccd0d4;
-	border-radius: 6px;
-	padding: 6px;
-}
-.twshop-admin-sidebar-link {
-	display: block;
-	padding: 10px 12px;
-	border-radius: 4px;
-	border-left: 3px solid transparent;
-	color: var(--twshop-color-text);
-	text-decoration: none;
-	font-weight: 500;
-}
-.twshop-admin-sidebar-link:hover,
-.twshop-admin-sidebar-link:focus {
-	background: #f6f7f7;
-	color: var(--twshop-color-text);
-}
-.twshop-admin-sidebar-link.is-active {
-	background: #f0f6ff;
-	border-left-color: #2962ff;
-	color: #2962ff;
-	font-weight: 600;
-}
-.twshop-admin-content {
-	flex: 1 1 auto;
-	min-width: 0; /* flex item 預設 min-width:auto，內容（例如寬表格）會撐爆容器，需明確歸零 */
-}
-/* 每個功能區塊自己的標題（twshop_admin_render_page()，v25.8.85 新增），輸出在
-   `.twshop-admin-content` 最前面，取代原本「不管切到哪個功能，畫面上只看得到最外層
-   固定的『終極電商』」的落差。 */
-.twshop-admin-section-title {
-	margin: 0 0 16px;
-	font-size: 20px;
-	line-height: 1.4;
-}
-/* 手機版切換下拉選單（v25.8.86）：桌面版預設隱藏，跟垂直選單互斥顯示，見下方斷點。 */
-.twshop-admin-sidebar-select { display: none; }
-@media (max-width: 600px) {
-	.twshop-admin-layout { flex-direction: column; }
-	/* v25.8.85 曾讓垂直選單在手機版改成橫向換行排列，使用者實測後認為擠成一團的按鈕格
-	   不好操作，改成完全隱藏垂直選單、換成上面的下拉選單（.twshop-admin-sidebar-select，
-	   twshop_render_admin_sidebar_nav()）——同一份 $sections 資料兩種輸出都有，CSS 只
-	   負責二選一顯示，不是靠 JS 動態切換，也不需要判斷斷點的 JS。 */
-	.twshop-admin-sidebar { display: none; }
-	.twshop-admin-sidebar-select {
-		display: block;
-		width: 100%;
-		padding: 10px 12px;
-		font-size: 14px;
-		font-weight: 600;
-		color: var(--twshop-color-text);
-		background: #fff;
-		border: 1px solid #ccd0d4;
-		border-radius: 6px;
-	}
-}
+/* v25.8.88：最外層「功能」導覽 v25.8.84~86 那段左側垂直選單／手機版下拉選單的自訂元件
+   與這裡對應的 CSS 已整個移除。使用者拿 WooCommerce 設定頁（設定 ▸ 運送方式）當參考，
+   指出 WooCommerce 對這種「大分類 + 分類內子項目」的兩層導覽，用的是兩種原生元件疊出來
+   的層次感，不是自創一個新元件去跟下一層做視覺區隔：
+     - 最外層（一般／商品／運送方式…）＝ `<h2 class="nav-tab-wrapper">`（帶邊框的分頁籤）
+     - 分類內子項目（運送區域｜送貨設定｜類別）＝ `<ul class="subsubsub">`（純文字＋豎線）
+   這兩種都是 wp-admin 內建、隨處可見的核心樣式，不需要任何額外 CSS，換頁時瀏覽器早就
+   看得懂、也肯定跟其他所有 wp-admin 頁面的既有視覺語言一致——這才是「融入原本的介面」
+   實際的意思，不是「顏色調得多順眼」。改版對照：
+     - 最外層「功能」導覽（儀表板／會員分級／…／系統設定）：改回 nav-tab-wrapper，見
+       `twshop_render_admin_section_tabs()`（`ui-components.php`）。
+     - 各功能自己的子頁籤（例如紅利點數的 6 個頁籤）：從 nav-tab-wrapper 改成 subsubsub，
+       見 `twshop_render_admin_tabs()`（`ui-components.php`）——這才是原本 v25.8.81 兩層
+       都用 nav-tab-wrapper「疊在一起分不清層級」的真正解法：兩層本來就該用不同的原生
+       元件，而不是把其中一層改造成自訂元件。
+   兩者皆為 wp-admin 內建樣式，故這裡不需要任何自訂 CSS；比照 v25.8.85 之前，`<h1>終極
+   電商` 與底下 nav-tab-wrapper 之間的間距完全交給瀏覽器預設 margin，不需要手動调整。 */
 
 .twshop-panel {
 	background: #fff;

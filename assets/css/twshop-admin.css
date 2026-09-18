@@ -20,13 +20,12 @@
 	box-sizing: border-box;
 	background: #f0f0f1;
 }
-/* v25.8.89：大標題字級比照終極登入（ultimate-login）的 .wclon-admin-header h1，統一 21px
-   ——WP 核心 .wrap h1 預設是 23px，兩個外掛共用「快捷鍵」父選單、後台側邊欄兩個子選單
-   來回切換時字級忽大忽小，使用者回報「終極電商和終極登入的大標題字級不一致」。
-   選擇器同時修正一個既有死選擇器：`.twshop-admin-wrap > h1` 從來選不到 h1（h1 巢狀在
-   `.twshop-dash-header` 裡，不是 `.twshop-admin-wrap` 的直接子元素），margin-bottom 一直
-   沒有生效，這次一併用正確的 `.twshop-dash-header h1` 選擇器修好。 */
-.twshop-dash-header h1 { font-size: 21px; margin-bottom: 4px; }
+.twshop-dash-header h1 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	line-height: 1.35;
+}
 .twshop-admin-intro { color: var(--twshop-color-muted); margin-top: 0; margin-bottom: 24px; }
 
 /* 主頁籤沿用 nav-tab-wrapper、分類內頁籤沿用 subsubsub；下方樣式只調整這兩層在
@@ -34,7 +33,7 @@
 
 .twshop-panel {
 	background: #fff;
-	border: 1px solid #c3c4c7;
+	border: 1px solid #dcdcde;
 	border-radius: 0;
 	margin: 0 0 24px;
 	overflow: hidden;
@@ -55,7 +54,9 @@
 .twshop-panel-head h2,
 .twshop-panel-head h3 {
 	margin: 0;
-	font-size: 15px;
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.4;
 }
 
 .twshop-panel-head .button { margin-left: auto; font-weight: normal; }
@@ -83,11 +84,11 @@
 .twshop-admin-wrap > .nav-tab-wrapper .nav-tab {
 	float: none;
 	margin: 0;
-	padding: 0 0 10px;
+	padding: 0 0 12px;
 	border: 0;
 	background: transparent;
 	color: #50575e;
-	font-size: 13px;
+	font-size: 14px;
 	font-weight: 500;
 	line-height: 20px;
 	text-decoration: none;
@@ -114,13 +115,56 @@
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
 .twshop-admin-content > .subsubsub:first-child { padding: 0 0 8px; }
+.twshop-admin-content .nav-tab-wrapper {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 20px;
+	margin: 0 0 24px;
+	padding: 0;
+	border: 0;
+	border-bottom: 1px solid #dcdcde;
+	font-size: 14px;
+}
+.twshop-admin-content .nav-tab-wrapper .nav-tab {
+	float: none;
+	margin: 0;
+	padding: 0 0 10px;
+	border: 0;
+	background: transparent;
+	font-size: 13px;
+	font-weight: 500;
+}
+.twshop-admin-content .nav-tab-wrapper .nav-tab-active {
+	border-bottom: 2px solid var(--wp-admin-theme-color, #2271b1);
+	color: var(--twshop-color-text);
+}
+.twshop-admin-content .twshop-section-title {
+	margin: 0 0 16px;
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.4;
+}
+.twshop-panel-body h3 { font-size: 14px; line-height: 1.4; }
+
+/* 使用 WordPress / WooCommerce 設定頁的原生按鈕比例，保留後台主題配色。 */
+.twshop-admin-wrap .button {
+	min-height: 30px;
+	padding: 0 10px;
+	border-radius: 3px;
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 2.15384615;
+	box-shadow: none;
+}
+.twshop-admin-content p.submit { margin: 0 0 24px; padding: 0; }
 
 /* 按鈕送出中的視覺提示，見 points-import.js（原本也給已移除的授權頁籤共用，現在只剩這一處） */
 .twshop-btn-busy { opacity: .7; cursor: wait !important; }
 
 .twshop-panel-hint {
 	flex-basis: 100%;
-	font-size: 12px;
+	font-size: 13px;
+	line-height: 1.5;
 	color: var(--twshop-color-muted);
 	margin: 0;
 }
@@ -129,6 +173,7 @@
 .twshop-panel-body > :first-child { margin-top: 0; }
 .twshop-panel-body > :last-child { margin-bottom: 0; }
 .twshop-panel-body + .twshop-panel-body { border-top: 1px solid #f0f0f1; }
+.twshop-panel .description { font-size: 13px; line-height: 1.5; }
 .twshop-panel .form-table { margin: 0; }
 .twshop-panel .form-table th,
 .twshop-panel .form-table td { padding-top: 12px; padding-bottom: 12px; }
@@ -380,6 +425,7 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
 	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
 	.twshop-admin-content{ padding:20px 16px 32px; }
+	.twshop-admin-wrap .button{ min-height:40px; padding:0 14px; font-size:14px; }
 	.twshop-panel .form-table th{ padding-bottom:0; }
 	.twshop-panel .form-table td{ padding-top:8px; }
 	.twshop-panel .form-table tr:first-child td{ padding-top:8px; }

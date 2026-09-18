@@ -149,16 +149,6 @@
 }
 .twshop-panel-body h3 { font-size: 14px; line-height: 1.4; }
 
-/* 使用 WordPress / WooCommerce 設定頁的原生按鈕比例，保留後台主題配色。 */
-.twshop-admin-wrap .button {
-	min-height: 30px;
-	padding: 0 10px;
-	border-radius: 3px;
-	font-size: 13px;
-	font-weight: 400;
-	line-height: 2.15384615;
-	box-shadow: none;
-}
 .twshop-admin-content p.submit { margin: 0 0 24px; padding: 0; }
 
 /* 按鈕送出中的視覺提示，見 points-import.js（原本也給已移除的授權頁籤共用，現在只剩這一處） */
@@ -176,14 +166,7 @@
 .twshop-panel-body > :first-child { margin-top: 0; }
 .twshop-panel-body > :last-child { margin-bottom: 0; }
 .twshop-panel-body + .twshop-panel-body { border-top: 1px solid #f0f0f1; }
-.twshop-panel .description { font-size: 13px; line-height: 1.5; }
 .twshop-panel .form-table { margin: 0; }
-.twshop-panel .form-table th,
-.twshop-panel .form-table td { padding-top: 12px; padding-bottom: 12px; }
-.twshop-panel .form-table tr:first-child th,
-.twshop-panel .form-table tr:first-child td { padding-top: 0; }
-.twshop-panel .form-table tr:last-child th,
-.twshop-panel .form-table tr:last-child td { padding-bottom: 0; }
 
 .twshop-badge {
 	font-size: 11px;
@@ -428,10 +411,6 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 	.twshop-admin-wrap > .nav-tab-wrapper{ gap:22px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
 	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
 	.twshop-admin-content{ padding:20px 16px 32px; }
-	.twshop-admin-wrap .button{ min-height:40px; padding:0 14px; font-size:14px; }
-	.twshop-panel .form-table th{ padding-bottom:0; }
-	.twshop-panel .form-table td{ padding-top:8px; }
-	.twshop-panel .form-table tr:first-child td{ padding-top:8px; }
 }
 @media (max-width: 480px){
 	.twshop-admin-wrap{ min-height:calc(100vh - 46px); }

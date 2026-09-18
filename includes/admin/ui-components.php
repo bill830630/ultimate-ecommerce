@@ -34,7 +34,12 @@ function twshop_admin_external_scripts($hook) {
     $on_wp_dashboard = ( 'index.php' === $hook && current_user_can( 'manage_woocommerce' ) );
 
     if ( $on_page || $on_wp_dashboard ) {
-        wp_enqueue_style( 'twshop-admin', TWSHOP_PLUGIN_URL . 'assets/css/twshop-admin.css', array(), filemtime( TWSHOP_PLUGIN_DIR . 'assets/css/twshop-admin.css' ) );
+        // selectWoo 的外觀樣式編譯在 WooCommerce admin.css；本頁不在 WC 預設的
+        // screen 清單中，需主動載入。控制台 widget 則不需要整份 WC 樣式。
+        if ( $on_page ) {
+            wp_enqueue_style( 'woocommerce_admin_styles' );
+        }
+        wp_enqueue_style( 'twshop-admin', TWSHOP_PLUGIN_URL . 'assets/css/twshop-admin.css', $on_page ? array( 'woocommerce_admin_styles' ) : array(), filemtime( TWSHOP_PLUGIN_DIR . 'assets/css/twshop-admin.css' ) );
     }
 
     if ( $on_page ) {
@@ -43,15 +48,6 @@ function twshop_admin_external_scripts($hook) {
         // admin_init 註冊/localize 過這支腳本（含 ajax_url、search-products nonce），這裡
         // 只需要 enqueue，不用自己重新註冊，見 twshop_render_product_search_field()。
         wp_enqueue_script( 'wc-enhanced-select' );
-        // selectWoo 的外觀樣式（.select2-container 等）不是獨立的樣式表，是編譯進 WooCommerce
-        // 自己的 assets/css/admin.css（handle woocommerce_admin_styles）裡；核心只在
-        // in_array($screen_id, wc_get_screen_ids()) 成立時才會 enqueue 這支樣式，twshop 的頁面
-        // 不在那份清單裡。漏掉這行不會有任何錯誤訊息，只會讓搜尋框跟下拉選單變成無樣式的
-        // 陽春 HTML 疊在一起（實測回報過的症狀）。這個 handle 在 WC 核心的 admin_styles()
-        // 裡是無條件 wp_register_style()（只有 enqueue 那步被螢幕白名單擋住），任何時候呼叫
-        // wp_enqueue_style() 用這個 handle 都找得到，不需要在意兩邊 admin_enqueue_scripts
-        // callback 的先後順序。
-        wp_enqueue_style( 'woocommerce_admin_styles' );
         // flatpickr 改從外掛自帶的 assets/vendor/flatpickr/ 本地載入（版本鎖 4.6.13），
         // 不再依賴 cdn.jsdelivr.net——商業外掛不應帶第三方 CDN 相依，且原本 CSS 的 CDN URL
         // 還沒鎖版本（JS 已鎖 4.6.13），改本地後 CSS/JS 版本一併固定。

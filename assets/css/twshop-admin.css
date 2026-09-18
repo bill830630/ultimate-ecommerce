@@ -36,7 +36,7 @@
 	background: #fff;
 	border: 1px solid #c3c4c7;
 	border-radius: 0;
-	margin: 24px 0 0;
+	margin: 0 0 24px;
 	overflow: hidden;
 }
 
@@ -139,8 +139,16 @@
 }
 
 .twshop-panel-body { padding: 20px; }
-.twshop-panel-body > h3:first-child { margin-top: 0; }
+.twshop-panel-body > :first-child { margin-top: 0; }
+.twshop-panel-body > :last-child { margin-bottom: 0; }
 .twshop-panel-body + .twshop-panel-body { border-top: 1px solid #f0f0f1; }
+.twshop-panel .form-table { margin: 0; }
+.twshop-panel .form-table th,
+.twshop-panel .form-table td { padding-top: 12px; padding-bottom: 12px; }
+.twshop-panel .form-table tr:first-child th,
+.twshop-panel .form-table tr:first-child td { padding-top: 0; }
+.twshop-panel .form-table tr:last-child th,
+.twshop-panel .form-table tr:last-child td { padding-bottom: 0; }
 
 .twshop-badge {
 	font-size: 11px;
@@ -385,6 +393,9 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:0 16px; overflow-x:auto; flex-wrap:nowrap; }
 	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
 	.twshop-admin-content{ padding:20px 16px 32px; }
+	.twshop-panel .form-table th{ padding-bottom:0; }
+	.twshop-panel .form-table td{ padding-top:8px; }
+	.twshop-panel .form-table tr:first-child td{ padding-top:8px; }
 }
 @media (max-width: 480px){
 	.twshop-admin-wrap{ min-height:calc(100vh - 46px); }

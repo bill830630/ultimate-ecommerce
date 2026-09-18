@@ -82,7 +82,7 @@ function twshop_shopee_render_not_configured_notice() {
     ?>
     <div class="twshop-panel">
         <?php twshop_panel_head( 'lock', '請先完成授權' ); ?>
-        <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+        <div class="twshop-panel-body">
             <p>請先到「授權」頁籤設定 Partner ID / Partner Key，並完成蝦皮賣場授權。</p>
         </div>
     </div>
@@ -120,7 +120,7 @@ function twshop_shopee_auth_tab() {
                 '台灣蝦皮 Open API 目前只開放給商城賣家（Shopee Mall）或第三方系統供應商（ERP）申請，一般賣場帳號多半申請不過。尚未取得 <code>partner_id</code>/<code>partner_key</code> 前，以下設定僅供離線驗證架構，實際打蝦皮端點會失敗。<br>timestamp 是秒級 Unix time，蝦皮容忍誤差很小，本機（伺服器）時鐘偏移會讓全部簽章失敗。'
             );
             ?>
-            <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+            <div class="twshop-panel-body">
             <table class="form-table">
                 <tr>
                     <th><label for="twshop_shopee_partner_id">Partner ID</label></th>
@@ -150,7 +150,7 @@ function twshop_shopee_auth_tab() {
 
     <div class="twshop-panel">
         <?php twshop_panel_head( 'network', '賣場授權狀態' ); ?>
-        <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+        <div class="twshop-panel-body">
         <?php if ( empty( $shop['access_token'] ) ) : ?>
             <p>尚未授權任何蝦皮賣場。</p>
             <?php if ( twshop_shopee_has_credentials() ) : ?>
@@ -220,7 +220,7 @@ function twshop_shopee_mapping_tab() {
             '只做「已存在的雙邊商品依 SKU 對應綁定」，不做跨平台上架。SKU 在 Woo 端出現重複時會標記為「衝突」，不會自動綁定。'
         );
         ?>
-        <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+        <div class="twshop-panel-body">
             <p>
                 <button type="button" class="button" id="twshop-shopee-fetch-items">重新抓取蝦皮商品並自動配對</button>
                 <button type="button" class="button" id="twshop-shopee-push-all">立即全量推送</button>
@@ -298,7 +298,7 @@ function twshop_shopee_sync_tab() {
         <?php settings_fields( 'twshop_shopee_sync_group' ); ?>
         <div class="twshop-panel">
             <?php twshop_panel_head( 'settings', '同步設定' ); ?>
-            <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+            <div class="twshop-panel-body">
             <table class="form-table">
                 <tr>
                     <th>庫存推送</th>
@@ -349,7 +349,7 @@ function twshop_shopee_sync_tab() {
 
     <div class="twshop-panel">
         <?php twshop_panel_head( 'clipboard-list', '手動觸發' ); ?>
-        <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+        <div class="twshop-panel-body">
             <button type="button" class="button" id="twshop-shopee-pull-orders">立即匯入蝦皮訂單</button>
             <span id="twshop-shopee-sync-status" style="margin-left:8px;"></span>
         </div>
@@ -386,7 +386,7 @@ function twshop_shopee_log_tab() {
     ?>
     <div class="twshop-panel">
         <?php twshop_panel_head( 'clipboard-list', '同步紀錄' ); ?>
-        <div class="twshop-panel-body" style="padding:4px 24px 20px;">
+        <div class="twshop-panel-body">
             <p>
                 <button type="button" class="button" id="twshop-shopee-clear-log">清空紀錄</button>
                 <span id="twshop-shopee-log-status" style="margin-left:8px;"></span>

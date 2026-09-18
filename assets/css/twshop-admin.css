@@ -80,10 +80,9 @@
 	justify-content: space-between;
 	gap: 12px;
 	padding: 24px 30px 16px;
-	background: #fff;
 }
 
-/* 沿用 WooCommerce 設定頁的白色頁首、無框線頁籤與淺灰設定工作區；選擇器限於本外掛，
+/* 沿用 WooCommerce 設定頁的無框線頁籤與淺灰設定工作區；選擇器限於本外掛，
    不覆寫 wp-admin 其他頁面的原生 nav-tab。 */
 .twshop-admin-wrap > .nav-tab-wrapper {
 	display: flex;

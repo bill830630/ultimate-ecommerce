@@ -239,7 +239,7 @@ function twshop_points_rules_tab() {
                         <th scope="row">點數名稱</th>
                         <td>
                             <input type="text" name="wc_points_term_name" value="<?php echo esc_attr( $p_term ); ?>" class="regular-text" placeholder="點數" />
-                            <p class="description">前台顯示的名稱，例如：點數、星幣、金幣、積分。留空則使用預設「點數」。</p>
+                            <p class="description">設定前台顯示的點數名稱；留空則使用「點數」。</p>
                         </td>
                     </tr>
                     <tr>

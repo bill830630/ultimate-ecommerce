@@ -115,6 +115,9 @@
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
 .twshop-admin-content > .subsubsub:first-child { padding: 0 0 8px; }
+/* 次層頁籤保留 WooCommerce 的「|」分隔，但讓文字與分隔線兩側有足夠留白。 */
+.twshop-admin-content .subsubsub li:not(:last-child) { margin-right: 12px; }
+.twshop-admin-content .subsubsub li:not(:last-child) a { margin-right: 12px; }
 .twshop-admin-content .nav-tab-wrapper {
 	display: flex;
 	flex-wrap: wrap;

@@ -114,7 +114,7 @@
 	color: #1d2327;
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
-/* 分類內一律是文字型次頁籤；分隔線由 CSS 產生，換行時可隱藏。 */
+/* 分類內一律是文字型次頁籤；分隔線跟著前一個項目換行。 */
 .twshop-subtabs { margin: 0 0 24px; }
 .twshop-admin-content > .twshop-subtabs:first-child { margin: -8px 0 16px; }
 .twshop-subtabs .subsubsub {
@@ -128,7 +128,7 @@
 	line-height: 26px;
 }
 .twshop-subtabs .subsubsub li { display: inline-flex; align-items: center; }
-.twshop-subtabs .subsubsub li + li::before {
+.twshop-subtabs .subsubsub li:not(:last-child)::after {
 	content: "|";
 	margin: 0 4px;
 	color: #2271b1;
@@ -401,12 +401,13 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
    已經是單欄、不需要再處理。 */
 @media (max-width: 782px){
 	.twshop-admin-wrap{ margin-left:-10px; width:calc(100% + 10px); }
-	.twshop-dash-header{ padding:0 16px; }
-	.twshop-admin-wrap > .nav-tab-wrapper{ gap:20px; padding:9px 16px 0; overflow-x:auto; flex-wrap:nowrap; }
-	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; }
-	.twshop-admin-content{ padding:20px 16px 32px; }
-	.twshop-subtabs .subsubsub{ column-gap:16px; }
-	.twshop-subtabs .subsubsub li + li::before{ display:none; }
+	.twshop-dash-header{ padding:0 24px; }
+	.twshop-admin-wrap > .nav-tab-wrapper{ gap:24px; padding:9px 24px 0; overflow-x:auto; flex-wrap:nowrap; }
+	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab{ flex:0 0 auto; margin:10px 10px 0 0; }
+	.twshop-admin-wrap > .nav-tab-wrapper .nav-tab.nav-tab-active{ margin-bottom:0; }
+	.twshop-admin-content{ padding:24px 30px 32px; }
+	.twshop-subtabs .subsubsub{ column-gap:0; row-gap:0; line-height:32px; }
+	.twshop-subtabs .subsubsub a{ line-height:32px; }
 }
 @media (max-width: 480px){
 	.twshop-admin-wrap{ min-height:calc(100vh - 46px); }

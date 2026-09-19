@@ -327,8 +327,12 @@ function twshop_render_mini_cart_progress() {
  * 原本訪客直接略過、且用事後重算有效性判斷，沒套用的規則也會被計次）。
  */
 function twshop_increment_rule_usage_limits( $order_id, $posted_data, $order ) {
-    if ( get_post_meta($order_id, '_twshop_rules_recorded', true) ) return;
-    update_post_meta($order_id, '_twshop_rules_recorded', 'yes');
+    if ( ! $order instanceof WC_Order ) {
+        $order = wc_get_order( $order_id );
+    }
+    if ( ! $order || $order->get_meta( '_twshop_rules_recorded' ) ) return;
+    $order->update_meta_data( '_twshop_rules_recorded', 'yes' );
+    $order->save();
 
     $rule_ids = $order->get_meta( '_twshop_applied_rule_ids' );
     if ( ! is_array( $rule_ids ) || empty( $rule_ids ) ) return;
@@ -341,6 +345,5 @@ function twshop_increment_rule_usage_limits( $order_id, $posted_data, $order ) {
         }
     }
 }
-
 
 

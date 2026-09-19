@@ -470,11 +470,13 @@ function twshop_trigger_on_order( $order_id ) {
 
 function twshop_award_points_on_order_complete( $order_id ) {
     $order = wc_get_order( $order_id );
+    if ( ! $order ) return;
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    if ( get_post_meta( $order_id, '_twshop_points_awarded', true ) ) return;
-    update_post_meta( $order_id, '_twshop_points_awarded', 'yes' );
+    if ( $order->get_meta( '_twshop_points_awarded' ) ) return;
+    $order->update_meta_data( '_twshop_points_awarded', 'yes' );
+    $order->save();
 
     $base_earn_rate = (int) get_option( 'wc_points_base_rate', 100 );
     if ( $base_earn_rate <= 0 ) $base_earn_rate = 100;
@@ -504,7 +506,8 @@ function twshop_award_points_on_order_complete( $order_id ) {
     $user             = get_userdata( $user_id );
     $point_multiplier = twshop_get_user_point_multiplier( $user );
     $final_points     = floor( $base_points * $point_multiplier );
-    update_post_meta( $order_id, '_twshop_points_awarded_amount', $final_points );
+    $order->update_meta_data( '_twshop_points_awarded_amount', $final_points );
+    $order->save();
     twshop_add_points_log( $user_id, $final_points, '訂單 #' . $order_id . ' 消費回饋' );
 }
 
@@ -1301,10 +1304,10 @@ function twshop_deduct_points_on_checkout( $order_id, $posted_data, $order ) {
     }
     $target = $cash_points + $redeem_points_total;
 
-    $recorded = (int) get_post_meta( $order_id, '_twshop_points_redeemed', true );
-    $refunded = get_post_meta( $order_id, '_twshop_points_redeemed_refunded', true )
+    $recorded = (int) $order->get_meta( '_twshop_points_redeemed' );
+    $refunded = $order->get_meta( '_twshop_points_redeemed_refunded' )
         ? $recorded
-        : min( $recorded, (int) get_post_meta( $order_id, '_twshop_points_redeemed_refunded_amount', true ) );
+        : min( $recorded, (int) $order->get_meta( '_twshop_points_redeemed_refunded_amount' ) );
     $net_deducted = $recorded - $refunded;
 
     if ( $target <= 0 && $recorded <= 0 ) return;
@@ -1317,9 +1320,10 @@ function twshop_deduct_points_on_checkout( $order_id, $posted_data, $order ) {
         twshop_add_points_log( $user_id, -$delta, $label );
     }
 
-    update_post_meta( $order_id, '_twshop_points_redeemed', $target );
-    delete_post_meta( $order_id, '_twshop_points_redeemed_refunded' );
-    delete_post_meta( $order_id, '_twshop_points_redeemed_refunded_amount' );
+    $order->update_meta_data( '_twshop_points_redeemed', $target );
+    $order->delete_meta_data( '_twshop_points_redeemed_refunded' );
+    $order->delete_meta_data( '_twshop_points_redeemed_refunded_amount' );
+    $order->save();
 }
 
 /**
@@ -1351,16 +1355,18 @@ function twshop_refund_points_on_order_cancel( $order_id ) {
 }
 
 function twshop_complete_points_reversal( $order_id, $user_id, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason ) {
-    if ( get_post_meta( $order_id, $done_flag_meta, true ) ) return;
+    $order = wc_get_order( $order_id );
+    if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
 
-    $base = (int) get_post_meta( $order_id, $base_meta, true );
+    $base = (int) $order->get_meta( $base_meta );
     if ( $base <= 0 ) return;
 
-    $already = (int) get_post_meta( $order_id, $progress_meta, true );
+    $already = (int) $order->get_meta( $progress_meta );
     $delta   = $base - $already;
 
-    update_post_meta( $order_id, $done_flag_meta, 'yes' );
-    update_post_meta( $order_id, $progress_meta, $base );
+    $order->update_meta_data( $done_flag_meta, 'yes' );
+    $order->update_meta_data( $progress_meta, $base );
+    $order->save();
     if ( $delta > 0 ) {
         twshop_add_points_log( $user_id, $sign * $delta, $reason );
     }
@@ -1413,20 +1419,22 @@ function twshop_handle_order_refund_points( $order_id, $refund_id ) {
  * @param int    $sign           1 = 加回會員點數（折抵退還），-1 = 扣回會員點數（追回回饋）
  */
 function twshop_apply_proportional_points_reversal( $order_id, $user_id, $proportion, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason_label ) {
-    if ( get_post_meta( $order_id, $done_flag_meta, true ) ) return;
+    $order = wc_get_order( $order_id );
+    if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
 
-    $base = (int) get_post_meta( $order_id, $base_meta, true );
+    $base = (int) $order->get_meta( $base_meta );
     if ( $base <= 0 ) return;
 
-    $already = (int) get_post_meta( $order_id, $progress_meta, true );
+    $already = (int) $order->get_meta( $progress_meta );
     $target  = (int) floor( $base * $proportion );
     $delta   = $target - $already;
     if ( $delta <= 0 ) return;
 
-    update_post_meta( $order_id, $progress_meta, $already + $delta );
+    $order->update_meta_data( $progress_meta, $already + $delta );
     if ( $target >= $base ) {
-        update_post_meta( $order_id, $done_flag_meta, 'yes' );
+        $order->update_meta_data( $done_flag_meta, 'yes' );
     }
+    $order->save();
 
     twshop_add_points_log( $user_id, $sign * $delta, '訂單 #' . $order_id . ' 部分退款（' . round( $proportion * 100 ) . '%），' . $reason_label );
 }
@@ -1497,5 +1505,4 @@ function twshop_display_estimated_points_earn() {
     </tr>
     <?php
 }
-
 

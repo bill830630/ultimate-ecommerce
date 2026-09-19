@@ -64,6 +64,7 @@ add_action(
     function () {
         if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
             \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', TWSHOP_PLUGIN_FILE, true );
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', TWSHOP_PLUGIN_FILE, false );
         }
     }
 );
@@ -472,5 +473,4 @@ function twshop_membership_init() {
         add_action( 'wp_ajax_twshop_shopee_clear_log', 'twshop_ajax_shopee_clear_log' );
     }
 }
-
 

@@ -35,6 +35,7 @@ function twshop_admin_render_page() {
     twshop_render_admin_page( '終極電商', function () use ( $sections, $current ) {
         twshop_render_admin_section_tabs( $sections, $current );
         echo '<div class="twshop-admin-content">';
+        twshop_license_inline_notice();
         call_user_func( $sections[ $current ]['render'] );
         echo '</div>';
     } );
@@ -100,6 +101,9 @@ function twshop_system_section() {
     // 跟「一般」「頁籤管理」一樣不受模組開關限制、manage_woocommerce 即可看到，
     // 只是內容本身多包一層自己的子頁籤（`subtab` 參數，見 twshop_shopee_settings_tab()）。
     $tabs['shopee'] = '蝦皮串接';
+    if ( current_user_can( 'manage_options' ) ) {
+        $tabs['license'] = '授權';
+    }
     $current = twshop_get_current_admin_tab( $tabs );
     twshop_render_admin_tabs( $tabs, $current, 'wc-general-settings', array( 'section' => 'system' ) );
     if ( 'general' === $current ) twshop_system_general_tab();
@@ -107,4 +111,5 @@ function twshop_system_section() {
     elseif ( 'tabs' === $current ) twshop_member_tabs_tab();
     elseif ( 'coupons' === $current ) twshop_marketing_coupons_tab();
     elseif ( 'shopee' === $current ) twshop_shopee_settings_tab();
+    elseif ( 'license' === $current ) twshop_license_settings_tab();
 }

@@ -114,6 +114,7 @@
 	color: #1d2327;
 }
 .twshop-admin-content { padding: 24px 30px 40px; }
+.twshop-license-inline-notice { margin: 0 0 24px; }
 /* 分類內一律是文字型次頁籤；分隔線跟著前一個項目換行。 */
 .twshop-subtabs { margin: 0 0 24px; }
 .twshop-admin-content > .twshop-subtabs:first-child { margin: -8px 0 16px; }

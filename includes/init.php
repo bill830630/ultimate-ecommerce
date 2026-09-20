@@ -81,6 +81,15 @@ function twshop_woocommerce_missing_notice() {
 function twshop_membership_init() {
     if ( ! class_exists( 'WooCommerce' ) ) return;
 
+    // 授權頁與設定入口必須在未授權時仍可使用，否則管理員沒有地方輸入金鑰。
+    twshop_license_boot();
+    add_action( 'admin_menu', 'twshop_register_menus' );
+    add_action( 'wp_dashboard_setup', 'twshop_register_dashboard_widget' );
+    add_action( 'admin_enqueue_scripts', 'twshop_admin_external_scripts' );
+    add_action( 'admin_init', 'twshop_register_settings' );
+
+    if ( ! twshop_license_is_active() ) return;
+
     // 自架更新通道，見 includes/class-twshop-updater.php。只在後台／排程／WP-CLI 註冊：
     // 前台訪客不需要更新檢查，而排除清單在 transient 過期時會同步打 GitHub API（最長 8 秒），
     // 掛在前台會偶發拖慢訪客頁面（v25.8.37）。
@@ -105,12 +114,7 @@ function twshop_membership_init() {
     // meta（twshop_points_redeem_product_id／twshop_gift_rule_id）放行，見 helpers.php 說明。
     add_filter( 'woocommerce_cart_item_is_purchasable', 'twshop_allow_purchasable_for_tracked_cart_items', 10, 3 );
 
-    // --- 後台選單 ---
-    add_action( 'admin_menu', 'twshop_register_menus' );
-    add_action( 'wp_dashboard_setup', 'twshop_register_dashboard_widget' );
-    add_action( 'admin_enqueue_scripts', 'twshop_admin_external_scripts' );
-
-    add_action( 'admin_init', 'twshop_register_settings' );
+    // --- 後台設定遷移 ---
     add_action( 'admin_init', 'twshop_maybe_migrate_removed_rule_coupons' );
     add_action( 'admin_init', 'twshop_maybe_reset_account_tabs' );
 
@@ -473,4 +477,3 @@ function twshop_membership_init() {
         add_action( 'wp_ajax_twshop_shopee_clear_log', 'twshop_ajax_shopee_clear_log' );
     }
 }
-

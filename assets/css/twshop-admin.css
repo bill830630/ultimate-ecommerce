@@ -141,6 +141,14 @@
 	font-weight: 600;
 	line-height: 1.4;
 }
+.twshop-section-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 16px;
+}
+.twshop-section-heading .twshop-section-title { margin-bottom: 0; }
 .twshop-panel-body h3 { font-size: 14px; line-height: 1.4; }
 
 .twshop-admin-content p.submit { margin: 0 0 24px; padding: 0; }
@@ -162,6 +170,38 @@
 .twshop-panel-body + .twshop-panel-body { border-top: 1px solid #f0f0f1; }
 .twshop-panel .form-table { margin: 0; }
 
+/* 授權頁：狀態、授權資料與操作明確分區，窄螢幕自動改為單欄。 */
+.twshop-license-card { max-width: 860px; }
+.twshop-license-card__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 18px 20px;
+	border-bottom: 1px solid #dcdcde;
+}
+.twshop-license-card__header h2 { margin: 0; font-size: 16px; line-height: 1.4; }
+.twshop-license-status {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	padding: 0 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+.twshop-license-status.is-active { color: #06752e; background: #edfaef; }
+.twshop-license-status.is-grace { color: #7a4d00; background: #fcf3cf; }
+.twshop-license-status.is-inactive { color: var(--twshop-color-danger); background: #fbeaea; }
+.twshop-license-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.twshop-license-details > div { min-width: 0; padding: 14px 16px; border-bottom: 1px solid #f0f0f1; }
+.twshop-license-details dt { margin: 0 0 5px; color: var(--twshop-color-muted); font-size: 12px; }
+.twshop-license-details dd { margin: 0; overflow-wrap: anywhere; font-weight: 500; }
+.twshop-license-message { margin-top: 16px; padding: 10px 12px; background: #fbeaea; border-left: 4px solid #d63638; }
+.twshop-license-actions { margin-top: 20px; padding-top: 20px; border-top: 1px solid #dcdcde; }
+.twshop-license-actions form { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; }
+.twshop-license-actions .button { margin: 0; }
+
 .twshop-badge {
 	font-size: 11px;
 	font-weight: 600;
@@ -181,6 +221,14 @@
 	font-size: 13px;
 	font-weight: normal;
 	color: var(--twshop-color-muted);
+}
+
+/* 設定頁只保留欄位名稱與操作回饋；隱藏頁面／面板副標題及欄位補充說明。 */
+.twshop-admin-wrap .twshop-admin-intro,
+.twshop-admin-wrap .twshop-panel-hint,
+.twshop-admin-wrap .form-table .description,
+.twshop-admin-wrap .twshop-section-title > .twshop-hint {
+	display: none;
 }
 
 .twshop-two-col {
@@ -409,6 +457,10 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 	.twshop-admin-content{ padding:24px 30px 32px; }
 	.twshop-subtabs .subsubsub{ column-gap:0; row-gap:0; line-height:32px; }
 	.twshop-subtabs .subsubsub a{ line-height:32px; }
+	.twshop-section-heading{ align-items:flex-start; flex-direction:column; }
+	.twshop-license-details{ grid-template-columns:minmax(0, 1fr); }
+	.twshop-license-actions form{ align-items:stretch; flex-direction:column; }
+	.twshop-license-actions .regular-text, .twshop-license-actions .button{ width:100%; }
 }
 @media (max-width: 480px){
 	.twshop-admin-wrap{ min-height:calc(100vh - 46px); }

@@ -32,17 +32,16 @@ function twshop_member_tiers_tab() {
         <form action="options.php" method="post">
             <?php settings_fields( 'wc_member_tiers_group' ); ?>
 
-            <h2 class="twshop-section-title">會員等級設定 <span class="twshop-hint">(提示：請利用卡片標題左側圖示拖曳排序，將最高等級放在最上方)</span></h2>
+            <div class="twshop-section-heading">
+                <h2 class="twshop-section-title">會員等級設定 <span class="twshop-hint">(提示：請利用卡片標題左側圖示拖曳排序，將最高等級放在最上方)</span></h2>
+                <button type="button" class="button" id="add-tier-row">新增會員等級</button>
+            </div>
             <div id="tier-repeater-container">
                 <?php
                 if ( ! empty( $tiers ) ) { foreach ( $tiers as $tier ) echo twshop_get_tier_row_html( $tier ); }
                 else { echo twshop_get_tier_row_html( array() ); }
                 ?>
             </div>
-
-            <p><button type="button" class="button" id="add-tier-row">新增會員等級</button></p>
-
-            <?php submit_button( '儲存設定', 'primary', 'submit-tiers' ); ?>
 
             <div class="twshop-panel">
                 <?php twshop_panel_head( 'gift', '生日禮與升級禮全域設定' ); ?>
@@ -221,7 +220,7 @@ function twshop_get_tier_row_html( $t ) {
                 <div style="flex:1; min-width:150px;">
                     <label style="font-weight:bold; display:block; margin-bottom:5px;">維持效期 (天)</label>
                     <input type="number" name="wc_member_tiers_settings[period][]" value="<?php echo esc_attr( $period ); ?>" min="0" class="regular-text" style="width:100%;" placeholder="0為永久" required />
-                    <p class="description" style="margin:4px 0 0;">會員達成本等級後，需在這段天數內維持門檻消費才能續等，否則到期時將依累積消費調整等級（可能降級或跳過中間等級變回一般顧客）；0 = 永久，達成後不再檢查降級。</p>
+                    <p class="description" style="margin:4px 0 0;">期限內需維持消費門檻；0 代表永久有效。</p>
                 </div>
                 <div style="flex:1; min-width:150px;"><label style="font-weight:bold; display:block; margin-bottom:5px;">點數加倍倍率</label><input type="number" step="0.1" name="wc_member_tiers_settings[point_multiplier][]" value="<?php echo esc_attr( $point_multiplier ); ?>" min="1" class="regular-text" style="width:100%;" required /></div>
             </div>

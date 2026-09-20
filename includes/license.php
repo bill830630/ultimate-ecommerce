@@ -87,7 +87,15 @@ function twshop_license_store_response( array $response, $license_key = null ) {
         'latest_version' => sanitize_text_field( $response['latest_version'] ?? '' ),
         'error'          => $valid ? '' : twshop_license_error_message( $error ),
     );
-    if ( $valid ) $data['last_success'] = $now;
+    if ( $valid ) {
+        $activation              = is_array( $response['activation'] ?? null ) ? $response['activation'] : array();
+        $data['last_success']    = $now;
+        $data['product_name']    = sanitize_text_field( $response['product_name'] ?? '' );
+        $data['max_activations'] = absint( $response['max_activations'] ?? 0 );
+        $data['site_url']        = esc_url_raw( $activation['site_url'] ?? '' );
+        $data['activated_at']    = sanitize_text_field( $activation['activated_at'] ?? '' );
+        $data['last_seen_at']    = sanitize_text_field( $activation['last_seen_at'] ?? '' );
+    }
     if ( null !== $license_key ) $data['license_key'] = sanitize_text_field( $license_key );
     return twshop_license_update_data( $data );
 }
@@ -183,6 +191,7 @@ function twshop_license_settings_tab() {
     if ( ! current_user_can( 'manage_options' ) ) return;
     $data   = twshop_license_get_data();
     $active = twshop_license_is_active();
+    $data   = twshop_license_get_data();
     $status = $active ? ( 'grace' === ( $data['status'] ?? '' ) ? '離線寬限中' : '已啟用' ) : '未啟用';
     $result = sanitize_key( $_GET['license_result'] ?? '' );
     $messages = array(
@@ -195,12 +204,31 @@ function twshop_license_settings_tab() {
     if ( isset( $messages[ $result ] ) ) {
         echo '<div class="notice notice-' . esc_attr( $messages[ $result ][0] ) . ' inline"><p>' . esc_html( $messages[ $result ][1] ) . '</p></div>';
     }
-    echo '<div class="twshop-panel twshop-panel--narrow">';
-    twshop_panel_head( '', '外掛授權', '授權綁定目前網站；驗證成功後會快取 24 小時，服務暫時中斷時保留 14 天離線寬限。' );
-    echo '<div class="twshop-panel-body"><table class="form-table"><tr><th scope="row">授權狀態</th><td><strong>' . esc_html( $status ) . '</strong>';
-    if ( ! empty( $data['expires_at'] ) ) echo '<p class="description">到期時間：' . esc_html( $data['expires_at'] ) . '</p>';
-    if ( ! empty( $data['error'] ) ) echo '<p class="description twshop-text-danger">' . esc_html( $data['error'] ) . '</p>';
-    echo '</td></tr></table>';
+    echo '<div class="twshop-panel twshop-license-card">';
+    $format_time = static function ( $value ) {
+        if ( empty( $value ) ) return '—';
+        $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+        return $timestamp ? wp_date( 'Y-m-d H:i', $timestamp ) : (string) $value;
+    };
+    $license_key = preg_replace( '/[^A-Z0-9]/', '', strtoupper( (string) ( $data['license_key'] ?? '' ) ) );
+    $masked_key  = $license_key ? 'NIBILL-••••-' . substr( $license_key, -4 ) : '—';
+    $site_url    = $data['site_url'] ?? home_url();
+    $status_class = $active ? ( 'grace' === ( $data['status'] ?? '' ) ? 'is-grace' : 'is-active' ) : 'is-inactive';
+    $details = array(
+        '授權序號' => '<code>' . esc_html( $masked_key ) . '</code>',
+        '綁定網站' => esc_html( untrailingslashit( $site_url ) ),
+        '啟用時間' => esc_html( $format_time( $data['activated_at'] ?? '' ) ),
+        '最後驗證' => esc_html( $format_time( $data['last_seen_at'] ?? ( $data['last_checked'] ?? '' ) ) ),
+        '授權期限' => esc_html( empty( $data['expires_at'] ) ? '永久' : $format_time( $data['expires_at'] ) ),
+    );
+    if ( ! empty( $data['max_activations'] ) ) $details['網站授權上限'] = esc_html( number_format_i18n( (int) $data['max_activations'] ) ) . ' 個網站';
+    if ( 'grace' === ( $data['status'] ?? '' ) && ! empty( $data['last_success'] ) ) $details['離線寬限期限'] = esc_html( $format_time( (int) $data['last_success'] + TWSHOP_LICENSE_GRACE_TTL ) );
+    echo '<div class="twshop-license-card__header"><h2>外掛授權</h2><span class="twshop-license-status ' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span></div>';
+    echo '<div class="twshop-panel-body"><dl class="twshop-license-details">';
+    foreach ( $details as $label => $value ) echo '<div><dt>' . esc_html( $label ) . '</dt><dd>' . $value . '</dd></div>';
+    echo '</dl>';
+    if ( ! empty( $data['error'] ) ) echo '<div class="twshop-license-message twshop-text-danger">' . esc_html( $data['error'] ) . '</div>';
+    echo '<div class="twshop-license-actions">';
     if ( $active ) {
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="twshop_license_deactivate">';
         wp_nonce_field( 'twshop_license_deactivate' );
@@ -209,9 +237,9 @@ function twshop_license_settings_tab() {
     } else {
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="twshop_license_activate">';
         wp_nonce_field( 'twshop_license_activate' );
-        echo '<p><label for="twshop_license_key"><strong>授權金鑰</strong></label></p><input id="twshop_license_key" name="license_key" type="text" class="regular-text" autocomplete="off" placeholder="NIBILL-XXXXX-XXXXX-XXXXX-XXXXX" required>';
+        echo '<label for="twshop_license_key" class="screen-reader-text">授權金鑰</label><input id="twshop_license_key" name="license_key" type="text" class="regular-text" autocomplete="off" placeholder="NIBILL-XXXXX-XXXXX-XXXXX-XXXXX" required>';
         submit_button( '啟用授權', 'primary', 'submit', false );
         echo '</form>';
     }
-    echo '</div></div>';
+    echo '</div></div></div>';
 }

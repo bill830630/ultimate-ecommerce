@@ -273,6 +273,32 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
+                <?php twshop_panel_head( 'tag', '商品頁頁籤名稱', '自訂單一商品頁的頁籤文字；留空沿用原名稱。' ); ?>
+                <div class="twshop-panel-body">
+                    <?php
+                    $tab_titles = get_option( 'wc_product_tab_titles', array() );
+                    $tab_rows   = array(
+                        'description'            => array( '描述', '描述' ),
+                        'additional_information' => array( '額外資訊', '額外資訊' ),
+                        'reviews'                => array( '評價', '評價 ({count})' ),
+                    );
+                    ?>
+                    <table class="form-table">
+                        <?php foreach ( $tab_rows as $key => $row ) : ?>
+                        <tr>
+                            <th scope="row"><?php echo esc_html( $row[0] ); ?></th>
+                            <td>
+                                <input type="text" class="regular-text" name="wc_product_tab_titles[<?php echo esc_attr( $key ); ?>]"
+                                       value="<?php echo esc_attr( $tab_titles[ $key ] ?? '' ); ?>" placeholder="<?php echo esc_attr( $row[1] ); ?>">
+                                <?php if ( 'reviews' === $key ) : ?><span class="twshop-hint">可用 {count} 帶入評價數量</span><?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
+            </div>
+
+            <div class="twshop-panel">
                 <?php twshop_panel_head( 'tag', '商品網址（slug）', '啟用後以商品編號產生網址，避免中文名稱轉成難辨識的編碼。' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">

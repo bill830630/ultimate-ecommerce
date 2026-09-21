@@ -181,6 +181,7 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_classic_cart_show_wallet', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_system_general_group', 'wc_shipping_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_payment_method_titles', 'twshop_sanitize_method_titles' );
+    register_setting( 'wc_system_general_group', 'wc_product_tab_titles', 'twshop_sanitize_method_titles' );
 
     // 儲值金 ▸ 設定
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_tier_spend_full_amount', 'twshop_sanitize_yes_no' );

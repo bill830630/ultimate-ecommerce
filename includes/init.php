@@ -125,6 +125,8 @@ function twshop_membership_init() {
     // shipping 的 priority 20 必須早於 twshop_apply_free_shipping_rules() 的 100，理由見該函式。
     add_filter( 'woocommerce_package_rates', 'twshop_rename_shipping_rates', 20, 2 );
     add_filter( 'woocommerce_gateway_title', 'twshop_rename_gateway_title', 10, 2 );
+    // 單一商品頁頁籤名稱自訂（純顯示偏好，同樣不綁模組開關）
+    add_filter( 'woocommerce_product_tabs', 'twshop_customize_product_tab_titles', 98 );
 
     // 台灣地址的顯示格式與「縣市代碼 → 中文名稱」還原：**刻意不綁 order_checkout_enhancements
     // 模組開關**，比照上面的運送/付款方式改名與商品折扣徽章。理由是這三支處理的是**已經存進

@@ -810,3 +810,26 @@ function twshop_cvs_remove_address_errors( $data, $errors ) {
     }
 }
 
+
+
+/**
+ * 單一商品頁的頁籤名稱（描述／額外資訊／評價）自訂。留空沿用 WooCommerce 原名稱。
+ * 評價頁籤可用 {count} 帶入評價數量；不綁任何模組開關（純顯示偏好，比照運送／付款方式改名）。
+ * priority 98：晚於 WooCommerce 預設頁籤（10）與多數外掛新增的頁籤，只改標題、不動順序與內容。
+ */
+function twshop_customize_product_tab_titles( $tabs ) {
+    $titles = get_option( 'wc_product_tab_titles', array() );
+    if ( empty( $titles ) || ! is_array( $titles ) ) return $tabs;
+
+    foreach ( array( 'description', 'additional_information', 'reviews' ) as $key ) {
+        if ( empty( $titles[ $key ] ) || ! isset( $tabs[ $key ] ) ) continue;
+        $title = (string) $titles[ $key ];
+        if ( 'reviews' === $key ) {
+            global $product;
+            $count = ( $product instanceof WC_Product ) ? (int) $product->get_review_count() : 0;
+            $title = str_replace( '{count}', (string) $count, $title );
+        }
+        $tabs[ $key ]['title'] = $title;
+    }
+    return $tabs;
+}

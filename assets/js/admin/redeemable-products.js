@@ -35,38 +35,57 @@ jQuery(document).ready(function($){
         $wrap.find('.redeem-products-json').val(JSON.stringify(arr));
     }
 
+    var TYPE_NAME = { product: '商品', category: '分類', tag: '標籤' };
+    var FILTER_THRESHOLD = 8; // 項目多到這個數量才顯示篩選欄
+
     function renderRedeemProducts($wrap) {
         var arr = readList($wrap);
         var $list = $wrap.find('.redeem-products-list').empty();
+        var kw = $.trim($wrap.find('.redeem-filter').val() || '').toLowerCase();
+        var shown = 0;
 
         arr.forEach(function(item, i) {
-            var label = item.name || (TYPE_LABEL[item.type] ? ('[' + TYPE_LABEL[item.type] + '] #' + item.id) : ('#' + item.id));
+            var label = item.name || (TYPE_LABEL[item.type] ? ('#' + item.id) : ('#' + item.id));
+            if (kw && label.toLowerCase().indexOf(kw) === -1) return;
+            shown++;
 
-            var $chip = $('<span class="twshop-chip"></span>');
-            $chip.append($('<span></span>').text(label));
+            var $tr = $('<tr></tr>');
+            $tr.append($('<td class="col-type"></td>').append($('<span class="twshop-redeem-type"></span>').addClass('is-' + item.type).text(TYPE_NAME[item.type] || '商品')));
+            $tr.append($('<td class="col-name"></td>').text(label));
 
+            var $cost = $('<td class="col-cost"></td>');
             if (item.type === 'product') {
-                $chip.append(
-                    $('<span class="redeem-chip-cost" tabindex="0" title="點擊修改所需點數"></span>')
+                $cost.append(
+                    $('<span class="redeem-chip-cost" tabindex="0" title="點擊修改"></span>')
                         .attr('data-idx', i).attr('data-field', 'points_cost')
                         .text(item.points_cost + ' 點')
                 );
             } else {
-                $chip.append($('<span class="redeem-chip-cost-note"></span>').text('依售價自動換算'));
+                $cost.append($('<span class="redeem-chip-cost-note"></span>').text('依售價換算'));
             }
+            $tr.append($cost);
 
-            $chip.append(
-                $('<span class="redeem-chip-maxqty" tabindex="0" title="點擊修改單次兌換上限數量"></span>')
+            $tr.append($('<td class="col-qty"></td>').append(
+                $('<span class="redeem-chip-maxqty" tabindex="0" title="點擊修改"></span>')
                     .attr('data-idx', i).attr('data-field', 'max_qty')
-                    .text('上限 ' + (item.max_qty || 1))
-            );
-
-            $chip.append(
-                $('<a href="#" class="twshop-chip-remove remove-redeem-product-btn">&times;</a>').attr('data-idx', i)
-            );
-            $list.append($chip);
+                    .text(item.max_qty || 1)
+            ));
+            $tr.append($('<td class="col-del"></td>').append(
+                $('<a href="#" class="twshop-chip-remove remove-redeem-product-btn" title="移除">&times;</a>').attr('data-idx', i)
+            ));
+            $list.append($tr);
         });
+
+        if (!shown) {
+            $list.append($('<tr class="redeem-empty"><td colspan="5"></td></tr>').find('td').text(arr.length ? '沒有符合的項目' : '尚未設定兌換項目').end());
+        }
+        $wrap.find('.twshop-redeem-toolbar').toggle(arr.length > FILTER_THRESHOLD);
+        $wrap.find('.redeem-count').text(kw ? ('顯示 ' + shown + ' / 共 ' + arr.length + ' 項') : ('共 ' + arr.length + ' 項'));
     }
+
+    $(document).on('input', '.redeem-filter', function(){
+        renderRedeemProducts($(this).closest('.twshop-redeem-products-section'));
+    });
     $('.twshop-redeem-products-section').each(function(){ renderRedeemProducts($(this)); });
 
     function togglePointsField($wrap, type) {

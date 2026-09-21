@@ -438,7 +438,7 @@ function twshop_points_redeem_tab() {
             <?php settings_fields( 'wc_points_redeem_group' ); ?>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'gift', '點數兌換商品', '選擇可用' . esc_html( $p_term ) . '直接兌換的商品、分類或標籤；此功能與現金折抵分開計算。' ); ?>
+                <?php twshop_panel_head( 'gift', '點數兌換商品', '可直接用' . esc_html( $p_term ) . '兌換的商品、分類或標籤；分類/標籤依商品售價自動換算點數。' ); ?>
                 <div class="twshop-panel-body">
                     <?php echo twshop_render_redeemable_products_field( $redeemable_products, $cat_options, $tag_options ); ?>
                 </div>
@@ -521,7 +521,16 @@ function twshop_render_redeemable_products_field( $redeemable_products, $cat_opt
     ?>
     <div class="twshop-redeem-products-section">
         <input type="hidden" name="wc_points_redeemable_products" value="<?php echo esc_attr( wp_json_encode( $normalized ) ); ?>" class="redeem-products-json">
-        <div class="redeem-products-list twshop-chip-box"></div>
+        <div class="twshop-redeem-toolbar" style="display:none;">
+            <input type="search" class="redeem-filter" placeholder="篩選兌換項目…" />
+            <span class="redeem-count twshop-text-muted"></span>
+        </div>
+        <div class="twshop-redeem-table-wrap">
+            <table class="widefat striped twshop-redeem-table">
+                <thead><tr><th class="col-type">類型</th><th>名稱</th><th class="col-cost">所需點數</th><th class="col-qty">單次上限</th><th class="col-del"></th></tr></thead>
+                <tbody class="redeem-products-list"></tbody>
+            </table>
+        </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
             <select class="redeem-item-type-select">
                 <option value="product">單一商品</option>
@@ -550,11 +559,10 @@ function twshop_render_redeemable_products_field( $redeemable_products, $cat_opt
                 <?php endforeach; ?>
             </select>
             <input type="number" class="redeem-product-add-points" min="1" placeholder="所需點數" />
-            <span class="redeem-category-cost-note twshop-text-muted" style="display:none; font-size:12px;">依商品售價自動換算，不需填點數</span>
-            <input type="number" class="redeem-product-add-maxqty" min="1" placeholder="單次兌換上限" value="1" style="width:110px;" title="顧客單次最多可兌換幾個（預設 1）" />
+            <span class="redeem-category-cost-note twshop-text-muted" style="display:none; font-size:12px;">依售價自動換算</span>
+            <input type="number" class="redeem-product-add-maxqty" min="1" placeholder="單次上限" value="1" style="width:90px;" title="顧客單次最多可兌換幾個（預設 1）" />
             <button type="button" class="button add-redeem-product-btn">加入</button>
         </div>
-        <p class="description">分類/標籤是動態展開：加入後，日後新上架進該分類/標籤的商品會自動一併開放兌換，不需要回來這裡重新設定；兌換點數也不是統一值，而是依各商品目前售價換算（換算匯率沿用上方「點數折抵匯率」設定），避免同分類裡貴的商品被低點數賤賣。「單次兌換上限」是顧客一次點擊「立即兌換」最多能選幾個，預設 1（跟改版前行為相同）。</p>
     </div>
     <?php twshop_enqueue_asset_script( 'admin/redeemable-products' ); ?>
     <?php

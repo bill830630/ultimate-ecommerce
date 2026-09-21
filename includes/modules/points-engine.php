@@ -694,12 +694,27 @@ function twshop_calc_redeem_cost_from_price( $price ) {
  *
  * @return array 每筆 [ 'product' => WC_Product, 'points_cost' => int, 'max_qty' => int ]
  */
-function twshop_resolve_redeemable_products( $list ) {
+/**
+ * 兌換清單正規化並排序：「單一商品」設定一律排在「分類/標籤」之前（各自維持原本的相對順序），
+ * 讓管理員可以用單一商品覆蓋分類裡個別商品的點數，不受加入順序影響。
+ * twshop_resolve_redeemable_products() 與 twshop_get_redeem_info_for_product() 共用這份排序，
+ * 兩處「第一筆命中為準」的判斷必須一致。
+ */
+function twshop_sorted_redeemable_entries( $list ) {
+    $products = array();
+    $others   = array();
+    foreach ( (array) $list as $row ) {
+        $entry = twshop_normalize_redeemable_entry( $row );
+        if ( 'product' === $entry['type'] ) $products[] = $entry; else $others[] = $entry;
+    }
+    return array_merge( $products, $others );
+}
+
+function twshop_resolve_redeemable_products( $list, $exclude_variable = false ) {
     $resolved = array();
     $seen     = array();
 
-    foreach ( (array) $list as $row ) {
-        $entry = twshop_normalize_redeemable_entry( $row );
+    foreach ( twshop_sorted_redeemable_entries( $list ) as $entry ) {
         if ( $entry['id'] <= 0 ) continue;
         if ( 'product' === $entry['type'] && $entry['points_cost'] <= 0 ) continue;
 
@@ -731,6 +746,9 @@ function twshop_resolve_redeemable_products( $list ) {
             // type=category/tag 動態展開、存檔當下驗證不到的路徑——分類/標籤底下若
             // 剛好含儲值金商品，展開時直接跳過，不列入兌換清單。
             if ( twshop_is_wallet_credit_product( $product ) ) continue;
+            // 兌換區不列可變商品：兌換是以父商品 ID 加入購物車（不含規格），WooCommerce 必定拒絕。
+            // 禁止購買清單（helpers.php）仍需要包含它們，所以預設不排除。
+            if ( $exclude_variable && $product->is_type( 'variable' ) ) continue;
 
             if ( 'product' === $entry['type'] ) {
                 $cost = $entry['points_cost'];
@@ -766,20 +784,21 @@ function twshop_resolve_redeemable_products( $list ) {
  */
 function twshop_get_redeem_info_for_product( $product_id ) {
     $list = get_option( 'wc_points_redeemable_products', array() );
-    foreach ( (array) $list as $row ) {
-        $entry = twshop_normalize_redeemable_entry( $row );
+    foreach ( twshop_sorted_redeemable_entries( $list ) as $entry ) {
         if ( $entry['id'] <= 0 ) continue;
 
         if ( 'product' === $entry['type'] ) {
             if ( $entry['points_cost'] <= 0 ) continue;
             if ( $entry['id'] === (int) $product_id ) {
+                $p = wc_get_product( $product_id );
+                if ( $p && $p->is_type( 'variable' ) ) return array( 'cost' => 0, 'max_qty' => 0 );
                 return array( 'cost' => $entry['points_cost'], 'max_qty' => $entry['max_qty'] );
             }
         } else {
             $tax = 'category' === $entry['type'] ? 'product_cat' : 'product_tag';
             if ( ! has_term( $entry['id'], $tax, $product_id ) ) continue;
             $product = wc_get_product( $product_id );
-            if ( ! $product ) continue;
+            if ( ! $product || $product->is_type( 'variable' ) ) continue;
             $cost = twshop_calc_redeem_cost_from_price( $product->get_price() );
             if ( $cost > 0 ) return array( 'cost' => $cost, 'max_qty' => $entry['max_qty'] );
         }
@@ -821,7 +840,7 @@ function twshop_render_points_redeemable_products_section() {
     }
 
     $list = get_option( 'wc_points_redeemable_products', array() );
-    $resolved = ( empty( $list ) || ! is_array( $list ) ) ? array() : twshop_resolve_redeemable_products( $list );
+    $resolved = ( empty( $list ) || ! is_array( $list ) ) ? array() : twshop_resolve_redeemable_products( $list, true );
 
     if ( empty( $resolved ) ) {
         echo '</div>';

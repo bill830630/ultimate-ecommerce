@@ -472,3 +472,19 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 	.twshop-rule-schedule label{ flex:1 1 140px; }
 	.twshop-rule-schedule input{ width:100%; }
 }
+
+/* 點數兌換商品清單：表格 + 篩選，項目多時容器內捲動、表頭固定。見 twshop_render_redeemable_products_field() */
+.twshop-redeem-toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.twshop-redeem-toolbar .redeem-filter{ width:260px; max-width:100%; }
+.twshop-redeem-table-wrap{ max-height:420px; overflow-y:auto; border:1px solid #dcdcde; border-radius:4px; }
+.twshop-redeem-table{ border:0; margin:0; }
+.twshop-redeem-table thead th{ position:sticky; top:0; background:#f6f7f7; z-index:1; }
+.twshop-redeem-table .col-type{ width:70px; }
+.twshop-redeem-table .col-cost{ width:120px; }
+.twshop-redeem-table .col-qty{ width:90px; }
+.twshop-redeem-table .col-del{ width:36px; text-align:center; }
+.twshop-redeem-table .redeem-empty td{ text-align:center; color:var(--twshop-color-muted); padding:16px; }
+.twshop-redeem-type{ display:inline-block; padding:1px 8px; border-radius:10px; background:#f0f0f1; font-size:12px; }
+.twshop-redeem-type.is-category{ background:#e8f0fe; }
+.twshop-redeem-type.is-tag{ background:#eef7ee; }
+.twshop-redeem-table .redeem-chip-maxqty{ font-size:inherit; color:inherit; }

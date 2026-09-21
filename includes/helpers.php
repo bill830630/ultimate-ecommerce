@@ -425,7 +425,9 @@ function twshop_get_purchase_restricted_product_ids( $force_refresh = false ) {
 function twshop_restrict_purchase_for_redeem_and_gift_products( $purchasable, $product ) {
     if ( ! $purchasable ) return $purchasable;
     if ( twshop_bypass_purchase_restriction() ) return $purchasable;
-    if ( in_array( $product->get_id(), twshop_get_purchase_restricted_product_ids(), true ) ) return false;
+    // 可變商品的規格是獨立的商品物件（ID 不同），要連同父商品一起判斷，否則選了規格就能買。
+    $check_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+    if ( in_array( $check_id, twshop_get_purchase_restricted_product_ids(), true ) ) return false;
     return $purchasable;
 }
 
@@ -492,7 +494,7 @@ function twshop_get_module_definitions() {
         'wallet'          => array( 'label' => '儲值中心', 'desc' => '線上自助儲值、購物折抵、會員中心餘額與交易紀錄' ),
         'order_checkout_enhancements' => array(
             'label' => '訂單強化',
-            'desc'  => '台灣地址下拉選單、超商取貨免填地址、訂單物流資訊顯示與搜尋、自訂訂單狀態、批次操作、物流貨態自動完成訂單',
+            'desc'  => '台灣地址下拉選單、超商取貨、物流資訊、自訂訂單狀態',
         ),
         // 蝦皮串接（原 shopee_sync 模組）v25.8.65 起移出模組開關系統，改成「系統設定 ▸
         // 蝦皮串接」頁籤裡的獨立開關 wc_shopee_sync_enabled，見 twshop_shopee_sync_enabled()

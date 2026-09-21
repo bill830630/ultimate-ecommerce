@@ -273,28 +273,60 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'tag', '商品頁頁籤名稱', '自訂單一商品頁的頁籤文字；留空沿用原名稱。' ); ?>
+                <?php twshop_panel_head( 'tag', '商品頁頁籤', '拖曳調整順序、勾選是否顯示，或自訂名稱；名稱留空沿用原名稱。' ); ?>
                 <div class="twshop-panel-body">
                     <?php
-                    $tab_titles = get_option( 'wc_product_tab_titles', array() );
-                    $tab_rows   = array(
+                    $tab_titles   = get_option( 'wc_product_tab_titles', array() );
+                    $tab_defaults = array(
                         'description'            => array( '描述', '描述' ),
                         'additional_information' => array( '額外資訊', '額外資訊' ),
                         'reviews'                => array( '評價', '評價 ({count})' ),
                     );
                     ?>
-                    <table class="form-table">
-                        <?php foreach ( $tab_rows as $key => $row ) : ?>
-                        <tr>
-                            <th scope="row"><?php echo esc_html( $row[0] ); ?></th>
-                            <td>
-                                <input type="text" class="regular-text" name="wc_product_tab_titles[<?php echo esc_attr( $key ); ?>]"
-                                       value="<?php echo esc_attr( $tab_titles[ $key ] ?? '' ); ?>" placeholder="<?php echo esc_attr( $row[1] ); ?>">
-                                <?php if ( 'reviews' === $key ) : ?><span class="twshop-hint">可用 {count} 帶入評價數量</span><?php endif; ?>
-                            </td>
-                        </tr>
+                    <div id="product-tabs-repeater-container">
+                        <?php foreach ( twshop_get_product_tabs_settings() as $tab_slug => $tab_enabled ) : ?>
+                        <div class="twshop-tab-row">
+                            <span class="drag-handle twshop-text-muted" style="cursor:move;"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
+                            <input type="hidden" name="wc_product_tabs_settings[slug][]" value="<?php echo esc_attr( $tab_slug ); ?>" />
+                            <input type="hidden" class="tab-enabled-input" name="wc_product_tabs_settings[enabled][]" value="<?php echo esc_attr( $tab_enabled ); ?>" />
+                            <span style="flex:1; display:flex; align-items:center; gap:8px;">
+                                <input type="text" class="regular-text" style="max-width:260px;" name="wc_product_tab_titles[<?php echo esc_attr( $tab_slug ); ?>]"
+                                       value="<?php echo esc_attr( $tab_titles[ $tab_slug ] ?? '' ); ?>" placeholder="<?php echo esc_attr( $tab_defaults[ $tab_slug ][1] ); ?>">
+                                <code class="twshop-text-muted" style="font-weight:normal;"><?php echo esc_html( $tab_defaults[ $tab_slug ][0] ); ?></code>
+                            </span>
+                            <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                                <input type="checkbox" class="tab-enabled-checkbox" <?php checked( 'yes', $tab_enabled ); ?> /> 顯示
+                            </label>
+                        </div>
                         <?php endforeach; ?>
+                    </div>
+                    <p class="twshop-hint">評價名稱可用 {count} 帶入評價數量。其他外掛新增的頁籤不受影響。</p>
+                    <?php twshop_enqueue_asset_script( 'admin/product-tabs' ); ?>
+                </div>
+            </div>
+
+            <div class="twshop-panel">
+                <?php twshop_panel_head( 'tag', '商品圖片 alt', '開啟後，商品圖片的 alt 一律依下列格式產生，不使用媒體庫裡原本的 alt（不會修改媒體庫）。' ); ?>
+                <div class="twshop-panel-body">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">啟用</th>
+                            <td><label><input type="checkbox" name="wc_product_image_alt_enabled" value="yes" <?php checked( get_option( 'wc_product_image_alt_enabled', 'no' ), 'yes' ); ?> /> 商品圖片 alt 統一由格式產生</label></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">主圖</th>
+                            <td><input type="text" class="regular-text" name="wc_product_image_alt_main" value="<?php echo esc_attr( twshop_option( 'wc_product_image_alt_main' ) ); ?>" /></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">圖庫（第 2 張起）</th>
+                            <td><input type="text" class="regular-text" name="wc_product_image_alt_gallery" value="<?php echo esc_attr( twshop_option( 'wc_product_image_alt_gallery' ) ); ?>" /></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">規格圖</th>
+                            <td><input type="text" class="regular-text" name="wc_product_image_alt_variation" value="<?php echo esc_attr( twshop_option( 'wc_product_image_alt_variation' ) ); ?>" /></td>
+                        </tr>
                     </table>
+                    <p class="twshop-hint">可用 <code>{name}</code> 商品名稱、<code>{n}</code> 第幾張（主圖為 1）、<code>{attributes}</code> 規格值（例如「紅色 L」）。</p>
                 </div>
             </div>
 

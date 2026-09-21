@@ -285,6 +285,9 @@ function twshop_get_option_defaults() {
         // 開關類（yes/no）
         'wc_account_tab_mobile_scroll'  => 'yes',
         'wc_badge_enabled'              => 'yes',
+        'wc_product_image_alt_main'      => '{name}',
+        'wc_product_image_alt_gallery'   => '{name} - 圖片 {n}',
+        'wc_product_image_alt_variation' => '{name} {attributes}',
         'wc_classic_cart_show_addons'   => 'yes',
         'wc_classic_cart_show_coupons'  => 'yes',
         'wc_classic_cart_show_points'   => 'yes',

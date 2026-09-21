@@ -182,6 +182,11 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_shipping_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_payment_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_product_tab_titles', 'twshop_sanitize_method_titles' );
+    register_setting( 'wc_system_general_group', 'wc_product_tabs_settings', 'twshop_sanitize_product_tabs_settings' );
+    register_setting( 'wc_system_general_group', 'wc_product_image_alt_enabled', 'twshop_sanitize_yes_no' );
+    register_setting( 'wc_system_general_group', 'wc_product_image_alt_main', 'sanitize_text_field' );
+    register_setting( 'wc_system_general_group', 'wc_product_image_alt_gallery', 'sanitize_text_field' );
+    register_setting( 'wc_system_general_group', 'wc_product_image_alt_variation', 'sanitize_text_field' );
 
     // 儲值金 ▸ 設定
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_tier_spend_full_amount', 'twshop_sanitize_yes_no' );
@@ -420,6 +425,18 @@ function twshop_sanitize_method_titles( $input ) {
         if ( '' === $title ) continue;
 
         $clean[ $id ] = $title;
+    }
+    return $clean;
+}
+
+/** 商品頁頁籤順序與啟用：只接受三個內建 slug、去重，缺的由讀取端補上。 */
+function twshop_sanitize_product_tabs_settings( $input ) {
+    $clean = array( 'slug' => array(), 'enabled' => array() );
+    if ( ! is_array( $input ) || empty( $input['slug'] ) || ! is_array( $input['slug'] ) ) return $clean;
+    foreach ( $input['slug'] as $i => $slug ) {
+        if ( ! in_array( $slug, twshop_product_tab_slugs(), true ) || in_array( $slug, $clean['slug'], true ) ) continue;
+        $clean['slug'][]    = $slug;
+        $clean['enabled'][] = ( ( $input['enabled'][ $i ] ?? 'yes' ) === 'no' ) ? 'no' : 'yes';
     }
     return $clean;
 }

@@ -812,24 +812,64 @@ function twshop_cvs_remove_address_errors( $data, $errors ) {
 
 
 
+/** 單一商品頁三個內建頁籤的 slug（預設順序）。 */
+function twshop_product_tab_slugs() {
+    return array( 'description', 'additional_information', 'reviews' );
+}
+
 /**
- * 單一商品頁的頁籤名稱（描述／額外資訊／評價）自訂。留空沿用 WooCommerce 原名稱。
- * 評價頁籤可用 {count} 帶入評價數量；不綁任何模組開關（純顯示偏好，比照運送／付款方式改名）。
- * priority 98：晚於 WooCommerce 預設頁籤（10）與多數外掛新增的頁籤，只改標題、不動順序與內容。
+ * 讀取商品頁頁籤的順序與啟用狀態，回傳 [ slug => 'yes'|'no' ]（陣列順序即顯示順序）。
+ * 沒存過、或存的內容缺 slug 時，缺的補在最後並預設啟用。
+ */
+function twshop_get_product_tabs_settings() {
+    $saved  = get_option( 'wc_product_tabs_settings', array() );
+    $result = array();
+    if ( is_array( $saved ) && ! empty( $saved['slug'] ) && is_array( $saved['slug'] ) ) {
+        foreach ( $saved['slug'] as $i => $slug ) {
+            if ( in_array( $slug, twshop_product_tab_slugs(), true ) && ! isset( $result[ $slug ] ) ) {
+                $result[ $slug ] = ( ( $saved['enabled'][ $i ] ?? 'yes' ) === 'no' ) ? 'no' : 'yes';
+            }
+        }
+    }
+    foreach ( twshop_product_tab_slugs() as $slug ) {
+        if ( ! isset( $result[ $slug ] ) ) $result[ $slug ] = 'yes';
+    }
+    return $result;
+}
+
+/**
+ * 單一商品頁的頁籤自訂：名稱、是否顯示、順序（描述／額外資訊／評價）。
+ * 名稱留空沿用 WooCommerce 原名稱；評價名稱可用 {count} 帶入評價數量。
+ * 順序做法：把這三個頁籤原本佔用的 priority 依儲存的順序重新分配，其他外掛新增的頁籤
+ * 維持原本的 priority，相對位置不受影響。不綁任何模組開關（純顯示偏好，比照運送／付款方式改名）。
+ * priority 98：晚於 WooCommerce 預設頁籤（10）與多數外掛新增的頁籤。
  */
 function twshop_customize_product_tab_titles( $tabs ) {
-    $titles = get_option( 'wc_product_tab_titles', array() );
-    if ( empty( $titles ) || ! is_array( $titles ) ) return $tabs;
+    $titles   = get_option( 'wc_product_tab_titles', array() );
+    $settings = twshop_get_product_tabs_settings();
 
-    foreach ( array( 'description', 'additional_information', 'reviews' ) as $key ) {
-        if ( empty( $titles[ $key ] ) || ! isset( $tabs[ $key ] ) ) continue;
-        $title = (string) $titles[ $key ];
-        if ( 'reviews' === $key ) {
-            global $product;
-            $count = ( $product instanceof WC_Product ) ? (int) $product->get_review_count() : 0;
-            $title = str_replace( '{count}', (string) $count, $title );
+    if ( is_array( $titles ) ) {
+        foreach ( twshop_product_tab_slugs() as $key ) {
+            if ( empty( $titles[ $key ] ) || ! isset( $tabs[ $key ] ) ) continue;
+            $title = (string) $titles[ $key ];
+            if ( 'reviews' === $key ) {
+                global $product;
+                $count = ( $product instanceof WC_Product ) ? (int) $product->get_review_count() : 0;
+                $title = str_replace( '{count}', (string) $count, $title );
+            }
+            $tabs[ $key ]['title'] = $title;
         }
-        $tabs[ $key ]['title'] = $title;
+    }
+
+    // 順序：這幾個頁籤原本的 priority 由小到大排好，依儲存順序依序分配回去。
+    $present = array_values( array_filter( array_keys( $settings ), function( $slug ) use ( $tabs ) { return isset( $tabs[ $slug ] ); } ) );
+    $slots   = array();
+    foreach ( $present as $slug ) $slots[] = (int) ( $tabs[ $slug ]['priority'] ?? 10 );
+    sort( $slots );
+    foreach ( $present as $i => $slug ) $tabs[ $slug ]['priority'] = $slots[ $i ];
+
+    foreach ( $settings as $slug => $enabled ) {
+        if ( 'no' === $enabled ) unset( $tabs[ $slug ] );
     }
     return $tabs;
 }

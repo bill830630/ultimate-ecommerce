@@ -127,6 +127,12 @@ function twshop_membership_init() {
     add_filter( 'woocommerce_gateway_title', 'twshop_rename_gateway_title', 10, 2 );
     // 單一商品頁頁籤名稱自訂（純顯示偏好，同樣不綁模組開關）
     add_filter( 'woocommerce_product_tabs', 'twshop_customize_product_tab_titles', 98 );
+    // 商品圖片 alt 統一規則（預設關閉，見 includes/modules/product-image-alt.php）
+    if ( 'yes' === get_option( 'wc_product_image_alt_enabled', 'no' ) ) {
+        add_filter( 'wp_get_attachment_image_attributes', 'twshop_filter_attachment_alt_by_product', 20, 2 );
+        add_filter( 'woocommerce_product_get_image', 'twshop_filter_product_get_image_alt', 20, 2 );
+        add_filter( 'woocommerce_available_variation', 'twshop_filter_variation_image_alt', 20, 3 );
+    }
 
     // 台灣地址的顯示格式與「縣市代碼 → 中文名稱」還原：**刻意不綁 order_checkout_enhancements
     // 模組開關**，比照上面的運送/付款方式改名與商品折扣徽章。理由是這三支處理的是**已經存進

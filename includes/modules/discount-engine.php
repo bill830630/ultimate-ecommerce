@@ -121,7 +121,7 @@ function twshop_cart_condition_fingerprint() {
         $ids[] = (int) $cart_item['product_id'] . ':' . (int) $cart_item['quantity'];
     }
     sort( $ids );
-    return md5( implode( ',', array_unique( $ids ) ) );
+    return md5( implode( ',', $ids ) );
 }
 
 /**

@@ -444,6 +444,16 @@ function twshop_points_redeem_tab() {
                 </div>
             </div>
 
+            <div class="twshop-panel">
+                <?php twshop_panel_head( 'gift', '兌換條件', '未達購物車金額時，顧客無法兌換商品。' ); ?>
+                <div class="twshop-panel-body">
+                    <table class="form-table" role="presentation">
+                        <tr><th scope="row">購物車最低金額</th><td>購物車小計需達 <input type="number" step="0.01" min="0" name="wc_points_redeem_min_cart_amount" value="<?php echo esc_attr( get_option( 'wc_points_redeem_min_cart_amount', 0 ) ); ?>" class="small-text" /> 元才可兌換 (0 為無限制)</td></tr>
+                        <tr><th scope="row">未達門檻提示</th><td><input type="text" name="wc_points_redeem_min_cart_text" value="<?php echo esc_attr( twshop_option( 'wc_points_redeem_min_cart_text' ) ); ?>" class="regular-text" /> <span class="twshop-text-muted">可用 {amount}</span></td></tr>
+                    </table>
+                </div>
+            </div>
+
             <?php submit_button( '儲存點數兌換商品設定' ); ?>
         </form>
     <?php

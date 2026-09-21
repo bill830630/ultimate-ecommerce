@@ -851,6 +851,7 @@ function twshop_render_points_redeemable_products_section() {
     $balance   = (int) get_user_meta( $user_id, 'twshop_reward_points', true );
     $committed = twshop_get_committed_redeem_points();
     $pt        = twshop_points_term();
+    $min_block = twshop_redeem_products_block_reason(); // 未達購物車金額門檻時的提示文字，null＝可兌換
 
     // 以 product_id 為 key 組一份查詢 map，供迴圈內取用對應的兌換點數／單次可兌換數量上限
     // （resolved 已經是依清單順序、去重後的結果，見 twshop_resolve_redeemable_products()）。
@@ -881,7 +882,10 @@ function twshop_render_points_redeemable_products_section() {
     }
 
     echo '<div class="twshop-points-redeem-products woocommerce">';
-    echo '<h3 class="twshop-points-redeem-products-title" style="font-size:var(--wp--preset--font-size--small,14px);">' . esc_html( '用' . $pt . '兌換商品' ) . '</h3>';
+    echo '<h3 class="twshop-points-redeem-products-title">' . esc_html( '用' . $pt . '兌換商品' ) . '</h3>';
+    if ( $min_block ) {
+        echo '<p class="twshop-points-redeem-min-notice">' . esc_html( $min_block ) . '</p>';
+    }
 
     woocommerce_product_loop_start();
 
@@ -901,7 +905,7 @@ function twshop_render_points_redeemable_products_section() {
         // 否則自己會把自己判定成「不足」。這裡只檢查「至少負擔得起 1 個」，選了較大數量卻點數
         // 不夠的情況留給 twshop_ajax_redeem_points_product() 送出時再擋，不在這裡為每個可能的
         // 數量都重算一次可負擔上限（多一層複雜度，換來的只是選單少幾個選項的次要體驗差異）。
-        $available = $in_cart || ( ( $balance - $committed ) >= $cost );
+        $available = $in_cart || ( ! $min_block && ( $balance - $committed ) >= $cost );
 
         // 覆蓋價格顯示：用所需點數取代原本的售價（跟加購商品覆蓋成特價劃線同一個 filter，
         // 這裡不是價格比較，直接整段換成點數文字）。
@@ -916,7 +920,7 @@ function twshop_render_points_redeemable_products_section() {
         // max_qty > 1 時，「立即兌換」按鈕前面多插入一顆數量下拉選單（1~max_qty），
         // JS 端讀取這顆下拉的值當作兌換數量一併送出（見 twshop-frontend.js）；
         // max_qty === 1（預設值，多數安裝不會去改這個新欄位）維持原本純按鈕、無下拉選單的畫面。
-        $button_filter = function( $html, $prod, $args ) use ( $pid, $in_cart, $available, $max_qty, $pt ) {
+        $button_filter = function( $html, $prod, $args ) use ( $pid, $in_cart, $available, $max_qty, $pt, $min_block ) {
             if ( (int) $prod->get_id() !== $pid ) return $html;
             if ( $in_cart ) {
                 return sprintf(
@@ -925,7 +929,7 @@ function twshop_render_points_redeemable_products_section() {
                 );
             }
             if ( ! $available ) {
-                return sprintf( '<button type="button" class="button" disabled>%s</button>', esc_html( $pt . '不足' ) );
+                return sprintf( '<button type="button" class="button" disabled>%s</button>', esc_html( $min_block ? '未達兌換門檻' : $pt . '不足' ) );
             }
             $qty_select = '';
             if ( $max_qty > 1 ) {
@@ -1124,6 +1128,43 @@ function twshop_ajax_apply_points() {
  * 下游都不需要跟著改。max_qty 本身也一併存進 cart item meta（twshop_points_redeem_max_qty），
  * 讓 twshop_zero_redeemed_product_price() 之後鎖定數量時不用再查一次 option。
  */
+/**
+ * 「用點數兌換商品」的購物車金額門檻（wc_points_redeem_min_cart_amount，0＝不限制）。
+ * 跟現金折抵的 wc_points_min_cart_amount 是各自獨立的設定。兌換商品本身是 $0，不影響小計。
+ * 回傳 null＝可兌換；字串＝未達門檻的提示文字。
+ */
+function twshop_redeem_products_block_reason() {
+    $min_amount = (float) get_option( 'wc_points_redeem_min_cart_amount', 0 );
+    if ( $min_amount <= 0 ) return null;
+    if ( ! WC()->cart ) return null;
+    if ( ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) >= $min_amount ) return null;
+    return str_replace(
+        array( '{amount}', '{term}' ),
+        array( html_entity_decode( strip_tags( wc_price( $min_amount ) ), ENT_QUOTES, 'UTF-8' ), twshop_points_term() ),
+        twshop_option( 'wc_points_redeem_min_cart_text' )
+    );
+}
+
+/** 購物車內已有兌換商品、但小計後來掉到門檻以下時，擋住結帳並提示。 */
+function twshop_check_redeem_products_min_cart() {
+    if ( ! WC()->cart ) return;
+    $has = false;
+    foreach ( WC()->cart->get_cart() as $item ) {
+        if ( isset( $item['twshop_points_redeem_product_id'] ) ) { $has = true; break; }
+    }
+    if ( ! $has ) return;
+    $reason = twshop_redeem_products_block_reason();
+    if ( $reason ) wc_add_notice( $reason . '（請移除兌換商品或增加購物車商品）', 'error' );
+}
+
+function twshop_validate_points_redeem_min_cart( $data, $errors ) {
+    $reason = twshop_redeem_products_block_reason();
+    if ( ! $reason ) return;
+    foreach ( WC()->cart->get_cart() as $item ) {
+        if ( isset( $item['twshop_points_redeem_product_id'] ) ) { $errors->add( 'validation', $reason ); return; }
+    }
+}
+
 function twshop_ajax_redeem_points_product() {
     check_ajax_referer( 'twshop_frontend_action', 'twshop_nonce' );
     if ( ! is_user_logged_in() ) {
@@ -1143,6 +1184,11 @@ function twshop_ajax_redeem_points_product() {
     // 正常操作路徑本來就選不出超過上限的值，沒必要為了這個異常路徑多寫一則錯誤訊息。
     $qty = absint( $_POST['qty'] ?? 1 );
     $qty = max( 1, min( $qty, $max_qty ) );
+
+    $min_reason = twshop_redeem_products_block_reason();
+    if ( $min_reason ) {
+        wp_send_json_error( array( 'message' => $min_reason ) );
+    }
 
     if ( twshop_cart_has_redeem_product( $product_id ) ) {
         wp_send_json_error( array( 'message' => '此商品已在購物車中' ) );

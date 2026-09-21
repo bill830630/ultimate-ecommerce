@@ -233,7 +233,7 @@ function twshop_render_cart_addons() {
 
         if ( $addon_query->have_posts() ) {
             echo '<div class="twshop-cart-addons woocommerce">';
-            echo '<h3 class="twshop-cart-addons-title" style="font-size:var(--wp--preset--font-size--small,14px);">' . esc_html( twshop_option( 'wc_addon_section_title' ) ) . '</h3>';
+            echo '<h3 class="twshop-cart-addons-title">' . esc_html( twshop_option( 'wc_addon_section_title' ) ) . '</h3>';
 
             // 使用 WooCommerce 標準 loop 容器，主題的 hooks 會自動套用正確的 class 與屬性
             woocommerce_product_loop_start();

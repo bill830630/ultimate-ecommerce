@@ -267,6 +267,8 @@ function twshop_membership_init() {
         add_filter( 'woocommerce_cart_item_quantity', 'twshop_lock_redeemed_item_quantity', 10, 3 );
         add_action( 'woocommerce_checkout_create_order_line_item', 'twshop_save_points_redeem_order_item_meta', 10, 4 );
         add_action( 'woocommerce_after_checkout_validation', 'twshop_validate_points_redeem_balance', 10, 2 );
+        add_action( 'woocommerce_after_checkout_validation', 'twshop_validate_points_redeem_min_cart', 10, 2 );
+        add_action( 'woocommerce_check_cart_items', 'twshop_check_redeem_products_min_cart' );
         add_action( 'woocommerce_cart_totals_after_order_total', 'twshop_display_points_used', 5 );
         add_action( 'woocommerce_cart_totals_after_order_total', 'twshop_display_estimated_points_earn' );
         add_action( 'woocommerce_review_order_after_order_total', 'twshop_display_points_used', 5 );

@@ -316,7 +316,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     }
 }
 
-/* 視覺化優惠券卡片：外觀跟隨 Blocksy 主題的圓角/陰影/邊框色變數，讓卡片風格與主題其他區塊（表單、按鈕）一致；
+/* 視覺化優惠券卡片：外框/字級對齊 Blocksy 購物車總計框與商品標題（見 .visual-coupon-card）；
    按鈕沿用 WooCommerce/主題既有的 .button / .button.alt class，不再另外覆寫顏色，套用哪個佈景主題按鈕長怎樣，卡片按鈕就跟著長怎樣。 */
 .twshop-visual-coupons-wrapper {
     clear: both;
@@ -353,9 +353,9 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     padding: 0;
     margin: auto;
     border: none;
-    border-radius: var(--theme-border-radius, 8px);
-    background: var(--theme-content-background, #fff);
-    box-shadow: var(--theme-box-shadow, 0 10px 40px rgba(0, 0, 0, 0.25));
+    border-radius: 0;
+    background: #fff;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
     /* 開關動畫：淡入＋輕微上移縮放，比原生 <dialog> 預設的「瞬間出現/消失」自然。
        display/overlay 搭配 allow-discrete，讓 close() 觸發的關閉也會播放同一組轉場，
        瀏覽器會延後真正把 dialog 移出畫面，直到轉場結束（不支援 @starting-style 的舊瀏覽器則優雅退化為無動畫直接顯示）。 */
@@ -419,11 +419,13 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     overflow-y: auto;
 }
 .visual-coupon-card {
-    border: 1px solid var(--theme-border-color, #e2e8f0);
+    /* 對齊 Blocksy 購物車總計框：2px 邊框、無圓角、無陰影（該主題沒定義 --theme-border-radius／
+       --theme-content-background／--theme-box-shadow，先前吃到的是這裡自己的 fallback） */
+    border: 2px solid var(--theme-border-color, #e9ebec);
     padding: 15px;
-    border-radius: var(--theme-border-radius, 8px);
-    background: var(--theme-content-background, #fff);
-    box-shadow: var(--theme-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     box-sizing: border-box;
     text-align: left;
     transition: 0.3s;
@@ -450,18 +452,18 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
 }
 .twshop-coupon-title {
     margin: 0 0 6px;
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.2;
-    font-weight: bold;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-    color: var(--theme-text-color, #333);
+    color: var(--theme-headings-color, #111518);
 }
 .twshop-coupon-desc {
     margin: 0;
-    font-size: 12px;
-    color: var(--theme-text-color, #666);
+    font-size: 14px;
+    color: var(--theme-text-color, #687279);
     line-height: 1.4;
 }
 .twshop-coupon-expiry {
@@ -750,38 +752,30 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     background: #2a8a3e;
 }
 
-/* 購物車頁「加購商品」／「點數兌換商品」卡片外框：兩者是刻意平行的兩份 clone
-   （twshop_render_cart_addons()，cart-injection.php／twshop_render_points_redeemable_products_section()，
-   points-engine.php），版面已經是同一套真正的 WooCommerce 商品迴圈（`content-product.php` 模板 ＋
-   主題卡片樣式）。這裡比照優惠券卡片（.visual-coupon-card，上方）的作法，用 Blocksy 主題的
-   圓角/陰影/邊框色/背景色變數包一層「卡片」外框，讓這兩個區塊在購物車頁跟其他區塊（優惠券卡片、
-   商品清單本身）視覺語言一致，不是商品格線直接裸露貼在頁面上。用分組選擇器套用同一份規則
-   （而非各自複製一份），日後調整卡片風格只需要改一處——但兩支 PHP render 函式本身仍是各自獨立的
-   兩份 clone，不因為 CSS 共用就合併。
-   `margin-top`／`clear` 原本是 PHP 端內嵌的 `style="margin-top:30px; clear:both"`，CSS 規則蓋不過
-   內嵌樣式、只能疊 `!important`，因此連同卡片樣式一併搬進這裡，PHP 端改成純 class。
-   `margin-bottom` 是新增的，讓卡片跟後面接著的購物車金額摘要區塊也有明確的呼吸空間。 */
+/* 加購商品／點數兌換商品區塊：外框與標題對齊主題（Blocksy）購物車總計框（.cart_totals）——
+   2px 邊框、無圓角、無陰影、標題 15px/700/標題色。量測本站時發現 --theme-border-radius、
+   --theme-content-background、--theme-box-shadow 在這個主題根本沒定義，先前的 fallback
+   （8px 圓角、陰影、白底）因此不是主題的值，這裡改成不依賴那三個變數。
+   內部商品格線是真正的 WooCommerce 商品迴圈（content-product.php），字級/價格/按鈕由主題負責。 */
 .twshop-cart-addons,
 .twshop-points-redeem-products {
     margin-top: 30px;
     margin-bottom: 20px;
     clear: both;
-    padding: 20px;
-    border: 1px solid var(--theme-border-color, #e2e8f0);
-    border-radius: var(--theme-border-radius, 8px);
-    background: var(--theme-content-background, #fff);
-    box-shadow: var(--theme-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+    padding: 30px;
+    border: 2px solid var(--theme-border-color, #e9ebec);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     box-sizing: border-box;
 }
 
-/* 卡片標題：原本只有 PHP 端內嵌的 font-size，沒有顏色/字重，容易跟周圍純文字混在一起。
-   字級沿用內嵌的 `style="font-size:var(--wp--preset--font-size--small,14px);"` 不動
-   （跟隨 WP 字級預設集是既有慣例），這裡只補顏色與字重，兩者不衝突不需要 !important。 */
 .twshop-cart-addons-title,
 .twshop-points-redeem-products-title {
-    margin: 0 0 15px;
-    color: var(--theme-text-color, #333);
-    font-weight: 600;
+    margin: 0 0 20px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--theme-headings-color, #111518);
 }
 
 /* 極窄螢幕：卡片內距收緊，避免商品格線被過大的左右留白擠壓。沿用本檔其餘規則已經在用的
@@ -789,7 +783,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
 @media screen and (max-width: 600px) {
     .twshop-cart-addons,
     .twshop-points-redeem-products {
-        padding: 14px;
+        padding: 20px;
     }
 }
 
@@ -812,3 +806,5 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     margin-right: 6px;
     vertical-align: middle;
 }
+
+.twshop-points-redeem-min-notice{ margin:0 0 12px; font-size:14px; color:var(--theme-text-color, #687279); }

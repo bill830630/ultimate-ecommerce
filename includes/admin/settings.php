@@ -134,6 +134,8 @@ function twshop_register_settings() {
     register_setting( 'wc_points_award_group', 'wc_points_revoke_statuses', 'twshop_sanitize_order_status_array' );
 
     // 頁籤：點數兌換商品
+    register_setting( 'wc_points_redeem_group', 'wc_points_redeem_min_cart_amount', 'floatval' );
+    register_setting( 'wc_points_redeem_group', 'wc_points_redeem_min_cart_text', 'sanitize_text_field' );
     register_setting( 'wc_points_redeem_group', 'wc_points_redeemable_products', 'twshop_sanitize_points_redeemable_products' );
 
     // v25.5.58 修正：這 5 組原本全部共用 wc_general_settings_group，但實際渲染在 5 個不同頁籤

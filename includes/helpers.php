@@ -249,6 +249,7 @@ function twshop_get_option_defaults() {
         'wc_points_btn_update_text'   => '更新或取消{term}',
         'wc_points_expiry_soon_text'  => '有 {amount} {term}將於 {date} 到期',
         'wc_points_input_placeholder' => '輸入欲使用{term}（{rate} 的倍數）',
+        'wc_points_redeem_min_cart_text' => '購物車需滿 {amount} 才可兌換商品',
         'wc_points_min_cart_text'     => '購物車需滿 {amount} 才可使用{term}折抵',
         'wc_points_no_balance_text'   => '您目前沒有可用的{term}',
         'wc_points_restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用{term}',

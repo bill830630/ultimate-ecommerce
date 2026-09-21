@@ -8,7 +8,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TWSHOP_LICENSE_API_URL', 'https://nibill-license-api.bill830630.workers.dev' );
+define( 'TWSHOP_LICENSE_API_URL', 'https://ctrla.bill830630.workers.dev' );
 define( 'TWSHOP_LICENSE_PRODUCT_ID', 'ultimate-ecommerce' );
 define( 'TWSHOP_LICENSE_OPTION', 'twshop_license' );
 define( 'TWSHOP_LICENSE_CACHE_TTL', DAY_IN_SECONDS );
@@ -210,8 +210,8 @@ function twshop_license_settings_tab() {
         $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
         return $timestamp ? wp_date( 'Y-m-d H:i', $timestamp ) : (string) $value;
     };
-    $license_key = preg_replace( '/[^A-Z0-9]/', '', strtoupper( (string) ( $data['license_key'] ?? '' ) ) );
-    $masked_key  = $license_key ? 'NIBILL-••••-' . substr( $license_key, -4 ) : '—';
+    $license_key = preg_replace( '/[^A-Z0-9-]/', '', strtoupper( (string) ( $data['license_key'] ?? '' ) ) );
+    $masked_key  = $license_key ? ( 0 === strpos( $license_key, 'CTRLA-' ) ? 'CTRLA' : 'NIBILL' ) . '-••••-' . substr( $license_key, -4 ) : '—';
     $site_url    = $data['site_url'] ?? home_url();
     $status_class = $active ? ( 'grace' === ( $data['status'] ?? '' ) ? 'is-grace' : 'is-active' ) : 'is-inactive';
     $details = array(
@@ -237,7 +237,7 @@ function twshop_license_settings_tab() {
     } else {
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="twshop_license_activate">';
         wp_nonce_field( 'twshop_license_activate' );
-        echo '<label for="twshop_license_key" class="screen-reader-text">授權金鑰</label><input id="twshop_license_key" name="license_key" type="text" class="regular-text" autocomplete="off" placeholder="NIBILL-XXXXX-XXXXX-XXXXX-XXXXX" required>';
+        echo '<label for="twshop_license_key" class="screen-reader-text">授權金鑰</label><input id="twshop_license_key" name="license_key" type="text" class="regular-text" autocomplete="off" placeholder="CTRLA-XXXXX-XXXXX-XXXXX-XXXXX" required>';
         submit_button( '啟用授權', 'primary', 'submit', false );
         echo '</form>';
     }

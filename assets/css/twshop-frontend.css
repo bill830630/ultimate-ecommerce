@@ -210,21 +210,22 @@ tr.twshop-shipping-hidden { display: none !important; }
    !important 理由同上一條 .twshop-postcode-auto。 */
 .twshop-country-auto { display: none !important; }
 
-/* 結帳頁：移入帳單表單的運送方式選擇區塊 */
+/* 結帳頁：移入帳單表單的運送方式選擇區塊。外框對齊 Blocksy 結帳頁「付款方式」選項框
+   （1px 邊框、無圓角、透明底），標題對齊表單欄位標籤（15px/500）。 */
 #twshop-shipping-placeholder {
     clear: both;
     width: 100%;
     box-sizing: border-box;
-    padding: 14px 16px;
+    padding: 18px 25px;
     margin-bottom: 1em;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-    background: var(--theme-palette-color-8, #f8f9fa);
+    border: 1px solid var(--theme-border-color, #e9ebec);
+    border-radius: 0;
+    background: transparent;
 }
 .twshop-shipping-label {
     margin: 0 0 10px;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 15px;
 }
 #twshop-shipping-placeholder ul#shipping_method {
     margin: 0;

@@ -32,6 +32,10 @@ function twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total = 0, $pr
             $cache_key .= '|' . twshop_cart_condition_fingerprint();
         }
     }
+    if ( intval( $rule['min_qty'] ?? 0 ) > 0 ) {
+        list( $q_type, $q_values ) = twshop_get_rule_condition( $rule );
+        $cache_key .= '|q' . twshop_count_cart_qty_in_scope( $q_type, $q_values );
+    }
     if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
 
     $result = twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total, $product_id );
@@ -114,10 +118,26 @@ function twshop_cart_condition_fingerprint() {
     $ids = array();
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         if ( twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
-        $ids[] = (int) $cart_item['product_id'];
+        $ids[] = (int) $cart_item['product_id'] . ':' . (int) $cart_item['quantity'];
     }
     sort( $ids );
     return md5( implode( ',', array_unique( $ids ) ) );
+}
+
+/**
+ * 數量限制：購物車內「範圍內」一般商品的件數合計。有限制條件時只計符合範圍的商品，
+ * 沒有限制條件則計全部一般商品（排除贈品/買N送N/兌換/加購項目，避免自己撐住自己的條件）。
+ */
+function twshop_count_cart_qty_in_scope( $cond_type, $cond_values ) {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart ) return 0;
+    $qty = 0;
+    foreach ( WC()->cart->get_cart() as $cart_item ) {
+        if ( twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
+        if ( ! empty( $cond_type ) && ! empty( $cond_values )
+            && ! twshop_rule_condition_matches_product( $cond_type, $cond_values, (int) $cart_item['product_id'] ) ) continue;
+        $qty += (int) $cart_item['quantity'];
+    }
+    return $qty;
 }
 
 function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total = 0, $product_id = 0 ) {
@@ -140,6 +160,7 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
 
     $logic = $rule['logic'] ?? 'and';
     $has_min = !empty($rule['min_amount']) && $rule['min_amount'] > 0;
+    $has_qty = intval( $rule['min_qty'] ?? 0 ) > 0;
 
     // 限制條件：condition_type (product/category/tag) + condition_values (可複選)。
     // 商品層（$product_id > 0）比對該商品；購物車層（$product_id = 0：免運/贈品/加購/整單折扣）
@@ -147,9 +168,10 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
     list( $cond_type, $cond_values ) = twshop_get_rule_condition( $rule );
     $has_cond = ! empty( $cond_type ) && ! empty( $cond_values );
 
-    if ( !$has_min && !$has_cond ) return true;
+    if ( !$has_min && !$has_cond && !$has_qty ) return true;
 
     $p_min = $has_min ? ($cart_total >= floatval($rule['min_amount'])) : false;
+    $p_qty = $has_qty ? ( twshop_count_cart_qty_in_scope( $cond_type, $cond_values ) >= intval( $rule['min_qty'] ) ) : false;
     $p_cond = false;
     if ( $has_cond ) {
         if ( $product_id > 0 ) {
@@ -167,10 +189,11 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
 
     if ( $logic === 'and' ) {
         if ( $has_min && !$p_min ) return false;
+        if ( $has_qty && !$p_qty ) return false;
         if ( $has_cond && !$p_cond ) return false;
         return true;
     } else {
-        if ( $p_min || $p_cond ) return true;
+        if ( $p_min || $p_qty || $p_cond ) return true;
         return false;
     }
 }
@@ -483,7 +506,8 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
     // price_html、促銷角標等），兩者傳入的 $price 可能不同（is_on_sale 特意傳「未打折的原價」），
     // 快取 key 納入 $price 才不會把不同輸入誤判成同一結果；購物車小計與角色在同一次請求內視為不變。
     static $cache = array();
-    $cache_key = $product_id . '|' . $price . '|' . $cart_total . '|' . implode( ',', $user_roles );
+    $cache_key = $product_id . '|' . $price . '|' . $cart_total . '|' . implode( ',', $user_roles )
+        . '|' . twshop_cart_condition_fingerprint();
     if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
 
     $final_price = floatval($price);

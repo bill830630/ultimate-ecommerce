@@ -148,11 +148,12 @@ jQuery(document).ready(function($) {
         updateLogicVisibility($card);
     }
 
-    // AND/OR 只在「有選範圍」且「有填小計滿額」兩個條件同時存在時才有意義
+    // AND/OR 在範圍、小計滿額、數量門檻至少設定兩項時顯示。
     function updateLogicVisibility($card) {
         var hasScope = !!$card.find('.twshop-condition-type').val();
         var hasMin = parseFloat($card.find('.twshop-rule-min-amount').val()) > 0;
-        $card.find('.twshop-rule-logic-wrap').toggle(hasScope && hasMin);
+        var hasQty = parseInt($card.find('.twshop-rule-min-qty').val(), 10) > 0;
+        $card.find('.twshop-rule-logic-wrap').toggle((hasScope ? 1 : 0) + (hasMin ? 1 : 0) + (hasQty ? 1 : 0) >= 2);
     }
 
     // ── 規則名稱自動產生 ─────────────────────────────────────
@@ -182,6 +183,7 @@ jQuery(document).ready(function($) {
         var type = $card.find('.twshop-rule-type').val();
         var value = $card.find('.twshop-rule-value').val();
         var min = parseFloat($card.find('.twshop-rule-min-amount').val()) || 0;
+        var minQty = parseInt($card.find('.twshop-rule-min-qty').val(), 10) || 0;
         var scopeType = $card.find('.twshop-condition-type').val();
         var scope = '';
         if (scopeType === 'product') scope = joinNames(selectedTexts($card.find('select[name="condition_values_product[]"]')));
@@ -219,6 +221,7 @@ jQuery(document).ready(function($) {
         // 購物車層規則的範圍語意是「購物車含有」（商品層與買N送N 已經寫在 core 裡）
         if (scope && ['cart_percent', 'cart_discount', 'free_shipping', 'free_gift', 'addon_product'].indexOf(type) !== -1) parts.push('含' + scope);
         if (min > 0 && type !== 'tiered_cart') parts.push('滿' + fmtNum(min));
+        if (minQty > 0 && type !== 'tiered_cart') parts.push('滿' + minQty + '件');
         parts.push(core);
         return parts.join(' ');
     }
@@ -271,7 +274,7 @@ jQuery(document).ready(function($) {
     $container.on('change', '.twshop-rule-type-group', function() { filterTypeOptions($(this).closest('.twshop-rule-form')); });
     $container.on('change', '.twshop-rule-type', function() { applyTypeLayout($(this).closest('.twshop-rule-form')); });
     $container.on('input change', '.twshop-rule-value', function() { updateValueHint($(this).closest('.twshop-rule-form')); });
-    $container.on('input change', '.twshop-rule-min-amount', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });
+    $container.on('input change', '.twshop-rule-min-amount, .twshop-rule-min-qty', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });
     $container.on('change', '.twshop-condition-type', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });
     $container.on('input change', '.twshop-tier-type, .twshop-tier-value', function() { updateTierHint($(this).closest('.twshop-tier-row')); });
 

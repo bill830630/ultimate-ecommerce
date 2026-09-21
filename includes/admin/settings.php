@@ -66,6 +66,7 @@ function twshop_sanitize_discount_rules_settings( $input ) {
             'condition_type'    => $condition_type,
             'condition_values'  => $condition_values,
             'min_amount'        => floatval( $rule['min_amount'] ?? 0 ),
+            'min_qty'           => absint( $rule['min_qty'] ?? 0 ),
             'usage_limit'       => absint( $rule['usage_limit'] ?? 0 ),
             'user_limit'        => absint( $rule['user_limit'] ?? 0 ),
             'start_time'        => sanitize_text_field( $rule['start_time'] ?? '' ),

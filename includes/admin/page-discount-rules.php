@@ -50,6 +50,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
     $r_id = $r['rule_id'] ?? ''; $name = $r['name'] ?? ''; $role = $r['role'] ?? 'all'; $type = $r['type'] ?? 'percent';
     $val = $r['value'] ?? ''; $gift_id = $r['gift_product_id'] ?? ''; $logic = $r['logic'] ?? 'and';
     $min = $r['min_amount'] ?? '';
+    $min_qty = $r['min_qty'] ?? '';
     $limit = $r['usage_limit'] ?? ''; $u_limit = $r['user_limit'] ?? '';
     $s_time = $r['start_time'] ?? ''; $e_time = $r['end_time'] ?? '';
     $enabled = $r['enabled'] ?? 'yes'; $stack_exclusive = $r['stack_exclusive'] ?? 'no';
@@ -215,10 +216,14 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                         <label class="twshop-rule-label">訂單小計滿 ($) <small>留空不限</small></label>
                         <input type="number" step="any" name="min_amount" class="twshop-rule-min-amount" value="<?php echo esc_attr( $min ); ?>" />
                     </div>
+                    <div class="twshop-rule-field rule-min-qty-wrap rule-scope-toggle">
+                        <label class="twshop-rule-label">範圍內商品數量滿 (件) <small>留空不限</small></label>
+                        <input type="number" step="1" min="0" name="min_qty" class="twshop-rule-min-qty" value="<?php echo esc_attr( $min_qty ); ?>" />
+                    </div>
                     <div class="twshop-rule-field is-wide twshop-rule-logic-wrap rule-scope-toggle">
-                        <label class="twshop-rule-label">範圍與滿額要</label>
+                        <label class="twshop-rule-label">範圍、滿額與數量要</label>
                         <div class="twshop-rule-checklist">
-                            <label><input type="radio" name="logic" value="and" <?php checked($logic, 'and'); ?>> 兩者都符合</label>
+                            <label><input type="radio" name="logic" value="and" <?php checked($logic, 'and'); ?>> 全部符合</label>
                             <label><input type="radio" name="logic" value="or" <?php checked($logic, 'or'); ?>> 符合其中一個即可</label>
                         </div>
                     </div>
@@ -324,6 +329,7 @@ function twshop_ajax_save_rule() {
         'condition_type'    => $condition_type,
         'condition_values'  => $condition_values,
         'min_amount'        => floatval( wp_unslash( $_POST['min_amount'] ?? 0 ) ),
+        'min_qty'           => absint( wp_unslash( $_POST['min_qty'] ?? 0 ) ),
         'usage_limit'       => absint( wp_unslash( $_POST['usage_limit'] ?? 0 ) ),
         'user_limit'        => absint( wp_unslash( $_POST['user_limit'] ?? 0 ) ),
         'start_time'        => sanitize_text_field( wp_unslash( $_POST['start_time'] ?? '' ) ),

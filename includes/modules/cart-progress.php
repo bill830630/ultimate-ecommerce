@@ -54,44 +54,13 @@ function twshop_finalize_progress_items( array $items, $cart_total ) {
  * 語意等價，因為 guest 之間 email/roles 本來就相同、都會走同一組判斷分支）。
  */
 function twshop_get_coupon_progress_items() {
-    $user_id    = get_current_user_id();
-    $email      = is_user_logged_in() ? wp_get_current_user()->user_email : '';
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array( 'customer' );
-
-    static $cache = array();
-    $cache_key = $user_id . '|' . implode( ',', $user_roles );
-    if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
-
-    $items      = array();
+    $items = array();
 
     if ( twshop_module_enabled( 'visual_coupons' ) ) {
-        $coupons = get_posts( array(
-            'posts_per_page' => -1,
-            'post_type'      => 'shop_coupon',
-            'post_status'    => 'publish',
-            'no_found_rows'  => true,
-            'meta_query'     => array( array( 'key' => '_visual_coupon_title', 'compare' => 'EXISTS' ) ),
-        ) );
-        foreach ( $coupons as $c ) {
-            if ( 'yes' === get_post_meta( $c->ID, '_visual_coupon_manual_only', true ) ) continue;
-            $coupon_obj = new WC_Coupon( $c->ID );
-
-            $expires = $coupon_obj->get_date_expires();
-            if ( $expires && $expires < current_datetime() ) continue;
-
-            $u_limit = $coupon_obj->get_usage_limit();
-            if ( $u_limit > 0 && $coupon_obj->get_usage_count() >= $u_limit ) continue;
-
-            if ( is_user_logged_in() ) {
-                $used_by = $coupon_obj->get_used_by();
-                $u_count = 0;
-                if ( is_array( $used_by ) ) { foreach ( $used_by as $used ) { if ( strtolower( $used ) === strtolower( $email ) || (string) $used === (string) $user_id ) { $u_count++; } } }
-                $p_limit = $coupon_obj->get_usage_limit_per_user();
-                if ( $p_limit > 0 && $u_count >= $p_limit ) continue;
-            }
-
-            $restrictions = $coupon_obj->get_email_restrictions();
-            if ( ! empty( $restrictions ) && ( ! is_user_logged_in() || ! in_array( $email, $restrictions ) ) ) continue;
+        foreach ( twshop_get_customer_visual_coupons() as $entry ) {
+            if ( $entry['used_up'] ) continue;
+            $c          = $entry['post'];
+            $coupon_obj = $entry['coupon'];
 
             $min = floatval( $coupon_obj->get_minimum_amount() );
             if ( $min <= 0 ) continue;
@@ -105,9 +74,6 @@ function twshop_get_coupon_progress_items() {
             );
         }
     }
-
-
-    $cache[ $cache_key ] = $items;
     return $items;
 }
 
@@ -123,7 +89,7 @@ function twshop_get_cart_progress_items() {
     if ( ! WC()->cart || WC()->cart->is_empty() ) return array();
 
     $user_id    = get_current_user_id();
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array( 'customer' );
+    $user_roles = twshop_current_user_roles();
     $cart_total = WC()->cart->get_subtotal();
 
     static $cache = array();

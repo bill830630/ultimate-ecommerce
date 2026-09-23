@@ -344,6 +344,10 @@ function twshop_membership_init() {
         // 或訂單 meta（_twshop_wallet_applied）互斥判斷，同一張訂單的兩組 hook 可以安全
         // 共存；`woocommerce_order_refunded` 同理，兩支各自處理不同方向的退回。
         add_action( 'woocommerce_payment_complete', 'twshop_wallet_credit_on_payment_complete', 10, 1 );
+        // 銀行轉帳／貨到付款等離線金流不會觸發 woocommerce_payment_complete（管理員手動改狀態），
+        // 訂單轉「已完成」時補入帳；callback 依訂單項目 meta 冪等，已入帳過的不會重複（v25.8.107）。
+        // 刻意不掛 processing：貨到付款下單當下就是 processing，錢還沒收到。
+        add_action( 'woocommerce_order_status_completed', 'twshop_wallet_credit_on_payment_complete', 10, 1 );
         foreach ( array( 'cancelled', 'refunded', 'failed' ) as $twshop_wallet_topup_revoke_status ) {
             add_action( 'woocommerce_order_status_' . $twshop_wallet_topup_revoke_status, 'twshop_wallet_revoke_topup_order', 15, 1 );
         }
@@ -392,7 +396,7 @@ function twshop_membership_init() {
 
         // 訂單管理後台強化
         add_filter( 'wc_order_statuses', 'twshop_add_custom_order_statuses' );
-        add_filter( 'woocommerce_reports_order_statuses', 'twshop_add_custom_order_statuses' );
+        add_filter( 'woocommerce_reports_order_statuses', 'twshop_add_custom_report_statuses' );
         add_filter( 'woocommerce_order_is_paid_statuses', 'twshop_add_custom_paid_statuses' );
 
         add_filter( 'manage_shop_order_posts_columns', 'twshop_order_list_columns', 11 );

@@ -51,6 +51,17 @@ function twshop_add_custom_order_statuses( $order_statuses ) {
 }
 
 /**
+ * 舊版報表的狀態清單是不帶 wc- 的值陣列（例如 array('completed','processing','on-hold')），
+ * 也可能是 false。只在清單含「處理中」時補上兩個自訂狀態，退款報表等其他清單不動。
+ * v25.8.107 前誤用 twshop_add_custom_order_statuses()（處理的是 key=>label 格式），
+ * 收到 false 會噴 foreach 警告，收到陣列也不會有任何效果。
+ */
+function twshop_add_custom_report_statuses( $statuses ) {
+    if ( ! is_array( $statuses ) || ! in_array( 'processing', $statuses, true ) ) return $statuses;
+    return array_values( array_unique( array_merge( $statuses, array( 'twshop-in-transit', 'twshop-shipped' ) ) ) );
+}
+
+/**
  * 配送中／已出貨都是處理中之後才會進入的狀態，訂單當下必然已付款，納入已付款狀態清單避免營收報表漏算。
  */
 function twshop_add_custom_paid_statuses( $statuses ) {

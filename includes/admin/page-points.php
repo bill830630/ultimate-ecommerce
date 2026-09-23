@@ -326,47 +326,6 @@ function twshop_points_rules_tab() {
 }
 
 /**
- * 頁籤：點數提示文字。
- */
-function twshop_points_texts_tab() {
-    $p_ui_heading        = twshop_option( 'wc_points_ui_heading' );
-    $p_balance_text      = twshop_option( 'wc_points_balance_text' );
-    $p_expiry_soon_text  = twshop_option( 'wc_points_expiry_soon_text' );
-    $p_input_placeholder = twshop_option( 'wc_points_input_placeholder' );
-    $p_btn_apply_text    = twshop_option( 'wc_points_btn_apply_text' );
-    $p_btn_update_text   = twshop_option( 'wc_points_btn_update_text' );
-    $p_applied_text      = twshop_option( 'wc_points_applied_text' );
-    $p_no_balance_text   = twshop_option( 'wc_points_no_balance_text' );
-    $p_min_cart_text     = twshop_option( 'wc_points_min_cart_text' );
-    $p_restricted_text   = twshop_option( 'wc_points_restricted_text' );
-    ?>
-        <form action="options.php" method="post">
-            <?php settings_fields( 'wc_points_texts_group' ); ?>
-
-            <div class="twshop-panel">
-                <?php twshop_panel_head( 'pencil', '點數提示文字', '設定購物車與結帳頁的點數文案；可用變數請參照各欄位說明。' ); ?>
-                <div class="twshop-panel-body">
-                    <table class="form-table">
-                        <tr><th scope="row">區塊標題</th><td><input type="text" name="wc_points_ui_heading" value="<?php echo esc_attr( $p_ui_heading ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">目前餘額文字</th><td><input type="text" name="wc_points_balance_text" value="<?php echo esc_attr( $p_balance_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">即將到期提醒</th><td><input type="text" name="wc_points_expiry_soon_text" value="<?php echo esc_attr( $p_expiry_soon_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">輸入框提示文字</th><td><input type="text" name="wc_points_input_placeholder" value="<?php echo esc_attr( $p_input_placeholder ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">套用按鈕（尚未套用）</th><td><input type="text" name="wc_points_btn_apply_text" value="<?php echo esc_attr( $p_btn_apply_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">套用按鈕（已套用）</th><td><input type="text" name="wc_points_btn_update_text" value="<?php echo esc_attr( $p_btn_update_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">已套用折抵確認文字</th><td><input type="text" name="wc_points_applied_text" value="<?php echo esc_attr( $p_applied_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">餘額不足提示</th><td><input type="text" name="wc_points_no_balance_text" value="<?php echo esc_attr( $p_no_balance_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">未達最低消費門檻提示</th><td><input type="text" name="wc_points_min_cart_text" value="<?php echo esc_attr( $p_min_cart_text ); ?>" class="regular-text" /></td></tr>
-                        <tr><th scope="row">限定商品未達成提示</th><td><input type="text" name="wc_points_restricted_text" value="<?php echo esc_attr( $p_restricted_text ); ?>" class="regular-text" /></td></tr>
-                    </table>
-                </div>
-            </div>
-
-            <?php submit_button( '儲存點數提示文字' ); ?>
-        </form>
-    <?php
-}
-
-/**
  * 頁籤：點數發放與退還時機。
  */
 function twshop_points_award_tab() {

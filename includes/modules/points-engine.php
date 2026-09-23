@@ -468,6 +468,54 @@ function twshop_trigger_on_order( $order_id ) {
     }
 }
 
+/**
+ * 消費回饋點數計算，實際發放（twshop_award_points_on_order_complete()）與購物車「預估獲得」
+ * （twshop_display_estimated_points_earn()）共用，兩邊結果才會一致。
+ *
+ * 儲值金商品不算消費回饋：跳過該項目，並從扣運費後的總額扣掉它的金額（沒設定「限制獲得點數
+ * 的商品」時，基準直接用總額而不是逐項加總）。v25.8.107 前預估沒有排除，買儲值金商品時購物車
+ * 會顯示實際不會發的點數。限制分類/標籤比對一律用父商品 ID（規格本身沒有分類），原本發放時用
+ * 規格 ID，可變商品在設了限制時永遠不會得到點數。
+ *
+ * 用儲值金折抵的金額（$wallet_applied）算不算點數由「儲值中心 ▸ 設定」的 wc_wallet_earn_points
+ * 決定（預設不算，跟 v25.8.108 前的行為一致）：
+ * - 沒設限制商品：$total_excl_shipping 是扣完所有折抵費用後的實付金額，設定為「算」時把儲值金加回。
+ * - 有設限制商品：基準是符合商品的項目金額（未扣任何折抵費用），設定為「不算」時依比例扣掉
+ *   儲值金折抵分攤到這些商品的部分。
+ *
+ * @param array $lines          每筆 [ 'product' => WC_Product, 'total' => 含稅金額 ]
+ * @param float $wallet_applied 這筆訂單/購物車用儲值金折抵的金額
+ */
+function twshop_calculate_earn_points( array $lines, $total_excl_shipping, $user, $wallet_applied = 0.0 ) {
+    $base_earn_rate = (int) get_option( 'wc_points_base_rate', 100 );
+    if ( $base_earn_rate <= 0 ) $base_earn_rate = 100;
+
+    $items_data   = array();
+    $wallet_total = 0.0;
+    foreach ( $lines as $line ) {
+        $product = $line['product'];
+        if ( twshop_is_wallet_credit_product( $product ) ) {
+            $wallet_total += (float) $line['total'];
+            continue;
+        }
+        $items_data[] = array( 'product_id' => $product->get_parent_id() ?: $product->get_id(), 'total' => $line['total'] );
+    }
+
+    $wallet_applied = max( 0.0, (float) $wallet_applied );
+    $wallet_earns   = 'yes' === twshop_option( 'wc_wallet_earn_points' );
+    $unrestricted   = $total_excl_shipping - $wallet_total + ( $wallet_earns ? $wallet_applied : 0 );
+    $base           = twshop_get_earn_base_amount( $items_data, $unrestricted );
+
+    $items_total = array_sum( wp_list_pluck( $items_data, 'total' ) );
+    if ( ! $wallet_earns && $wallet_applied > 0 && twshop_points_earn_is_restricted() && $items_total > 0 ) {
+        $base -= $wallet_applied * ( $base / $items_total );
+    }
+
+    $base_points = floor( max( 0, $base ) / $base_earn_rate );
+    if ( $base_points <= 0 || ! $user ) return 0;
+    return (int) floor( $base_points * twshop_get_user_point_multiplier( $user ) );
+}
+
 function twshop_award_points_on_order_complete( $order_id ) {
     $order = wc_get_order( $order_id );
     if ( ! $order ) return;
@@ -478,58 +526,52 @@ function twshop_award_points_on_order_complete( $order_id ) {
     $order->update_meta_data( '_twshop_points_awarded', 'yes' );
     $order->save();
 
-    $base_earn_rate = (int) get_option( 'wc_points_base_rate', 100 );
-    if ( $base_earn_rate <= 0 ) $base_earn_rate = 100;
-
-    // 儲值金商品項目（顧客購買儲值金本身）不算消費回饋點數——買了 1000 元儲值金不該被
-    // 當成「消費 1000」發點數，之後真正花掉這筆儲值金買東西時，該筆消費訂單自己會再
-    // 正常算一次點數，不然同一筆錢等於被算了兩次。見 CLAUDE.md「儲值金模組」一節。
-    // 逐項跳過（而非整張訂單排除，v25.8.67 起）：訂單可能同時有儲值金商品與一般商品，
-    // 一般商品的消費額仍要正常發點數。
-    $items_data = array();
+    $lines = array();
     foreach ( $order->get_items() as $item ) {
         $product = $item->get_product();
-        if ( ! $product ) continue;
-        if ( twshop_is_wallet_credit_product( $product ) ) continue;
-        $items_data[] = array( 'product_id' => $product->get_id(), 'total' => $item->get_total() + $item->get_total_tax() );
+        if ( $product ) $lines[] = array( 'product' => $product, 'total' => $item->get_total() + $item->get_total_tax() );
     }
-    // $total_excl_shipping 是「沒有設定限制獲得點數商品」時 twshop_get_earn_base_amount()
-    // 直接使用的基準值，不是從 $items_data 算出來的——只跳過陣列元素不會讓它跟著減少，
-    // 必須額外扣掉儲值金商品項目的金額，否則沒設限制條件的站台仍會把儲值金商品算進點數。
-    $total_excl_shipping = $order->get_total() - $order->get_shipping_total() - $order->get_shipping_tax()
-        - twshop_get_order_wallet_product_total( $order );
-    $earn_base_amount    = twshop_get_earn_base_amount( $items_data, $total_excl_shipping );
+    $final_points = twshop_calculate_earn_points(
+        $lines, $order->get_total() - $order->get_shipping_total() - $order->get_shipping_tax(), get_userdata( $user_id ),
+        (float) $order->get_meta( '_twshop_wallet_applied' )
+    );
+    if ( $final_points <= 0 ) return;
 
-    $base_points = floor( $earn_base_amount / $base_earn_rate );
-    if ( $base_points <= 0 ) return;
-
-    $user             = get_userdata( $user_id );
-    $point_multiplier = twshop_get_user_point_multiplier( $user );
-    $final_points     = floor( $base_points * $point_multiplier );
     $order->update_meta_data( '_twshop_points_awarded_amount', $final_points );
     $order->save();
     twshop_add_points_log( $user_id, $final_points, '訂單 #' . $order_id . ' 消費回饋' );
 }
 
-function twshop_can_redeem_points() {
-    if ( ! WC()->cart || WC()->cart->is_empty() ) return false;
-
-    $min_amount = (float) get_option( 'wc_points_min_cart_amount', 0 );
-    if ( $min_amount > 0 && ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) < $min_amount ) {
-        return false;
-    }
-
-    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
-        'wc_points_redeem_restrict_type', 'wc_points_redeem_restrict_values',
+function twshop_points_cart_restriction() {
+    return twshop_cart_usage_restriction(
+        'wc_points_min_cart_amount', 'wc_points_redeem_restrict_type', 'wc_points_redeem_restrict_values',
         array( 'category' => 'wc_points_restricted_categories' )
     );
-    if ( empty( $restrict_type ) || empty( $restrict_values ) ) return true;
-    $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
+}
 
-    foreach ( WC()->cart->get_cart() as $cart_item ) {
-        if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return true;
-    }
-    return false;
+function twshop_can_redeem_points() {
+    if ( ! WC()->cart || WC()->cart->is_empty() ) return false;
+    return null === twshop_points_cart_restriction();
+}
+
+/**
+ * 購物車點數折抵區塊的固定文案（{term}＝點數名稱）。v25.8.108 起不再開放後台自訂
+ * （原「紅利點數 ▸ 點數提示文字」頁籤已移除），資料庫裡舊的 wc_points_*_text option 不再讀取。
+ */
+function twshop_points_text( $key ) {
+    static $texts = array(
+        'ui_heading'        => '使用{term}折抵',
+        'balance_text'      => '您目前擁有 {amount} {term}可用',
+        'expiry_soon_text'  => '有 {amount} {term}將於 {date} 到期',
+        'input_placeholder' => '輸入欲使用{term}（{rate} 的倍數）',
+        'btn_apply_text'    => '套用折抵',
+        'btn_update_text'   => '更新或取消{term}',
+        'applied_text'      => '已套用 {amount} {term}，折抵 {discount} 元',
+        'no_balance_text'   => '您目前沒有可用的{term}',
+        'min_cart_text'     => '購物車需滿 {amount} 才可使用{term}折抵',
+        'restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用{term}',
+    );
+    return $texts[ $key ] ?? '';
 }
 
 /**
@@ -547,46 +589,15 @@ function twshop_points_block_reason() {
     $points         = $user_id ? (int) get_user_meta( $user_id, 'twshop_reward_points', true ) : 0;
 
     if ( $points <= 0 && $applied_points <= 0 ) {
-        return str_replace( '{term}', $pt, twshop_option( 'wc_points_no_balance_text' ) );
+        return str_replace( '{term}', $pt, twshop_points_text( 'no_balance_text' ) );
     }
 
-    $min_amount = (float) get_option( 'wc_points_min_cart_amount', 0 );
-    if ( $min_amount > 0 && ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) < $min_amount ) {
-        return str_replace(
-            array( '{amount}', '{term}' ),
-            array( strip_tags( wc_price( $min_amount ) ), $pt ),
-            twshop_option( 'wc_points_min_cart_text' )
-        );
+    $block = twshop_points_cart_restriction();
+    if ( null === $block ) return null;
+    if ( 'min' === $block[0] ) {
+        return str_replace( array( '{amount}', '{term}' ), array( twshop_plain_price( $block[1] ), $pt ), twshop_points_text( 'min_cart_text' ) );
     }
-
-    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
-        'wc_points_redeem_restrict_type', 'wc_points_redeem_restrict_values',
-        array( 'category' => 'wc_points_restricted_categories' )
-    );
-    if ( ! empty( $restrict_type ) && ! empty( $restrict_values ) ) {
-        $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
-        $can_use = false;
-        foreach ( WC()->cart->get_cart() as $cart_item ) {
-            if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) {
-                $can_use = true;
-                break;
-            }
-        }
-        if ( ! $can_use ) {
-            $term_names = array();
-            foreach ( $restrict_values as $term_id ) {
-                $term = get_term( $term_id, $taxonomy );
-                if ( $term && ! is_wp_error( $term ) ) $term_names[] = $term->name;
-            }
-            return str_replace(
-                array( '{names}', '{term}' ),
-                array( esc_html( implode( '、', $term_names ) ), $pt ),
-                twshop_option( 'wc_points_restricted_text' )
-            );
-        }
-    }
-
-    return null;
+    return str_replace( array( '{names}', '{term}' ), array( esc_html( $block[1] ), $pt ), twshop_points_text( 'restricted_text' ) );
 }
 
 /**
@@ -863,65 +874,29 @@ function twshop_render_points_redeemable_products_section() {
         $max_qty_map[ $pid_key ] = (int) $row['max_qty'];
     }
 
-    // 跟 twshop_render_cart_addons() 一樣用 WP_Query 建立真正的 loop，確保主題所有
-    // hooks（Blocksy ct-media-container 等）正確觸發，而不是自己拼一段陽春的清單 HTML。
-    $query = new WP_Query( array(
-        'post_type'              => 'product',
-        'post__in'               => array_keys( $cost_map ),
-        'orderby'                => 'post__in',
-        'posts_per_page'         => count( $cost_map ),
-        'post_status'            => 'publish',
-        'no_found_rows'          => true,
-        'update_post_meta_cache' => false,
-        'update_post_term_cache' => false,
-    ) );
-
-    if ( ! $query->have_posts() ) {
-        echo '</div>';
-        return;
-    }
-
-    echo '<div class="twshop-points-redeem-products woocommerce">';
-    echo '<h3 class="twshop-points-redeem-products-title">' . esc_html( '用' . $pt . '兌換商品' ) . '</h3>';
+    $header = '<h3 class="twshop-points-redeem-products-title">' . esc_html( '用' . $pt . '兌換商品' ) . '</h3>';
     if ( $min_block ) {
-        echo '<p class="twshop-points-redeem-min-notice">' . esc_html( $min_block ) . '</p>';
+        $header .= '<p class="twshop-points-redeem-min-notice">' . esc_html( $min_block ) . '</p>';
     }
 
-    woocommerce_product_loop_start();
-
-    while ( $query->have_posts() ) {
-        $query->the_post();
-        $pid         = get_the_ID();
-        $product_obj = wc_get_product( $pid );
-        if ( ! $product_obj ) continue;
-
-        // 設定 global $product，讓 WooCommerce template 函式取得正確商品
-        $GLOBALS['product'] = $product_obj;
-
-        $cost      = $cost_map[ $pid ];
-        $max_qty   = max( 1, $max_qty_map[ $pid ] );
-        $in_cart   = twshop_cart_has_redeem_product( $pid );
-        // 已在購物車中的這筆本身也算在 $committed 裡，判斷「還能不能兌換其他的」時要先加回來，
-        // 否則自己會把自己判定成「不足」。這裡只檢查「至少負擔得起 1 個」，選了較大數量卻點數
-        // 不夠的情況留給 twshop_ajax_redeem_points_product() 送出時再擋，不在這裡為每個可能的
-        // 數量都重算一次可負擔上限（多一層複雜度，換來的只是選單少幾個選項的次要體驗差異）。
-        $available = $in_cart || ( ! $min_block && ( $balance - $committed ) >= $cost );
-
-        // 覆蓋價格顯示：用所需點數取代原本的售價（跟加購商品覆蓋成特價劃線同一個 filter，
-        // 這裡不是價格比較，直接整段換成點數文字）。
-        $price_filter = function( $price_html, $prod ) use ( $pid, $cost, $pt ) {
-            if ( (int) $prod->get_id() !== $pid ) return $price_html;
-            return '<span class="twshop-points-redeem-cost">' . esc_html( $cost . ' ' . $pt ) . '</span>';
-        };
-
-        // 覆蓋加入購物車按鈕：換成點數兌換專屬按鈕，走 twshop_redeem_points_product／
-        // twshop_remove_addon 這兩支既有 AJAX handler（見 twshop-frontend.js），
-        // 不是 WooCommerce 原生的 ajax_add_to_cart（那樣會用商品原價把商品加進購物車）。
-        // max_qty > 1 時，「立即兌換」按鈕前面多插入一顆數量下拉選單（1~max_qty），
-        // JS 端讀取這顆下拉的值當作兌換數量一併送出（見 twshop-frontend.js）；
-        // max_qty === 1（預設值，多數安裝不會去改這個新欄位）維持原本純按鈕、無下拉選單的畫面。
-        $button_filter = function( $html, $prod, $args ) use ( $pid, $in_cart, $available, $max_qty, $pt, $min_block ) {
-            if ( (int) $prod->get_id() !== $pid ) return $html;
+    twshop_render_product_cards(
+        array_keys( $cost_map ),
+        'twshop-points-redeem-products',
+        $header,
+        // 售價換成所需點數
+        function( $prod ) use ( $cost_map, $pt ) {
+            return '<span class="twshop-points-redeem-cost">' . esc_html( $cost_map[ $prod->get_id() ] . ' ' . $pt ) . '</span>';
+        },
+        // 按鈕換成點數兌換專屬按鈕（twshop_redeem_points_product／twshop_remove_addon 兩支 AJAX，
+        // 不是 WooCommerce 原生 ajax_add_to_cart，那樣會用原價加入購物車）。max_qty > 1 時前面多一顆
+        // 數量下拉選單（1~max_qty），twshop-frontend.js 讀它的值一起送出。
+        function( $prod ) use ( $cost_map, $max_qty_map, $balance, $committed, $pt, $min_block ) {
+            $pid     = $prod->get_id();
+            $max_qty = max( 1, $max_qty_map[ $pid ] );
+            $in_cart = twshop_cart_has_redeem_product( $pid );
+            // 已在購物車的這筆本身也算在 $committed 裡；這裡只檢查「至少負擔得起 1 個」，
+            // 選了較大數量卻不夠的情況由 twshop_ajax_redeem_points_product() 送出時再擋。
+            $available = $in_cart || ( ! $min_block && ( $balance - $committed ) >= $cost_map[ $pid ] );
             if ( $in_cart ) {
                 return sprintf(
                     '<button type="button" data-product_id="%d" class="button twshop-remove-addon-btn" style="background-color:#dc3232!important;color:#fff!important;border-color:#dc3232!important;">取消兌換</button>',
@@ -937,42 +912,14 @@ function twshop_render_points_redeemable_products_section() {
                 for ( $n = 1; $n <= $max_qty; $n++ ) {
                     $options .= sprintf( '<option value="%1$d">%1$d</option>', $n );
                 }
-                $qty_select = sprintf(
-                    '<select class="twshop-redeem-qty-select" data-product_id="%d">%s</select>',
-                    esc_attr( $pid ),
-                    $options
-                );
+                $qty_select = sprintf( '<select class="twshop-redeem-qty-select" data-product_id="%d">%s</select>', esc_attr( $pid ), $options );
             }
             return $qty_select . sprintf(
                 '<button type="button" data-product_id="%d" class="button twshop-redeem-product-btn">立即兌換</button>',
                 esc_attr( $pid )
             );
-        };
-
-        // 強制讓目錄可見性為「隱藏」的兌換商品通過 content-product.php 的 is_visible() 檢查
-        // （管理員常把純粹用來兌換的商品設成目錄隱藏，不想讓它出現在一般商店頁面）。
-        $visibility_filter = function( $visible, $product_id ) use ( $pid ) {
-            return ( (int) $product_id === $pid ) ? true : $visible;
-        };
-
-        add_filter( 'woocommerce_product_is_visible',    $visibility_filter, 999, 2 );
-        add_filter( 'woocommerce_get_price_html',        $price_filter,      999, 2 );
-        // WooCommerce 9.2+ 使用 woocommerce_loop_add_to_cart_link；舊版用 woocommerce_loop_add_to_cart_html
-        add_filter( 'woocommerce_loop_add_to_cart_link', $button_filter,     999, 3 );
-        add_filter( 'woocommerce_loop_add_to_cart_html', $button_filter,     999, 3 );
-
-        // 使用 WooCommerce 標準商品模板，主題樣式（Blocksy ct-media-container 等）自動套用
-        wc_get_template_part( 'content', 'product' );
-
-        remove_filter( 'woocommerce_product_is_visible',    $visibility_filter, 999 );
-        remove_filter( 'woocommerce_get_price_html',        $price_filter,      999 );
-        remove_filter( 'woocommerce_loop_add_to_cart_link', $button_filter,     999 );
-        remove_filter( 'woocommerce_loop_add_to_cart_html', $button_filter,     999 );
-    }
-
-    wp_reset_postdata();
-    woocommerce_product_loop_end();
-    echo '</div>';
+        }
+    );
 
     echo '</div>';
 }
@@ -1001,24 +948,24 @@ function twshop_render_points_redemption_ui() {
     $redemption_rate = max( 1, (int) get_option( 'wc_points_redemption_rate', 1 ) );
     ?>
     <div class="twshop-points-redemption">
-        <h4><?php echo esc_html( str_replace( '{term}', $pt, twshop_option( 'wc_points_ui_heading' ) ) ); ?></h4>
+        <h4><?php echo esc_html( str_replace( '{term}', $pt, twshop_points_text( 'ui_heading' ) ) ); ?></h4>
         <?php if ( $points > 0 ) : ?>
-            <p><?php echo esc_html( str_replace( array( '{amount}', '{term}' ), array( $points, $pt ), twshop_option( 'wc_points_balance_text' ) ) ); ?></p>
+            <p><?php echo esc_html( str_replace( array( '{amount}', '{term}' ), array( $points, $pt ), twshop_points_text( 'balance_text' ) ) ); ?></p>
         <?php endif; ?>
         <?php $nearest_expiring = twshop_get_nearest_expiring_batch( $user_id ); ?>
         <?php if ( $nearest_expiring ) : ?>
             <p class="twshop-points-notice" style="color:#b32d2e;"><?php echo esc_html( str_replace(
                 array( '{amount}', '{term}', '{date}' ),
                 array( $nearest_expiring['amount'], $pt, $nearest_expiring['expire'] ),
-                twshop_option( 'wc_points_expiry_soon_text' )
+                twshop_points_text( 'expiry_soon_text' )
             ) ); ?></p>
         <?php endif; ?>
         <?php if ( $reason !== null ) : ?>
             <p class="twshop-points-notice"><?php echo esc_html( $reason ); ?></p>
         <?php else : ?>
             <div class="twshop-points-input-row">
-                <input type="number" inputmode="numeric" id="twshop_points_input" min="<?php echo esc_attr( $redemption_rate ); ?>" step="<?php echo esc_attr( $redemption_rate ); ?>" placeholder="<?php echo esc_attr( str_replace( array( '{term}', '{rate}' ), array( $pt, $redemption_rate ), twshop_option( 'wc_points_input_placeholder' ) ) ); ?>" max="<?php echo esc_attr( $points ); ?>" value="<?php echo esc_attr( $applied_points ?: '' ); ?>">
-                <button type="button" class="button" id="twshop_apply_points_btn"><?php echo $applied_points ? esc_html( str_replace( '{term}', $pt, twshop_option( 'wc_points_btn_update_text' ) ) ) : esc_html( twshop_option( 'wc_points_btn_apply_text' ) ); ?></button>
+                <input type="number" inputmode="numeric" id="twshop_points_input" min="<?php echo esc_attr( $redemption_rate ); ?>" step="<?php echo esc_attr( $redemption_rate ); ?>" placeholder="<?php echo esc_attr( str_replace( array( '{term}', '{rate}' ), array( $pt, $redemption_rate ), twshop_points_text( 'input_placeholder' ) ) ); ?>" max="<?php echo esc_attr( $points ); ?>" value="<?php echo esc_attr( $applied_points ?: '' ); ?>">
+                <button type="button" class="button" id="twshop_apply_points_btn"><?php echo $applied_points ? esc_html( str_replace( '{term}', $pt, twshop_points_text( 'btn_update_text' ) ) ) : esc_html( twshop_points_text( 'btn_apply_text' ) ); ?></button>
             </div>
             <?php if ( $applied_points > 0 ) :
                 list( $discount, $applied_points ) = twshop_get_points_discount_amount( $applied_points );
@@ -1026,7 +973,7 @@ function twshop_render_points_redemption_ui() {
                 <p class="twshop-points-notice" style="color:#2271b1; margin-top:6px;"><?php echo esc_html( str_replace(
                     array( '{amount}', '{term}', '{discount}' ),
                     array( $applied_points, $pt, $discount ),
-                    twshop_option( 'wc_points_applied_text' )
+                    twshop_points_text( 'applied_text' )
                 ) ); ?></p>
             <?php endif; ?>
         <?php endif; ?>
@@ -1041,6 +988,11 @@ function twshop_render_points_redemption_ui() {
  *
  * @return array [ $discount_amount, $capped_points ]
  */
+/** 購物車「點數折抵」費用名稱，見 twshop_wallet_fee_name()。 */
+function twshop_points_fee_name() {
+    return twshop_points_term() . '折抵';
+}
+
 function twshop_get_points_discount_amount( $applied_points ) {
     $redemption_rate = (float) get_option( 'wc_points_redemption_rate', 1 );
     if ( $redemption_rate <= 0 || ! WC()->cart ) {
@@ -1058,7 +1010,7 @@ function twshop_get_points_discount_amount( $applied_points ) {
     // 此時優惠券與 twshop 購物車層折扣（priority 20）都已經算好。
     $payable = $cart_subtotal - WC()->cart->get_discount_total() - WC()->cart->get_discount_tax();
     foreach ( WC()->cart->get_fees() as $fee ) {
-        if ( $fee->amount < 0 && $fee->name !== twshop_points_term() . '折抵' ) $payable += (float) $fee->amount;
+        if ( $fee->amount < 0 && $fee->name !== twshop_points_fee_name() ) $payable += (float) $fee->amount;
     }
     $max_discount = max( 0, min( $max_discount, floor( $payable ) ) );
 
@@ -1140,7 +1092,7 @@ function twshop_redeem_products_block_reason() {
     if ( ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) >= $min_amount ) return null;
     return str_replace(
         array( '{amount}', '{term}' ),
-        array( html_entity_decode( strip_tags( wc_price( $min_amount ) ), ENT_QUOTES, 'UTF-8' ), twshop_points_term() ),
+        array( twshop_plain_price( $min_amount ), twshop_points_term() ),
         twshop_option( 'wc_points_redeem_min_cart_text' )
     );
 }
@@ -1308,7 +1260,12 @@ function twshop_validate_points_redeem_balance( $data, $errors ) {
  */
 function twshop_apply_points_discount_fee( $cart ) {
     if ( is_admin() && ! defined( 'DOING_AJAX' ) ) return;
-    if ( ! twshop_can_redeem_points() ) return;
+    if ( ! twshop_can_redeem_points() ) {
+        // 購物車不再符合使用條件時連 session 一起清掉，否則畫面上沒有折抵，
+        // 結帳時卻照 session 的值扣點（v25.8.105 修正，同儲值金 v25.8.79 的修法）。
+        if ( WC()->session ) WC()->session->__unset( 'twshop_applied_points' );
+        return;
+    }
 
     $applied_points = (int) WC()->session->get( 'twshop_applied_points', 0 );
     if ( $applied_points <= 0 ) return;
@@ -1333,7 +1290,7 @@ function twshop_apply_points_discount_fee( $cart ) {
         WC()->session->set( 'twshop_applied_points', $actual_applied );
     }
 
-    $cart->add_fee( twshop_points_term() . '折抵', -$discount_amount, false );
+    $cart->add_fee( twshop_points_fee_name(), -$discount_amount, false );
 }
 
 /**
@@ -1342,6 +1299,7 @@ function twshop_apply_points_discount_fee( $cart ) {
  */
 function twshop_store_points_cash_applied_on_order( $order ) {
     $points = WC()->session ? (int) WC()->session->get( 'twshop_applied_points', 0 ) : 0;
+    if ( ! twshop_can_redeem_points() ) $points = 0; // 不信任 session，理由同 twshop_store_wallet_applied_on_order()
     $order->update_meta_data( '_twshop_points_cash_applied', max( 0, $points ) );
 }
 
@@ -1542,26 +1500,20 @@ function twshop_display_estimated_points_earn() {
     if ( ! is_user_logged_in() ) return;
     if ( ! WC()->cart || WC()->cart->is_empty() ) return;
 
-    $base_earn_rate = (int) get_option( 'wc_points_base_rate', 100 );
-    if ( $base_earn_rate <= 0 ) $base_earn_rate = 100;
-
-    $items_data = array();
+    $lines = array();
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         $total  = isset( $cart_item['line_total'] ) ? $cart_item['line_total'] : ( $cart_item['data']->get_price() * $cart_item['quantity'] );
         $total += isset( $cart_item['line_tax'] ) ? $cart_item['line_tax'] : 0;
-        $items_data[] = array( 'product_id' => $cart_item['product_id'], 'total' => $total );
+        $lines[] = array( 'product' => $cart_item['data'], 'total' => $total );
     }
-    $cart_total_excl_shipping = WC()->cart->get_total( 'edit' ) - WC()->cart->get_shipping_total() - WC()->cart->get_shipping_tax();
-    $earn_base_amount        = twshop_get_earn_base_amount( $items_data, $cart_total_excl_shipping );
-
-    $base_points = floor( $earn_base_amount / $base_earn_rate );
-    if ( $base_points <= 0 ) return;
-
-    $user             = wp_get_current_user();
-    $point_multiplier = twshop_get_user_point_multiplier( $user );
-    $final_points     = floor( $base_points * $point_multiplier );
+    $user         = wp_get_current_user();
+    $final_points = twshop_calculate_earn_points(
+        $lines, WC()->cart->get_total( 'edit' ) - WC()->cart->get_shipping_total() - WC()->cart->get_shipping_tax(), $user,
+        WC()->session ? (float) WC()->session->get( 'twshop_wallet_applied', 0 ) : 0
+    );
     if ( $final_points <= 0 ) return;
 
+    $point_multiplier = twshop_get_user_point_multiplier( $user );
     $multiplier_note = ( $point_multiplier > 1 ) ? ' <small style="opacity:0.7;">(' . rtrim( rtrim( number_format( $point_multiplier, 1 ), '0' ), '.' ) . 'x 會員加倍)</small>' : '';
     ?>
     <tr class="twshop-estimated-points">

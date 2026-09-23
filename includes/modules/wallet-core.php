@@ -22,6 +22,35 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'TWSHOP_WALLET_DB_VERSION', '2.0.0' );
 
+/**
+ * 前台顯示的儲值金名稱（「儲值中心 ▸ 設定」可自訂，留空＝「儲值金」），比照 twshop_points_term()。
+ */
+function twshop_wallet_term() {
+    $term = get_option( 'wc_wallet_term_name', '' );
+    return '' !== $term ? $term : '儲值金';
+}
+
+/**
+ * 購物車儲值金折抵區塊的固定文案，{term} 代換成 twshop_wallet_term()。v25.8.109 起不再開放
+ * 逐句自訂（原「儲值中心 ▸ 設定 ▸ 儲值金提示文字」面板已移除），資料庫裡舊的 wc_wallet_*_text
+ * option 不再讀取。
+ */
+function twshop_wallet_text( $key ) {
+    static $texts = array(
+        'ui_heading'            => '使用{term}折抵',
+        'balance_text'          => '目前{term}餘額：{amount}',
+        'input_placeholder'     => '輸入要折抵的金額',
+        'btn_apply_text'        => '套用折抵',
+        'btn_update_text'       => '更新折抵',
+        'applied_text'          => '本次訂單將折抵 {amount}',
+        'no_balance_text'       => '您目前沒有可用的{term}',
+        'min_cart_text'         => '購物車需滿 {amount} 才可使用{term}折抵',
+        'restricted_text'       => '購物車需包含「{names}」分類/標籤商品才可使用{term}折抵',
+        'topup_restricted_text' => '購物車內含{term}商品時，無法使用{term}折抵',
+    );
+    return str_replace( '{term}', twshop_wallet_term(), $texts[ $key ] ?? '' );
+}
+
 function twshop_wallet_balances_table() {
     global $wpdb;
     return $wpdb->prefix . 'twshop_wallet_balances';
@@ -151,7 +180,8 @@ function twshop_wallet_get_balance( $user_id ) {
  * @param float  $delta  異動金額（正數增加／負數扣除）
  * @param string $type   topup／spend／spend_return／topup_revoke／adjust
  * @param string $ref    冪等鍵，同一個 ref 只會真正執行一次（例如 topup:123、spend:456、adjust:<uuid>）
- * @param array  $args   order_id／note／created_by（皆選填）
+ * @param array  $args   order_id／note／created_by（皆選填）；settle_target／settle_no_charge
+ *                       見 twshop_wallet_settle_order()，此時 $delta 與 $type 由鎖內重新計算
  * @return array|WP_Error 成功回傳這筆帳本紀錄（含 balance_paid_after 與 id）；
  *                        餘額不足回傳 WP_Error。
  */
@@ -207,6 +237,21 @@ function twshop_wallet_apply( $user_id, $delta, $type, $ref, $args = array() ) {
         return $existing;
     }
 
+    // 訂單結算模式（twshop_wallet_settle_order()）：差額必須在拿到列鎖「之後」才算，
+    // 並發的結帳／退款請求才會依序看到彼此的結果，不會各自拿舊狀態算出重疊的差額。
+    if ( isset( $args['settle_target'] ) ) {
+        $charged = -(float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount_paid),0) FROM {$ledger_table} WHERE order_id = %d AND type IN ('spend','spend_return')",
+            (int) ( $args['order_id'] ?? 0 )
+        ) );
+        $delta = round( $charged - (float) $args['settle_target'], 2 ); // 正數＝退回會員，負數＝向會員扣款
+        if ( 0.0 === $delta || ( $delta < 0 && ! empty( $args['settle_no_charge'] ) ) ) {
+            $wpdb->query( 'COMMIT' );
+            return array( 'noop' => true );
+        }
+        $type = $delta > 0 ? 'spend_return' : 'spend';
+    }
+
     $new_balance = round( (float) $row['balance_paid'] + $delta, 2 );
 
     if ( $new_balance < 0 ) {
@@ -248,6 +293,11 @@ function twshop_wallet_apply( $user_id, $delta, $type, $ref, $args = array() ) {
     $wpdb->query( 'COMMIT' );
 
     return $insert;
+}
+
+function twshop_wallet_ledger_has_ref( $ref ) {
+    global $wpdb;
+    return (bool) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . twshop_wallet_ledger_table() . ' WHERE ref = %s', $ref ) );
 }
 
 /**

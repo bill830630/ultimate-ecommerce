@@ -282,14 +282,22 @@ function twshop_wallet_credit_on_payment_complete( $order_id ) {
         $credit_total    = round( $credit_per_unit * $qty, 2 );
         if ( $credit_total <= 0 ) continue;
 
-        twshop_wallet_apply( $user_id, $credit_total, 'topup', 'topup:' . $item_id, array(
-            'order_id' => $order_id,
-            'note'     => '訂單 #' . $order_id . ' 儲值金商品「' . $product->get_name() . '」',
-        ) );
+        // 付款完成與「訂單轉已完成」兩個 hook 可能在同一次請求先後觸發，第二次讀到的訂單項目
+        // 可能是快取的舊 meta；以帳本 ref 判斷是否已入帳，避免重複寄通知信。
+        $ref           = 'topup:' . $item_id;
+        $already_there = twshop_wallet_ledger_has_ref( $ref );
+        if ( ! $already_there ) {
+            $result = twshop_wallet_apply( $user_id, $credit_total, 'topup', $ref, array(
+                'order_id' => $order_id,
+                'note'     => '訂單 #' . $order_id . ' 儲值金商品「' . $product->get_name() . '」',
+            ) );
+            if ( is_wp_error( $result ) ) continue;
+        }
 
         $item->update_meta_data( '_twshop_wallet_topup_credited', 'yes' );
         $item->update_meta_data( '_twshop_wallet_topup_credited_amount', $credit_total );
         $item->save_meta_data();
+        if ( $already_there ) continue;
 
         $total_credited += $credit_total;
         $any_credited = true;

@@ -12,6 +12,14 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
+ * 購物車「儲值金折抵」費用名稱。儲值金跟點數一樣視為付款方式而不是商品折扣，
+ * 免運門檻等判斷要靠這個名稱把它排除（見 twshop_get_active_free_shipping_rule()）。
+ */
+function twshop_wallet_fee_name() {
+    return twshop_wallet_term() . '折抵';
+}
+
+/**
  * 依「可用餘額」與「扣掉優惠券/點數與其他負費用後實際還要付的金額」兩個上限，
  * 換算實際可套用的折抵金額。AJAX 套用、購物車費用計算兩處都靠這支，確保上限判斷
  * 只有一套邏輯（比照點數 twshop_get_points_discount_amount() 的既有做法）。
@@ -34,7 +42,7 @@ function twshop_get_wallet_discount_amount( $requested_amount ) {
     $cart_subtotal = WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax();
     $payable = $cart_subtotal - WC()->cart->get_discount_total() - WC()->cart->get_discount_tax();
     foreach ( WC()->cart->get_fees() as $fee ) {
-        if ( $fee->amount < 0 && $fee->name !== '儲值金折抵' ) $payable += (float) $fee->amount;
+        if ( $fee->amount < 0 && $fee->name !== twshop_wallet_fee_name() ) $payable += (float) $fee->amount;
     }
     $amount = max( 0, min( $amount, round( $payable, 2 ) ) );
 
@@ -62,8 +70,8 @@ function twshop_cart_has_wallet_credit_product() {
 /**
  * 儲值金折抵可否使用，比照 twshop_can_redeem_points()（points-engine.php）的既有慣例：
  * twshop_apply_wallet_discount_fee() 加費用前一定要先過這關，是唯一真正的伺服器端守門；
- * twshop_wallet_block_reason() 只是把同一組判斷條件轉成給顧客看的文字，兩者判斷邏輯
- * 必須一致，改其中一個要記得同步改另一個。
+ * twshop_wallet_block_reason() 把同一組條件轉成給顧客看的文字，兩者共用
+ * twshop_wallet_cart_restriction()，條件只有一份。
  */
 function twshop_can_use_wallet() {
     if ( ! WC()->cart || WC()->cart->is_empty() ) return false;
@@ -71,21 +79,11 @@ function twshop_can_use_wallet() {
     // 儲值金不能拿來購買儲值金商品，見 twshop_cart_has_wallet_credit_product() 的說明。
     if ( twshop_cart_has_wallet_credit_product() ) return false;
 
-    $min_amount = (float) get_option( 'wc_wallet_min_cart_amount', 0 );
-    if ( $min_amount > 0 && ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) < $min_amount ) {
-        return false;
-    }
+    return null === twshop_wallet_cart_restriction();
+}
 
-    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
-        'wc_wallet_restrict_type', 'wc_wallet_restrict_values'
-    );
-    if ( empty( $restrict_type ) || empty( $restrict_values ) ) return true;
-    $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
-
-    foreach ( WC()->cart->get_cart() as $cart_item ) {
-        if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return true;
-    }
-    return false;
+function twshop_wallet_cart_restriction() {
+    return twshop_cart_usage_restriction( 'wc_wallet_min_cart_amount', 'wc_wallet_restrict_type', 'wc_wallet_restrict_values' );
 }
 
 /**
@@ -104,7 +102,7 @@ function twshop_wallet_block_reason() {
     if ( ! WC()->cart || WC()->cart->is_empty() ) return false;
 
     if ( twshop_cart_has_wallet_credit_product() ) {
-        return twshop_option( 'wc_wallet_topup_restricted_text' );
+        return twshop_wallet_text( 'topup_restricted_text' );
     }
 
     $user_id = get_current_user_id();
@@ -112,45 +110,15 @@ function twshop_wallet_block_reason() {
     $balance = $user_id ? twshop_wallet_get_balance( $user_id ) : 0.0;
 
     if ( $balance <= 0 && $applied <= 0 ) {
-        return twshop_option( 'wc_wallet_no_balance_text' );
+        return twshop_wallet_text( 'no_balance_text' );
     }
 
-    $min_amount = (float) get_option( 'wc_wallet_min_cart_amount', 0 );
-    if ( $min_amount > 0 && ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) < $min_amount ) {
-        return str_replace(
-            '{amount}',
-            strip_tags( wc_price( $min_amount ) ),
-            twshop_option( 'wc_wallet_min_cart_text' )
-        );
+    $block = twshop_wallet_cart_restriction();
+    if ( null === $block ) return null;
+    if ( 'min' === $block[0] ) {
+        return str_replace( '{amount}', twshop_plain_price( $block[1] ), twshop_wallet_text( 'min_cart_text' ) );
     }
-
-    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
-        'wc_wallet_restrict_type', 'wc_wallet_restrict_values'
-    );
-    if ( ! empty( $restrict_type ) && ! empty( $restrict_values ) ) {
-        $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
-        $can_use = false;
-        foreach ( WC()->cart->get_cart() as $cart_item ) {
-            if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) {
-                $can_use = true;
-                break;
-            }
-        }
-        if ( ! $can_use ) {
-            $term_names = array();
-            foreach ( $restrict_values as $term_id ) {
-                $term = get_term( $term_id, $taxonomy );
-                if ( $term && ! is_wp_error( $term ) ) $term_names[] = $term->name;
-            }
-            return str_replace(
-                '{names}',
-                esc_html( implode( '、', $term_names ) ),
-                twshop_option( 'wc_wallet_restricted_text' )
-            );
-        }
-    }
-
-    return null;
+    return str_replace( '{names}', esc_html( $block[1] ), twshop_wallet_text( 'restricted_text' ) );
 }
 
 /**
@@ -171,7 +139,7 @@ function twshop_restrict_wallet_credit_payment_gateways( $available_gateways ) {
 function twshop_ajax_apply_wallet() {
     check_ajax_referer( 'twshop_frontend_action', 'twshop_nonce' );
     if ( ! is_user_logged_in() ) {
-        wp_send_json_error( array( 'message' => '請先登入才能使用儲值金折抵。' ) );
+        wp_send_json_error( array( 'message' => '請先登入才能使用' . twshop_wallet_term() . '折抵。' ) );
     }
 
     $requested = isset( $_POST['amount'] ) ? (float) wp_unslash( $_POST['amount'] ) : 0.0;
@@ -223,7 +191,7 @@ function twshop_apply_wallet_discount_fee( $cart ) {
         return;
     }
 
-    $cart->add_fee( '儲值金折抵', -$amount, false );
+    $cart->add_fee( twshop_wallet_fee_name(), -$amount, false );
 }
 
 /**
@@ -258,7 +226,7 @@ function twshop_validate_wallet_balance( $data, $errors ) {
 
     $balance = twshop_wallet_get_balance( get_current_user_id() );
     if ( $applied > $balance + 0.001 ) {
-        $errors->add( 'validation', '儲值金餘額不足以完成本次折抵，請重新確認購物車。' );
+        $errors->add( 'validation', twshop_wallet_term() . '餘額不足以完成本次折抵，請重新確認購物車。' );
     }
 }
 
@@ -281,7 +249,7 @@ function twshop_validate_wallet_credit_guest_checkout( $data, $errors ) {
     if ( ! empty( $data['createaccount'] ) || WC()->checkout()->is_registration_required() ) return;
     if ( ! twshop_cart_has_wallet_credit_product() ) return;
 
-    $errors->add( 'validation', '購買儲值金商品需要先登入會員，請登入後再結帳。' );
+    $errors->add( 'validation', '購買' . twshop_wallet_term() . '商品需要先登入會員，請登入後再結帳。' );
 }
 
 /**
@@ -310,143 +278,82 @@ function twshop_wallet_get_order_returned( $order_id ) {
 }
 
 /**
- * 結帳扣款，冪等：以「這張訂單目前應扣金額」（_twshop_wallet_applied）對照「帳本裡這張
- * 訂單目前淨扣掉的金額」（已扣 − 已退），只處理差額。ref 用 order_id + 目標金額組成，
- * **刻意不用隨機值**——兩個並發請求（例如兩個分頁同時完成同一張訂單的結帳）若讀到
- * 相同的「已扣」狀態、算出相同的目標差額，會產生完全相同的 ref，
- * twshop_wallet_apply() 的冪等機制才擋得住，避免重複扣款。
+ * 把這張訂單「目前實際扣掉的儲值金」結算到 $target（結帳扣款、取消、部分退款共用的唯一寫入路徑）。
  *
- * **必須檢查 twshop_wallet_apply() 的回傳值**（v25.8.79 修正）：這支函式是唯一真正
- * 執行扣款的地方，`ref` 的鎖只能擋住「同一張訂單重複扣兩次」，擋不住「同一位會員
- * 的兩張不同訂單幾乎同時各自結帳」——例如顧客開兩個分頁，餘額 $300，兩邊都套用
- * $300 折抵後幾乎同時送出：第一筆成功扣款、餘額歸零；第二筆這裡重算出的目標差額
- * 會讓 twshop_wallet_apply() 因為透支而回傳 WP_Error。改版前這裡完全沒檢查回傳值，
- * 第二張訂單仍會正常建立、帶著已經算好的折扣走完結帳，商店白白虧掉這筆折扣、帳本
- * 卻只有一筆扣款紀錄。這個 hook（woocommerce_checkout_order_processed）是包在
- * WC_Checkout::process_checkout() 的 try{}catch(Exception $e) 裡的，從這裡
- * throw new Exception() 會被核心接住、顯示錯誤通知給顧客、不會繼續走到付款流程，
- * 訂單停在未付款狀態，是唯一能在扣款失敗當下真正擋住結帳的位置。
+ * 差額在 twshop_wallet_apply() 拿到會員餘額列鎖之後才計算（settle_target），並發的結帳／退款
+ * 請求會依序看到彼此的結果，不會各自用舊狀態算出重疊的差額。ref 帶「這張訂單目前的帳本筆數」：
+ * 同一狀態下重複觸發（付款重試、兩個分頁同時送出）產生相同 ref、只執行一次；狀態一改變 ref 就不同。
+ * v25.8.105 前 ref 只帶目標金額，重新結帳時折抵 300 → 100 → 300，第三次會撞到第一次的 ref 被當成
+ * 「已扣過」而跳過，訂單折抵 300 實際只扣 100。
+ *
+ * @param bool $allow_charge false 時只會退回、不會向會員扣款（退款情境用）
+ * @return array|WP_Error|null
  */
-function twshop_deduct_wallet_on_checkout( $order_id, $posted_data, $order ) {
+function twshop_wallet_settle_order( $order, $target, $note, $allow_charge = true ) {
+    global $wpdb;
     $user_id = $order->get_customer_id();
-    if ( ! $user_id ) return;
+    if ( ! $user_id ) return null;
 
-    $target = round( (float) $order->get_meta( '_twshop_wallet_applied' ), 2 );
-
-    $spent    = twshop_wallet_get_order_spent( $order_id );
-    $returned = twshop_wallet_get_order_returned( $order_id );
-    $already  = round( $spent - $returned, 2 );
-
-    if ( $target <= 0 && $already <= 0 ) return;
-
-    $delta = round( $target - $already, 2 );
-    if ( 0.0 === $delta ) return;
-
-    $ref = 'wallet_settle:' . $order_id . ':' . number_format( $target, 2, '.', '' );
-
-    if ( $delta > 0 ) {
-        $result = twshop_wallet_apply( $user_id, -$delta, 'spend', $ref, array(
-            'order_id' => $order_id,
-            'note'     => '訂單 #' . $order_id . ' 儲值金折抵',
-        ) );
-        if ( is_wp_error( $result ) ) {
-            throw new Exception( '儲值金扣款失敗：' . $result->get_error_message() );
-        }
-    } else {
-        // 重新結帳時折抵金額比之前少（例如餘額被另一個分頁花掉、套用金額被自動夾小），
-        // 退回差額。
-        $result = twshop_wallet_apply( $user_id, -$delta, 'spend_return', $ref, array(
-            'order_id' => $order_id,
-            'note'     => '訂單 #' . $order_id . ' 重新結帳，儲值金差額退還',
-        ) );
-        if ( is_wp_error( $result ) ) {
-            throw new Exception( '儲值金差額退還失敗：' . $result->get_error_message() );
-        }
-    }
-}
-
-/**
- * 把這張訂單的儲值金退款「settle 到目標金額」，是 twshop_refund_wallet_on_order_cancel()
- * （整單）與 twshop_handle_order_refund_wallet()（部分退款）共用的唯一寫入路徑
- * （v25.8.79 新增，取代原本兩支函式各自算差額、各用不同 ref 命名空間的設計）。
- *
- * **改版前的問題**：兩支函式分別用 `wallet_cancel_return:{order_id}` 與
- * `wallet_partial_return:{refund_id}` 兩種不同的 ref，且都是先用未加鎖的 SUM() 查詢
- * 算出「應退多少」才把固定差額丟進 twshop_wallet_apply()。wallet_apply() 的鎖只保證
- * 「同一個 ref 不會被重複套用」，兩個不同 ref 之間完全無法互相 dedupe——如果訂單狀態
- * 轉換與退款事件幾乎同時觸發（例如後台按一次「全額退款」，WooCommerce 在同一次請求
- * 裡先後觸發 woocommerce_order_refunded 與訂單狀態轉 refunded 兩個 hook），兩條路徑
- * 可能各自讀到「已退＝0」的舊狀態、各退一次，疊加超額退款。
- *
- * **修法**：兩支呼叫端改成都算出同一種「目標應退總額」（整單退款＝已扣總額；部分
- * 退款＝已扣總額 × 累計退款比例），統一用 `wallet_return:{order_id}:{target}` 這個
- * 格式的 ref。訂單最終變成 100% 退款時，兩邊各自算出的目標值會收斂成同一個數字
- * （$spent），產生完全相同的 ref，twshop_wallet_apply() 的列鎖 + ref 唯一性就能正確
- * 擋住重複退款——跟 twshop_deduct_wallet_on_checkout()「目標值 vs 已處理，ref 內含
- * 目標金額」的既有模式是同一套邏輯。
- */
-function twshop_wallet_settle_order_return( $order, $target_returned, $note ) {
     $order_id = $order->get_id();
-    $user_id  = $order->get_customer_id();
-    if ( ! $user_id ) return;
+    $target   = max( 0, round( (float) $target, 2 ) );
+    $rows     = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM " . twshop_wallet_ledger_table() . " WHERE order_id = %d AND type IN ('spend','spend_return')",
+        $order_id
+    ) );
+    if ( 0 === $rows && $target <= 0 ) return null;
 
-    $spent   = twshop_wallet_get_order_spent( $order_id );
-    // 不會退超過當初扣掉的金額（$target_returned 理論上不該超過 $spent，這裡再夾一次保險）。
-    $target  = min( round( $target_returned, 2 ), $spent );
-    if ( $target <= 0 ) return;
-    $already = twshop_wallet_get_order_returned( $order_id );
-
-    $delta = round( $target - $already, 2 );
-    if ( $delta <= 0 ) return;
-
-    $ref = 'wallet_return:' . $order_id . ':' . number_format( $target, 2, '.', '' );
-    twshop_wallet_apply( $user_id, $delta, 'spend_return', $ref, array(
-        'order_id' => $order_id,
-        'note'     => $note,
+    $ref = 'wallet_settle:' . $order_id . ':' . $rows . ':' . number_format( $target, 2, '.', '' );
+    return twshop_wallet_apply( $user_id, 0, 'spend', $ref, array(
+        'order_id'         => $order_id,
+        'note'             => $note,
+        'settle_target'    => $target,
+        'settle_no_charge' => ! $allow_charge,
     ) );
 }
 
 /**
- * 訂單取消/已退款/付款失敗：把這張訂單目前「還沒退回」的餘額全部退回。目標值固定是
- * 「這張訂單目前帳本裡淨扣掉多少」，交給 twshop_wallet_settle_order_return() 統一
- * 處理冪等——先前若已經透過 twshop_handle_order_refund_wallet()（部分退款）退回
- * 一部分，這裡只會退剩下的部分，不會重複。
+ * 結帳扣款（woocommerce_checkout_order_processed，付款失敗重送會再觸發）：結算到訂單目前的
+ * 套用金額。扣款失敗（餘額被另一張訂單先花掉）時丟出例外，WooCommerce 的 process_checkout()
+ * 會接住並擋下結帳，不會讓訂單帶著沒扣到的折抵走完流程。
+ */
+function twshop_deduct_wallet_on_checkout( $order_id, $posted_data, $order ) {
+    $result = twshop_wallet_settle_order(
+        $order,
+        (float) $order->get_meta( '_twshop_wallet_applied' ),
+        '訂單 #' . $order_id . ' 儲值金折抵'
+    );
+    if ( is_wp_error( $result ) ) {
+        throw new Exception( twshop_wallet_term() . '扣款失敗：' . $result->get_error_message() );
+    }
+}
+
+/**
+ * 訂單取消/已退款/付款失敗，以及訂單頁「手動退回儲值金」：全部退回。
  */
 function twshop_refund_wallet_on_order_cancel( $order_id ) {
     $order = wc_get_order( $order_id );
     if ( ! $order ) return;
-
-    $spent = twshop_wallet_get_order_spent( $order_id );
-    twshop_wallet_settle_order_return( $order, $spent, '訂單 #' . $order_id . ' 取消/退款，儲值金折抵退還' );
+    twshop_wallet_settle_order( $order, 0, '訂單 #' . $order_id . ' 取消/退款，儲值金折抵退還', false );
 }
 
 /**
- * WooCommerce 部分退款（後台訂單頁按「退款」但不一定改變訂單狀態）時，依「訂單累計已退款
- * 金額 / 訂單原始總額」的比例算出目標應退儲值金，交給 twshop_wallet_settle_order_return()
- * 統一處理。**改用 $order->get_total_refunded()（WooCommerce 對這張訂單累計所有退款事件
- * 的官方金額）取代原本只看單一 $refund->get_total()**——後者只反映「這一筆」退款，多筆
- * 部分退款疊加時無法正確算出「目前總共該退多少」，且跟 twshop_refund_wallet_on_order_cancel()
- * 各算各的、用不同 ref 的舊設計正是 v25.8.79 要修掉的競態來源（見上方函式說明）。
+ * 部分退款：依「累計退款金額 / 訂單總額」比例，把實際扣款結算到「套用金額 ×（1 − 比例）」。
+ * 只會退、不會扣（例如已整單退回後又有一筆部分退款事件）。訂單總額 0（全額儲值金付款）時比例
+ * 算不出來，交給訂單頁的「手動退回儲值金」按鈕處理。
  */
 function twshop_handle_order_refund_wallet( $order_id, $refund_id ) {
     $order = wc_get_order( $order_id );
     if ( ! $order ) return;
 
     $order_total = (float) $order->get_total();
-    // 全額用儲值金付款、訂單金額 0 的單，$order_total 是 0，比例算不出來——這種單交給
-    // 訂單編輯頁的「手動退回儲值金」按鈕處理（見下方 metabox），這裡直接不處理避免除以 0。
-    if ( $order_total <= 0 ) return;
+    $applied     = (float) $order->get_meta( '_twshop_wallet_applied' );
+    if ( $order_total <= 0 || $applied <= 0 ) return;
 
-    $spent_total = twshop_wallet_get_order_spent( $order_id );
-    if ( $spent_total <= 0 ) return;
-
-    $total_refunded = abs( (float) $order->get_total_refunded() );
-    $proportion      = min( 1, $total_refunded / $order_total );
-    $target_return   = round( $spent_total * $proportion, 2 );
-
-    twshop_wallet_settle_order_return(
-        $order, $target_return,
-        '訂單 #' . $order_id . ' 部分退款（累計 ' . round( $proportion * 100 ) . '%），儲值金折抵退還'
+    $proportion = min( 1, abs( (float) $order->get_total_refunded() ) / $order_total );
+    twshop_wallet_settle_order(
+        $order, $applied * ( 1 - $proportion ),
+        '訂單 #' . $order_id . ' 部分退款（累計 ' . round( $proportion * 100 ) . '%），儲值金折抵退還',
+        false
     );
 }
 
@@ -477,9 +384,9 @@ function twshop_render_wallet_redemption_ui() {
     $applied = WC()->session ? (float) WC()->session->get( 'twshop_wallet_applied', 0 ) : 0;
     ?>
     <div class="twshop-wallet-redemption">
-        <h4><?php echo esc_html( twshop_option( 'wc_wallet_ui_heading' ) ); ?></h4>
+        <h4><?php echo esc_html( twshop_wallet_text( 'ui_heading' ) ); ?></h4>
         <?php if ( $balance > 0 ) : ?>
-            <p><?php echo esc_html( str_replace( '{amount}', number_format( $balance, 2 ), twshop_option( 'wc_wallet_balance_text' ) ) ); ?></p>
+            <p><?php echo esc_html( str_replace( '{amount}', twshop_plain_price( $balance ), twshop_wallet_text( 'balance_text' ) ) ); ?></p>
         <?php endif; ?>
         <?php if ( $reason !== null ) : ?>
             <p class="twshop-wallet-notice"><?php echo esc_html( $reason ); ?></p>
@@ -487,14 +394,14 @@ function twshop_render_wallet_redemption_ui() {
             <div class="twshop-wallet-input-row">
                 <input type="number" inputmode="decimal" id="twshop_wallet_input" min="0" step="1"
                        max="<?php echo esc_attr( $balance ); ?>"
-                       placeholder="<?php echo esc_attr( twshop_option( 'wc_wallet_input_placeholder' ) ); ?>"
+                       placeholder="<?php echo esc_attr( twshop_wallet_text( 'input_placeholder' ) ); ?>"
                        value="<?php echo esc_attr( $applied ?: '' ); ?>">
-                <button type="button" class="button" id="twshop_apply_wallet_btn"><?php echo $applied ? esc_html( twshop_option( 'wc_wallet_btn_update_text' ) ) : esc_html( twshop_option( 'wc_wallet_btn_apply_text' ) ); ?></button>
+                <button type="button" class="button" id="twshop_apply_wallet_btn"><?php echo $applied ? esc_html( twshop_wallet_text( 'btn_update_text' ) ) : esc_html( twshop_wallet_text( 'btn_apply_text' ) ); ?></button>
             </div>
             <?php if ( $applied > 0 ) :
                 $actual_applied = twshop_get_wallet_discount_amount( $applied );
             ?>
-                <p class="twshop-wallet-notice" style="color:#2271b1; margin-top:6px;"><?php echo esc_html( str_replace( '{amount}', number_format( $actual_applied, 2 ), twshop_option( 'wc_wallet_applied_text' ) ) ); ?></p>
+                <p class="twshop-wallet-notice" style="color:#2271b1; margin-top:6px;"><?php echo esc_html( str_replace( '{amount}', twshop_plain_price( $actual_applied ), twshop_wallet_text( 'applied_text' ) ) ); ?></p>
             <?php endif; ?>
         <?php endif; ?>
     </div>
@@ -561,35 +468,14 @@ function twshop_render_order_wallet_metabox( $post_or_order, $box ) {
         <p style="color:#b32d2e;">尚未退回：NT$<?php echo esc_html( number_format( $remaining, 2 ) ); ?></p>
         <button type="button" class="button" id="twshop-wallet-manual-return" data-order-id="<?php echo esc_attr( $order_id ); ?>">手動退回儲值金</button>
         <p class="description">全額儲值金付款、訂單金額 0 的單，WooCommerce 原生退款介面無法輸入金額，用這個按鈕退回剩餘尚未退回的部分。</p>
-        <script>
-        jQuery(function($){
-            $('#twshop-wallet-manual-return').on('click', function(){
-                var $btn = $(this);
-                if (!confirm('確定要把尚未退回的儲值金全部退回給這位會員嗎？')) return;
-                $btn.prop('disabled', true).text('處理中…');
-                $.post(ajaxurl, {
-                    action: 'twshop_wallet_manual_return',
-                    order_id: $btn.data('order-id'),
-                    twshop_nonce: '<?php echo esc_js( wp_create_nonce( 'twshop_admin_action' ) ); ?>'
-                }, function(res){
-                    if (res && res.success) {
-                        alert('已退回。');
-                        location.reload();
-                    } else {
-                        alert((res && res.data && res.data.msg) || '退回失敗，請重新整理頁面後再試。');
-                        $btn.prop('disabled', false).text('手動退回儲值金');
-                    }
-                }).fail(function(){
-                    alert('退回失敗，請檢查網路連線後重試。');
-                    $btn.prop('disabled', false).text('手動退回儲值金');
-                });
-            });
-        });
-        </script>
     <?php else : ?>
         <p style="color:#166534;">已全部退回。</p>
     <?php endif; ?>
     <?php
+    // metabox 在頁面主體才渲染，腳本靠頁尾的 admin_print_footer_scripts 印出（同物流 metabox 的做法）。
+    twshop_enqueue_asset_script( 'admin/order-wallet', array(
+        'twshopOrderWallet' => array( 'nonce' => wp_create_nonce( 'twshop_admin_action' ) ),
+    ) );
 }
 
 /**

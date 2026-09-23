@@ -109,16 +109,24 @@ function twshop_license_is_active( $force = false ) {
         return in_array( $data['status'] ?? '', array( 'active', 'grace' ), true );
     }
 
+    $within_grace = ! empty( $data['last_success'] ) && ( $now - (int) $data['last_success'] ) < TWSHOP_LICENSE_GRACE_TTL;
+
+    // 前台訪客不等授權伺服器（最長 10 秒逾時）：快取過期時沿用上次結果，
+    // 重新驗證交給後台頁面、WP-Cron 或 WP-CLI 請求（admin-ajax 也常是前台購物車呼叫，排除）（v25.8.107）。
+    $can_fetch = ( is_admin() && ! wp_doing_ajax() ) || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI );
+    if ( ! $force && ! $can_fetch ) {
+        return in_array( $data['status'] ?? '', array( 'active', 'grace' ), true ) && $within_grace;
+    }
+
     $lock_key = 'twshop_license_check_lock';
     if ( ! $force && get_transient( $lock_key ) ) {
-        return ! empty( $data['last_success'] ) && ( $now - (int) $data['last_success'] ) < TWSHOP_LICENSE_GRACE_TTL;
+        return $within_grace;
     }
     set_transient( $lock_key, '1', MINUTE_IN_SECONDS );
     $response = twshop_license_request( '/v1/licenses/validate', twshop_license_payload( $data ) );
     delete_transient( $lock_key );
 
     if ( is_wp_error( $response ) ) {
-        $within_grace = ! empty( $data['last_success'] ) && ( $now - (int) $data['last_success'] ) < TWSHOP_LICENSE_GRACE_TTL;
         twshop_license_update_data( array(
             'status'       => $within_grace ? 'grace' : 'unreachable',
             'last_checked' => $now,
@@ -189,8 +197,7 @@ function twshop_license_inline_notice() {
 
 function twshop_license_settings_tab() {
     if ( ! current_user_can( 'manage_options' ) ) return;
-    $data   = twshop_license_get_data();
-    $active = twshop_license_is_active();
+    $active = twshop_license_is_active(); // 可能順便重新驗證並更新資料，所以先呼叫再讀
     $data   = twshop_license_get_data();
     $status = $active ? ( 'grace' === ( $data['status'] ?? '' ) ? '離線寬限中' : '已啟用' ) : '未啟用';
     $result = sanitize_key( $_GET['license_result'] ?? '' );

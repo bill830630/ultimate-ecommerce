@@ -110,22 +110,7 @@ function twshop_run_daily_check() {
 
             if ( $b_enable !== 'yes' || ! is_array( $gifts ) || empty( $gifts ) ) continue;
 
-            $claimed   = get_user_meta( $user->ID, '_twshop_claimed_coupons', true ) ?: array();
-            $msg_lines = array();
-            foreach ( $gifts as $gift ) {
-                if ( ( $gift['type'] ?? '' ) === 'points' ) {
-                    $amount = (int) $gift['amount'];
-                    twshop_add_points_log( $user->ID, $amount, $role_name . ' 生日禮' );
-                    $msg_lines[] = "+{$amount} " . twshop_points_term();
-                    continue;
-                }
-                $code      = 'BDAY-' . strtoupper( wp_generate_password( 6, false ) ) . '-' . $current_year;
-                twshop_create_gift_coupon( $code, $gift, $user->user_email, $b_days, $role_name . ' 生日禮', '專屬優惠結帳即可折抵' );
-                $claimed[] = $code;
-                $t_txt     = ( $gift['type'] === 'percent' ) ? '打折(%)' : '折抵($)';
-                $msg_lines[] = "【{$code}】 ({$t_txt}: {$gift['amount']})";
-            }
-            update_user_meta( $user->ID, '_twshop_claimed_coupons', $claimed );
+            $msg_lines = twshop_issue_tier_gifts( $user, $gifts, 'BDAY-', '-' . $current_year, $b_days, $role_name . ' 生日禮', '專屬優惠結帳即可折抵' );
             $message = str_replace(
                 array( '{name}', '{codes}', '{days}' ),
                 array( $user->display_name, implode( "\n", $msg_lines ), $b_days ),
@@ -138,6 +123,30 @@ function twshop_run_daily_check() {
         }
         twshop_flush_user_spent_cache();
     }
+}
+
+/**
+ * 發放一組等級禮（生日禮/升等禮共用）：點數直接入帳，其餘建立限本人使用的優惠券並記進
+ * _twshop_claimed_coupons。回傳通知信用的每行說明文字。
+ */
+function twshop_issue_tier_gifts( WP_User $user, array $gifts, $code_prefix, $code_suffix, $days, $title, $desc ) {
+    $claimed   = get_user_meta( $user->ID, '_twshop_claimed_coupons', true ) ?: array();
+    $msg_lines = array();
+    foreach ( $gifts as $gift ) {
+        if ( ( $gift['type'] ?? '' ) === 'points' ) {
+            $amount = (int) $gift['amount'];
+            twshop_add_points_log( $user->ID, $amount, $title );
+            $msg_lines[] = "+{$amount} " . twshop_points_term();
+            continue;
+        }
+        $code = $code_prefix . strtoupper( wp_generate_password( 6, false ) ) . $code_suffix;
+        twshop_create_gift_coupon( $code, $gift, $user->user_email, $days, $title, $desc );
+        $claimed[]   = $code;
+        $t_txt       = ( $gift['type'] === 'percent' ) ? '打折(%)' : '折抵($)';
+        $msg_lines[] = "【{$code}】 ({$t_txt}: {$gift['amount']})";
+    }
+    update_user_meta( $user->ID, '_twshop_claimed_coupons', $claimed );
+    return $msg_lines;
 }
 
 /**
@@ -297,24 +306,11 @@ function twshop_apply_tier_change( WP_User $user, $new_tier, $is_upgrade ) {
         if ( $u_enable === 'yes' ) {
             $gifts = json_decode( stripslashes( $new_tier['u_gifts'] ?? '[]' ), true );
             if ( is_array( $gifts ) && ! empty( $gifts ) ) {
-                $u_days    = get_option( 'wc_upgrade_validity_days', 30 );
                 $u_subject = twshop_option( 'wc_upgrade_email_subject' );
-                $claimed   = get_user_meta( $user->ID, '_twshop_claimed_coupons', true ) ?: array();
-                $msg_lines = array();
-                foreach ( $gifts as $gift ) {
-                    if ( ( $gift['type'] ?? '' ) === 'points' ) {
-                        $amount = (int) $gift['amount'];
-                        twshop_add_points_log( $user->ID, $amount, $new_role_name . ' 升級禮' );
-                        $msg_lines[] = "+{$amount} " . twshop_points_term();
-                        continue;
-                    }
-                    $code      = 'UPG-' . strtoupper( wp_generate_password( 6, false ) );
-                    twshop_create_gift_coupon( $code, $gift, $user->user_email, $u_days, $new_role_name . ' 升級禮', '慶祝達成新等級結帳即可折抵' );
-                    $claimed[] = $code;
-                    $t_txt     = ( $gift['type'] === 'percent' ) ? '打折(%)' : '折抵($)';
-                    $msg_lines[] = "【{$code}】 ({$t_txt}: {$gift['amount']})";
-                }
-                update_user_meta( $user->ID, '_twshop_claimed_coupons', $claimed );
+                $msg_lines = twshop_issue_tier_gifts(
+                    $user, $gifts, 'UPG-', '', get_option( 'wc_upgrade_validity_days', 30 ),
+                    $new_role_name . ' 升級禮', '慶祝達成新等級結帳即可折抵'
+                );
                 $gift_body = str_replace(
                     '{codes}', implode( "\n", $msg_lines ),
                     get_option( 'wc_upgrade_email_body_gift', "恭喜升級！這是您的專屬升級禮包：\n{codes}\n\n請至會員中心查看。" )
@@ -434,6 +430,13 @@ function twshop_get_all_registered_account_tabs() {
     $items = function_exists( 'wc_get_account_menu_items' ) ? wc_get_account_menu_items() : array();
     add_filter( 'woocommerce_account_menu_items', 'twshop_modify_account_menu_items', 20 );
 
+    return twshop_add_own_account_tabs( $items );
+}
+
+/**
+ * 加入本外掛自己的會員中心頁籤（依模組開關）並套用後台自訂名稱。
+ */
+function twshop_add_own_account_tabs( $items ) {
     if ( twshop_module_enabled( 'member_tiers' ) ) {
         $items['my-membership'] = twshop_option( 'wc_membership_tab_name' );
     }
@@ -441,9 +444,8 @@ function twshop_get_all_registered_account_tabs() {
         $items['my-coupons'] = twshop_option( 'wc_general_tab_name' );
     }
     if ( twshop_module_enabled( 'wallet' ) ) {
-        $items['my-wallet'] = '儲值金';
+        $items['my-wallet'] = twshop_wallet_term();
     }
-
     return twshop_apply_account_tab_name_overrides( $items );
 }
 
@@ -550,16 +552,7 @@ function twshop_redirect_account_dashboard() {
  * 登出固定排在最後且永遠顯示，不受開關設定影響（避免會員被鎖在無法登出的狀態）。
  */
 function twshop_modify_account_menu_items( $items ) {
-    if ( twshop_module_enabled( 'member_tiers' ) ) {
-        $items['my-membership'] = twshop_option( 'wc_membership_tab_name' );
-    }
-    if ( twshop_module_enabled( 'visual_coupons' ) ) {
-        $items['my-coupons'] = twshop_option( 'wc_general_tab_name' );
-    }
-    if ( twshop_module_enabled( 'wallet' ) ) {
-        $items['my-wallet'] = '儲值金';
-    }
-    $items = twshop_apply_account_tab_name_overrides( $items );
+    $items = twshop_add_own_account_tabs( $items );
 
     $tab_settings = twshop_get_account_tabs_settings( array_keys( $items ) );
     $known_slugs  = wp_list_pluck( $tab_settings, 'slug' );
@@ -621,7 +614,8 @@ function twshop_my_membership_endpoint_content() {
     echo '<h2>會員等級</h2>';
 
     if ( ! empty( $tiers ) ) {
-        $tiers_asc  = array_reverse( $tiers );
+        $tiers_asc = $tiers; // 不依賴後台卡片排列順序，跟 twshop_recalculate_user_tier() 一致
+        usort( $tiers_asc, function( $a, $b ) { return (int) ( $a['threshold'] ?? 0 ) <=> (int) ( $b['threshold'] ?? 0 ); } );
         $next_tier  = null;
 
         $current_tier_cfg = null;
@@ -708,7 +702,7 @@ function twshop_my_membership_endpoint_content() {
             // 折扣：收集此等級的 percent / cart_percent 規則
             $discount_parts = array();
             foreach ( $rules as $rule ) {
-                if ( $rule['role'] !== $tier['slug'] ) continue;
+                if ( ( $rule['role'] ?? 'all' ) !== $tier['slug'] ) continue;
                 if ( $rule['type'] === 'percent' ) {
                     $discount_parts[] = '商品 ' . $rule['value'] . '% 折';
                 } elseif ( $rule['type'] === 'cart_percent' ) {
@@ -833,7 +827,7 @@ function twshop_my_membership_endpoint_content() {
     // 使用限制：單筆最高折抵% + 其餘門檻條件合併為一行敘述，各條只保留關鍵字避免重複贅字
     $limit_parts = array();
     if ( $max_percent > 0 ) $limit_parts[] = '最高折抵 ' . esc_html( $max_percent ) . '%';
-    if ( $min_cart > 0 ) $limit_parts[] = '滿 ' . esc_html( strip_tags( wc_price( $min_cart ) ) ) . ' 可用';
+    if ( $min_cart > 0 ) $limit_parts[] = '滿 ' . esc_html( twshop_plain_price( $min_cart ) ) . ' 可用';
     if ( ! empty( $redeem_restrict_type ) && ! empty( $redeem_restrict_values ) ) {
         $redeem_taxonomy = $redeem_restrict_type === 'tag' ? 'product_tag' : 'product_cat';
         $term_names = array();
@@ -1042,6 +1036,57 @@ function twshop_build_coupon_gap_html( $min_amount, $already_used_up, $location 
     return twshop_render_coupon_gap_info( $min_amount - $cart_subtotal );
 }
 
+/**
+ * 目前使用者看得到的視覺化優惠券（有 _visual_coupon_title meta 的 shop_coupon），已排除永久不可用的：
+ * 僅供手動輸入、已過期、全站次數用完、限定其他 Email。每筆
+ * [ 'post' => WP_Post, 'coupon' => WC_Coupon, 'used_up' => 本人使用次數已達上限 ]。
+ * 我的優惠券/購物車卡片（twshop_auto_display_coupons()）與滿額進度（twshop_get_coupon_progress_items()）
+ * 共用，原本兩邊各寫一份。
+ *
+ * 用 meta_query 在 DB 層過濾（_visual_coupon_title 是否存在的判斷方式被 wc-line-order-notify 依賴，見 CLAUDE.md）。
+ */
+function twshop_get_customer_visual_coupons() {
+    static $cache = array();
+    $user_id = get_current_user_id();
+    if ( isset( $cache[ $user_id ] ) ) return $cache[ $user_id ];
+
+    $email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
+    $list  = array();
+    $posts = get_posts( array(
+        'posts_per_page' => -1,
+        'post_type'      => 'shop_coupon',
+        'post_status'    => 'publish',
+        'no_found_rows'  => true,
+        'meta_query'     => array( array( 'key' => '_visual_coupon_title', 'compare' => 'EXISTS' ) ),
+    ) );
+    foreach ( $posts as $c ) {
+        if ( 'yes' === get_post_meta( $c->ID, '_visual_coupon_manual_only', true ) ) continue;
+        $coupon = new WC_Coupon( $c->ID );
+
+        $expires = $coupon->get_date_expires();
+        if ( $expires && $expires < current_datetime() ) continue;
+
+        $u_limit = $coupon->get_usage_limit();
+        if ( $u_limit > 0 && $coupon->get_usage_count() >= $u_limit ) continue;
+
+        $restrictions = $coupon->get_email_restrictions();
+        if ( ! empty( $restrictions ) && ( ! is_user_logged_in() || ! in_array( $email, $restrictions ) ) ) continue;
+
+        $used_up = false;
+        $p_limit = $coupon->get_usage_limit_per_user();
+        if ( $p_limit > 0 && is_user_logged_in() ) {
+            $u_count = 0;
+            foreach ( (array) $coupon->get_used_by() as $used ) {
+                if ( strtolower( $used ) === strtolower( $email ) || (string) $used === (string) $user_id ) $u_count++;
+            }
+            $used_up = $u_count >= $p_limit;
+        }
+
+        $list[] = array( 'post' => $c, 'coupon' => $coupon, 'used_up' => $used_up );
+    }
+    return $cache[ $user_id ] = $list;
+}
+
 function twshop_auto_display_coupons($location = 'account') {
     // 同一次請求內（例如傳統購物車自動注入與 AJAX 刷新前後銜接）可能被呼叫多次，
     // 輸出結果只取決於當下使用者／購物車／session，同一 request 內不會改變，故用 static cache
@@ -1053,9 +1098,6 @@ function twshop_auto_display_coupons($location = 'account') {
     }
     ob_start();
 
-    $user_id = get_current_user_id();
-    $email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
     $found_any = false;
     $card_count = 0;
     $any_applied = false;
@@ -1064,100 +1106,60 @@ function twshop_auto_display_coupons($location = 'account') {
     $output_cards_available = '';
     $output_cards_unavailable = '';
 
-    // 只取「本外掛（或相容的其他外掛，見注意事項）建立過視覺化優惠券 meta」的 shop_coupon，
-    // 在 DB 層用 meta_query 過濾掉店內其他無關的一般優惠券，而非撈出全部再逐筆用 metadata_exists() 判斷；
-    // no_found_rows 省去不需要的 SQL_CALC_FOUND_ROWS（這裡不分頁，不需要總筆數）。
-    $coupons = get_posts( array(
-        'posts_per_page' => -1,
-        'post_type'      => 'shop_coupon',
-        'post_status'    => 'publish',
-        'no_found_rows'  => true,
-        'meta_query'      => array(
-            array( 'key' => '_visual_coupon_title', 'compare' => 'EXISTS' ),
-        ),
-    ) );
-    if ( $coupons ) {
-        foreach ( $coupons as $c ) {
-            $coupon_obj = new WC_Coupon($c->ID);
-            $code = $c->post_title;
-            $visual_title = get_post_meta( $c->ID, '_visual_coupon_title', true );
+    foreach ( twshop_get_customer_visual_coupons() as $entry ) {
+        $c               = $entry['post'];
+        $coupon_obj      = $entry['coupon'];
+        $code            = $c->post_title;
+        $visual_title    = get_post_meta( $c->ID, '_visual_coupon_title', true );
+        // 個人使用上限已達成是永久狀態，跟下面 is_valid() 的暫時性狀態（未達最低消費等）分開記，
+        // 讓「還差 $X」只在真的是金額問題時顯示（v25.5.93 修正）。
+        $already_used_up = $entry['used_up'];
+        $is_used         = $already_used_up;
 
-            // 「僅供手動輸入」：管理員刻意勾選、不分場景一律不自動顯示，回到 WooCommerce 原生
-            // 「顧客必須自己輸入代碼」的行為；優惠券本身仍是正常可用的 WC_Coupon，只是不出現在
-            // 這個自動列表裡。跟上面已過期/已達上限那類「永久不可用」不同，這張券本身是有效的，
-            // 只是刻意選擇不曝光，所以判斷寫在最前面、比其他任何有效性檢查都早。
-            if ( 'yes' === get_post_meta( $c->ID, '_visual_coupon_manual_only', true ) ) continue;
+        // 帳戶頁（我的優惠券）：已使用的優惠券不需要顯示，直接跳過；
+        // 購物車/結帳頁維持顯示「暫不可用」（見下方），兩種情境的需求不同。
+        if ( 'account' === $location && $is_used ) continue;
 
-            // 已過期／全站已達使用上限都是「不會再變回可用」的永久狀態，不分場景一律不顯示
-            // （相對於下面 $is_used 那類「目前不符資格」，購物車頁面還會用「暫不可用」顯示出來）。
-            $expires = $coupon_obj->get_date_expires();
-            if ( $expires && $expires < current_datetime() ) continue;
-
-            $u_limit = $coupon_obj->get_usage_limit();
-            if ( $u_limit > 0 && $coupon_obj->get_usage_count() >= $u_limit ) continue;
-
-            $is_used = false;
-            // 個人使用上限已達成是「不管購物車再怎麼調整都無法變回可用」的永久狀態，跟下面
-            // is_valid() 檢查出的「未達最低消費」等暫時性狀態性質不同——特別用獨立旗標記錄，
-            // 讓下方「還差 $X」滿額提示（v25.5.92）只在真的是金額問題時才顯示，避免對已經用過
-            // 的優惠券也顯示「還差 $X 即可使用」，誤導顧客以為湊到滿額就能用（v25.5.93 修正）。
-            $already_used_up = false;
-            if ( is_user_logged_in() ) {
-                $used_by = $coupon_obj->get_used_by();
-                $u_count = 0;
-                if ( is_array($used_by) ) { foreach ( $used_by as $used ) { if ( strtolower( $used ) === strtolower( $email ) || (string) $used === (string) $user_id ) { $u_count++; } } }
-                $p_limit = $coupon_obj->get_usage_limit_per_user();
-                if ( $p_limit > 0 && $u_count >= $p_limit ) { $is_used = true; $already_used_up = true; }
-            }
-
-            // 帳戶頁（我的優惠券）：已使用的優惠券不需要顯示，直接跳過；
-            // 購物車/結帳頁維持顯示「暫不可用」（見下方），兩種情境的需求不同。
-            if ( 'account' === $location && $is_used ) continue;
-
-            $restrictions = $coupon_obj->get_email_restrictions();
-            if ( ! empty( $restrictions ) && (! is_user_logged_in() || ! in_array( $email, $restrictions )) ) continue;
-
-            // 購物車/結帳頁：目前不符合套用資格（未達最低消費、商品不符限制等）的優惠券不再直接隱藏，
-            // 改標記 $is_used 沿用「灰階＋停用」外觀顯示出來，讓顧客知道有這張券、以及大概需要什麼條件
-            // （描述文字裡本來就有寫門檻），而不是完全看不到。個人使用上限已達成的（上面已判斷）也是同一套處理。
-            if ( ( $location === 'cart' || $location === 'checkout' ) && ! $is_used ) {
-                $is_valid = true;
-                try { if ( ! $coupon_obj->is_valid() ) $is_valid = false; } catch ( Exception $e ) { $is_valid = false; }
-                if ( ! $is_valid ) $is_used = true;
-            }
-
-            $is_applied = is_object( WC()->cart ) && WC()->cart->has_discount( $code );
-            $expiry_date = $coupon_obj->get_date_expires() ? $coupon_obj->get_date_expires()->date('Y-m-d') : '無期限';
-            $discount_text = twshop_format_wc_coupon_discount($coupon_obj->get_discount_type(), $coupon_obj->get_amount());
-
-            $auto_title    = wp_strip_all_tags( $discount_text );
-            $auto_desc     = twshop_build_wc_coupon_restrictions( $coupon_obj );
-            $display_title = $visual_title ?: $auto_title;
-            $display_desc  = get_post_meta( $c->ID, '_visual_coupon_desc', true ) ?: $auto_desc;
-
-            // WC_Coupon 原生只有「限定商品」「限定分類」兩種限制條件（沒有標籤），
-            // 有商品限制優先於分類限制（商品是更精確的目標）。
-            $coupon_product_ids = $coupon_obj->get_product_ids();
-            $coupon_cat_ids     = $coupon_obj->get_product_categories();
-            if ( ! empty( $coupon_product_ids ) ) {
-                $shop_url = twshop_get_coupon_shop_url( 'product', $coupon_product_ids );
-            } elseif ( ! empty( $coupon_cat_ids ) ) {
-                $shop_url = twshop_get_coupon_shop_url( 'category', $coupon_cat_ids );
-            } else {
-                $shop_url = wc_get_page_permalink( 'shop' );
-            }
-
-            // 「還差 $X 即可使用」提示，判斷全在 twshop_build_coupon_gap_html() 內（含各版本修正的來由）。
-            $gap_html = twshop_build_coupon_gap_html(
-                $coupon_obj->get_minimum_amount(), $already_used_up, $location
-            );
-
-            twshop_finalize_coupon_card(
-                $code, $display_title, $display_desc, $expiry_date, $is_used, $is_applied, $location, $shop_url,
-                $output_cards_available, $output_cards_unavailable, $found_any, $card_count, $any_applied,
-                $gap_html
-            );
+        // 購物車/結帳頁：目前不符合套用資格（未達最低消費、商品不符限制等）的優惠券不再直接隱藏，
+        // 改標記 $is_used 沿用「灰階＋停用」外觀顯示出來，讓顧客知道有這張券、以及大概需要什麼條件
+        // （描述文字裡本來就有寫門檻），而不是完全看不到。個人使用上限已達成的（上面已判斷）也是同一套處理。
+        if ( ( $location === 'cart' || $location === 'checkout' ) && ! $is_used ) {
+            $is_valid = true;
+            try { if ( ! $coupon_obj->is_valid() ) $is_valid = false; } catch ( Exception $e ) { $is_valid = false; }
+            if ( ! $is_valid ) $is_used = true;
         }
+
+        $is_applied = is_object( WC()->cart ) && WC()->cart->has_discount( $code );
+        $expiry_date = $coupon_obj->get_date_expires() ? $coupon_obj->get_date_expires()->date('Y-m-d') : '無期限';
+        $discount_text = twshop_format_wc_coupon_discount($coupon_obj->get_discount_type(), $coupon_obj->get_amount());
+
+        $auto_title    = wp_strip_all_tags( $discount_text );
+        $auto_desc     = twshop_build_wc_coupon_restrictions( $coupon_obj );
+        $display_title = $visual_title ?: $auto_title;
+        $display_desc  = get_post_meta( $c->ID, '_visual_coupon_desc', true ) ?: $auto_desc;
+
+        // WC_Coupon 原生只有「限定商品」「限定分類」兩種限制條件（沒有標籤），
+        // 有商品限制優先於分類限制（商品是更精確的目標）。
+        $coupon_product_ids = $coupon_obj->get_product_ids();
+        $coupon_cat_ids     = $coupon_obj->get_product_categories();
+        if ( ! empty( $coupon_product_ids ) ) {
+            $shop_url = twshop_get_coupon_shop_url( 'product', $coupon_product_ids );
+        } elseif ( ! empty( $coupon_cat_ids ) ) {
+            $shop_url = twshop_get_coupon_shop_url( 'category', $coupon_cat_ids );
+        } else {
+            $shop_url = wc_get_page_permalink( 'shop' );
+        }
+
+        // 「還差 $X 即可使用」提示，判斷全在 twshop_build_coupon_gap_html() 內（含各版本修正的來由）。
+        $gap_html = twshop_build_coupon_gap_html(
+            $coupon_obj->get_minimum_amount(), $already_used_up, $location
+        );
+
+        twshop_finalize_coupon_card(
+            $code, $display_title, $display_desc, $expiry_date, $is_used, $is_applied, $location, $shop_url,
+            $output_cards_available, $output_cards_unavailable, $found_any, $card_count, $any_applied,
+            $gap_html
+        );
     }
 
     // 可套用的排前面、不可套用的排後面（見上方 $output_cards_available/$output_cards_unavailable 的說明）
@@ -1329,7 +1331,12 @@ function twshop_next_local_midnight() {
  */
 function twshop_maybe_realign_daily_cron_to_midnight() {
     $timestamp = wp_next_scheduled( 'wc_membership_daily_downgrade_check' );
-    if ( ! $timestamp ) return;
+    if ( ! $timestamp ) {
+        // 排程只在啟用外掛時建立；資料夾改名或外掛被自動停用再啟用失敗等情況下會遺失，
+        // 等級重算、生日禮、點數到期全部靜默停擺，這裡補建（v25.8.107）。
+        twshop_activation_cron();
+        return;
+    }
     if ( '00:00' !== get_date_from_gmt( gmdate( 'Y-m-d H:i:s', $timestamp ), 'H:i' ) ) {
         wp_clear_scheduled_hook( 'wc_membership_daily_downgrade_check' );
         wp_schedule_event( twshop_next_local_midnight(), 'daily', 'wc_membership_daily_downgrade_check' );

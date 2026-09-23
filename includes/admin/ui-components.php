@@ -507,3 +507,40 @@ function twshop_get_typed_restriction( $type_option, $values_option, $legacy_map
     }
     return array( '', array() );
 }
+
+/**
+ * 金額轉純文字（例如「NT$800」）。wc_price() 的貨幣符號是 HTML 實體，strip_tags() 後
+ * 若再經 esc_html() 輸出，顧客會看到「&#78;&#84;&#36;800」。
+ */
+function twshop_plain_price( $amount ) {
+    return html_entity_decode( wp_strip_all_tags( wc_price( $amount ) ), ENT_QUOTES, 'UTF-8' );
+}
+
+/**
+ * 點數折抵與儲值金折抵共用的購物車使用條件：最低消費（含稅小計）＋限定分類/標籤
+ * （購物車內至少一件符合）。can_*()（伺服器端守門）與 *_block_reason()（顯示原因文字）
+ * 都經過這裡，判斷只有一份，不會出現「畫面說能用、其實不加費用」的落差。
+ *
+ * @return array|null null＝符合；array( 'min', 門檻金額 )；array( 'restricted', 分類/標籤名稱字串 )
+ */
+function twshop_cart_usage_restriction( $min_option, $type_option, $values_option, $legacy_map = array() ) {
+    $min_amount = (float) get_option( $min_option, 0 );
+    if ( $min_amount > 0 && ( WC()->cart->get_subtotal() + WC()->cart->get_subtotal_tax() ) < $min_amount ) {
+        return array( 'min', $min_amount );
+    }
+
+    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction( $type_option, $values_option, $legacy_map );
+    if ( empty( $restrict_type ) || empty( $restrict_values ) ) return null;
+    $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
+
+    foreach ( WC()->cart->get_cart() as $cart_item ) {
+        if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return null;
+    }
+
+    $term_names = array();
+    foreach ( $restrict_values as $term_id ) {
+        $term = get_term( $term_id, $taxonomy );
+        if ( $term && ! is_wp_error( $term ) ) $term_names[] = $term->name;
+    }
+    return array( 'restricted', implode( '、', $term_names ) );
+}

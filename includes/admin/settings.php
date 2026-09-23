@@ -117,18 +117,6 @@ function twshop_register_settings() {
     register_setting( 'wc_points_rules_group', 'wc_points_expiry_notify_subject', 'sanitize_text_field' );
     register_setting( 'wc_points_rules_group', 'wc_points_expiry_notify_body', 'sanitize_textarea_field' );
 
-    // 頁籤：點數提示文字
-    register_setting( 'wc_points_texts_group', 'wc_points_ui_heading', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_balance_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_expiry_soon_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_input_placeholder', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_btn_apply_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_btn_update_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_applied_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_no_balance_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_min_cart_text', 'sanitize_text_field' );
-    register_setting( 'wc_points_texts_group', 'wc_points_restricted_text', 'sanitize_text_field' );
-
     // 頁籤：點數發放與退還時機
     register_setting( 'wc_points_award_group', 'wc_points_award_statuses', 'twshop_sanitize_order_status_array' );
     register_setting( 'wc_points_award_group', 'wc_points_revoke_statuses', 'twshop_sanitize_order_status_array' );
@@ -189,7 +177,9 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_product_image_alt_variation', 'sanitize_text_field' );
 
     // 儲值金 ▸ 設定
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_term_name', 'sanitize_text_field' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_tier_spend_full_amount', 'twshop_sanitize_yes_no' );
+    register_setting( 'wc_wallet_settings_group', 'wc_wallet_earn_points', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_enabled', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_subject', 'sanitize_text_field' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_email_body', 'sanitize_textarea_field' );
@@ -197,16 +187,6 @@ function twshop_register_settings() {
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_min_cart_amount', 'floatval' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_restrict_type', 'twshop_sanitize_cat_tag_type' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_restrict_values', 'twshop_sanitize_id_array' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_ui_heading', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_balance_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_input_placeholder', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_btn_apply_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_btn_update_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_applied_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_no_balance_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_min_cart_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_restricted_text', 'sanitize_text_field' );
-    register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_restricted_text', 'sanitize_text_field' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_topup_allowed_gateways', 'twshop_sanitize_wallet_allowed_gateways' );
 
     // 會員 ▸ 頁籤管理

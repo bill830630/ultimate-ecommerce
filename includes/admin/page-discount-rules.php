@@ -356,6 +356,19 @@ function twshop_ajax_save_rule() {
         }
     }
 
+    // 數值必須在合理範圍（v25.8.106 前只有前端警告）：打折欄留空會存成 0，
+    // 商品層 percent＝售價 ×0% 全站變 0 元，整單 cart_percent＝折掉 100%。
+    $value = $new_rule['value'];
+    if ( in_array( $new_rule['type'], array( 'percent', 'cart_percent' ), true ) && ( $value <= 0 || $value >= 100 ) ) {
+        wp_send_json_error( array( 'msg' => '「打折 (%)」的數值必須大於 0、小於 100（例如 90 代表打 9 折）。' ) );
+    }
+    if ( in_array( $new_rule['type'], array( 'fixed_product', 'cart_discount' ), true ) && $value <= 0 ) {
+        wp_send_json_error( array( 'msg' => '「折抵 ($)」的金額必須大於 0。' ) );
+    }
+    if ( 'addon_product' === $new_rule['type'] && $value < 0 ) {
+        wp_send_json_error( array( 'msg' => '加購價不能小於 0。' ) );
+    }
+
     // 買N送N：限制條件範圍必填（決定哪些商品的購買數量算進 N），且 M 必須小於 N。
     if ( 'buy_x_get_y' === $new_rule['type'] ) {
         if ( empty( $new_rule['condition_type'] ) || empty( $new_rule['condition_values'] ) ) {
@@ -377,6 +390,9 @@ function twshop_ajax_save_rule() {
         foreach ( $new_rule['tiers'] as $tier ) {
             if ( $tier['min_amount'] <= 0 || $tier['value'] <= 0 ) {
                 wp_send_json_error( array( 'msg' => '每組門檻的「消費滿」與「數值」都必須大於 0。' ) );
+            }
+            if ( 'percent' === $tier['discount_type'] && $tier['value'] >= 100 ) {
+                wp_send_json_error( array( 'msg' => '階梯的「打折 (%)」數值必須小於 100。' ) );
             }
         }
     }

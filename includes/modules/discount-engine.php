@@ -148,7 +148,8 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
 
     if ( !empty($rule['start_time']) && $now < strtotime($rule['start_time']) ) return false;
     if ( !empty($rule['end_time']) && $now > strtotime($rule['end_time']) ) return false;
-    if ( $rule['role'] !== 'all' && ! in_array( $rule['role'], $user_roles ) ) return false;
+    $role = $rule['role'] ?? 'all'; // 早期規則沒有 role 欄位，原本會噴警告且規則永遠不生效
+    if ( $role !== 'all' && ! in_array( $role, $user_roles, true ) ) return false;
     
     // 已移除的「優惠卡券」規則一律不生效（twshop_migrate_removed_rule_coupons() 會把它們停用；這裡是保險）
     if ( 'yes' === ( $rule['is_coupon'] ?? 'no' ) ) return false;
@@ -203,30 +204,30 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
  * 排除任何已被其他機制標記為 $0 的項目（贈品/本規則自己上一輪拆出的免費項目），避免自我循環計數。
  */
 function twshop_bxgy_item_matches_rule( $cart_item, $rule ) {
-    if ( isset( $cart_item['twshop_gift_rule_id'] ) || isset( $cart_item['twshop_bxgy_rule_id'] ) ) return false;
-    $product_id = $cart_item['product_id'];
-    $cond_type = $rule['condition_type'] ?? '';
-    $cond_values = (array) ( $rule['condition_values'] ?? array() );
+    // 排除所有 twshop 特殊項目（v25.8.106 前只排除贈品與本規則的免費項目，點數兌換商品落在範圍內
+    // 時會被選成「最便宜的免費件」拆掉重加，失去兌換標記後被購買限制擋下而整件消失）；儲值金商品
+    // 也不能被選成免費件（面額照入帳）。
+    if ( twshop_is_twshop_special_cart_item( $cart_item ) ) return false;
+    if ( ! empty( $cart_item['data'] ) && twshop_is_wallet_credit_product( $cart_item['data'] ) ) return false;
+    list( $cond_type, $cond_values ) = twshop_get_rule_condition( $rule );
     if ( empty( $cond_type ) || empty( $cond_values ) ) return false;
-    if ( $cond_type === 'product' ) {
-        return in_array( $product_id, array_map( 'intval', $cond_values ), true );
-    } elseif ( $cond_type === 'category' ) {
-        return (bool) has_term( $cond_values, 'product_cat', $product_id );
-    } elseif ( $cond_type === 'tag' ) {
-        return (bool) has_term( $cond_values, 'product_tag', $product_id );
-    }
-    return false;
+    return twshop_rule_condition_matches_product( $cond_type, $cond_values, (int) $cart_item['product_id'] );
 }
 
 /**
- * 贈品/加購門檻用的商品小計（不含贈品、不含稅）。直接用商品目前售價計算，不讀 line_subtotal：
+ * 贈品/加購/買N送N 門檻用的商品小計（不含稅）。直接用商品目前售價計算，不讀 line_subtotal：
  * woocommerce_before_calculate_totals 觸發時 line_subtotal 還是上一輪的值，新加入的商品是 0，
  * 贈品增減會晚一次計算才反映（v25.8.36 修正）。
+ *
+ * 只算顧客自己買的一般商品：贈品、買N送N 免費件、點數兌換商品、加購項目在這個時間點還是原價
+ * （歸零/改價在同一個 hook 稍後才做），儲值金商品不是消費——v25.8.106 前這些都被算進去，
+ * 用點數兌換一件商品就可能湊到贈品門檻。
  */
 function twshop_get_cart_threshold_total( $cart_obj ) {
     $total = 0;
     foreach ( $cart_obj->get_cart() as $cart_item ) {
-        if ( isset( $cart_item['twshop_gift_rule_id'] ) || empty( $cart_item['data'] ) ) continue;
+        if ( empty( $cart_item['data'] ) || twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
+        if ( twshop_is_wallet_credit_product( $cart_item['data'] ) ) continue;
         $total += (float) wc_get_price_excluding_tax( $cart_item['data'], array( 'qty' => (int) $cart_item['quantity'] ) );
     }
     return $total;
@@ -240,7 +241,7 @@ function twshop_get_cart_threshold_total( $cart_obj ) {
 function twshop_mark_addon_cart_item( $cart_item_data, $product_id, $variation_id = 0 ) {
     if ( empty( $_REQUEST['twshop_addon'] ) ) return $cart_item_data;
     $rule_id = sanitize_text_field( wp_unslash( $_REQUEST['twshop_addon'] ) );
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array( 'customer' );
+    $user_roles = twshop_current_user_roles();
     foreach ( twshop_get_rules() as $rule ) {
         if ( $rule['rule_id'] !== $rule_id ) continue;
         if ( $rule['type'] === 'addon_product' && (int) $rule['gift_product_id'] === (int) $product_id
@@ -275,7 +276,7 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
     $is_processing = true;
 
     $rules = twshop_get_rules();
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
 
     $cart_total = twshop_get_cart_threshold_total( $cart_obj );
 
@@ -382,11 +383,6 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
         $matching_units = array(); // 每個購買單位一筆：['key' => cart_item_key, 'price' => 目前單價]
         foreach ( $cart_obj->get_cart() as $m_key => $m_item ) {
             if ( ! twshop_bxgy_item_matches_rule( $m_item, $rule ) ) continue;
-            // 儲值金商品不能被「買N送N」選中當免費單位（v25.8.79 新增）：規則條件範圍是
-            // 用分類/標籤動態決定，沒有固定的目標商品可以在存檔時擋，只能在這裡跑到
-            // 才擋——免費單位一樣會被歸零售價，但入帳金額不受影響，等於顧客不花錢就
-            // 拿到真錢。
-            if ( ! empty( $m_item['data'] ) && twshop_is_wallet_credit_product( $m_item['data'] ) ) continue;
             $unit_price = (float) $m_item['data']->get_price();
             for ( $i = 0; $i < (int) $m_item['quantity']; $i++ ) {
                 $matching_units[] = array( 'key' => $m_key, 'price' => $unit_price );
@@ -466,7 +462,7 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
  * 手動操作才會變），不會有 transient 內部資料量無限增長的風險，所以可以直接整包納入 key。
  */
 function twshop_add_discount_context_to_variation_price_hash( $price_hash ) {
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array( 'customer' );
+    $user_roles = twshop_current_user_roles();
     sort( $user_roles );
     $price_hash['twshop_roles'] = $user_roles;
     $price_hash['twshop_hour']  = current_time( 'Y-m-d H' );
@@ -535,11 +531,6 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
 }
 
 /**
- * 商品折扣規則該不該套用在目前這個請求。後台頁面不套（商品編輯頁要看到原價），但本外掛自己的前台
- * AJAX（走 admin-ajax.php，is_admin() 為 true）必須套用，否則購物車刷新/套用優惠券時用的是未折扣
- * 小計（v25.8.36 修正）。後台訂單編輯等 WooCommerce 自己的 AJAX 仍不套用。
- */
-/**
  * 購物車裡被本外掛直接指定售價（加購價）的商品物件。用 WeakMap 只在記憶體標記，
  * 不寫商品 meta——萬一其他程式對購物車商品物件呼叫 save()，旗標也不會被存進資料庫。
  */
@@ -549,12 +540,17 @@ function twshop_fixed_price_products() {
     return $map;
 }
 
+/**
+ * 商品折扣規則該不該套用在目前這個請求。後台頁面不套（商品編輯頁要看到原價），但本外掛自己的前台
+ * AJAX（走 admin-ajax.php，is_admin() 為 true）必須套用，否則購物車刷新/套用優惠券時用的是未折扣
+ * 小計（v25.8.36 修正）。後台訂單編輯等 WooCommerce 自己的 AJAX 仍不套用。
+ */
 function twshop_is_frontend_price_context() {
     if ( ! is_admin() ) return true;
     if ( ! wp_doing_ajax() ) return false;
     $action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
     return in_array( $action, array(
-        'twshop_refresh_components', 'twshop_apply_points', 'twshop_redeem_points_product',
+        'twshop_refresh_components', 'twshop_apply_points', 'twshop_redeem_points_product', 'twshop_apply_wallet',
         'twshop_remove_addon', 'apply_visual_coupon', 'remove_visual_coupon',
     ), true );
 }
@@ -563,7 +559,7 @@ function twshop_apply_product_discount_rules( $price, $product ) {
     if ( $price === '' || ! twshop_is_frontend_price_context() ) return $price;
     // 加購價等由 twshop_auto_manage_gifts_and_addons() 直接指定的價格不再疊加商品層折扣。
     if ( twshop_fixed_price_products()->offsetExists( $product ) ) return $price;
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
     $discounted = twshop_get_calculated_discount_price( $price, $product, $user_roles );
     return ($discounted !== false) ? $discounted : $price;
 }
@@ -578,7 +574,7 @@ function twshop_product_is_on_sale( $is_on_sale, $product ) {
         return twshop_get_variable_product_max_discount_percent( $product ) > 0 ? true : $is_on_sale;
     }
 
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
     $regular_price = $product->get_regular_price();
     if ( ! $regular_price ) return $is_on_sale;
 
@@ -780,7 +776,7 @@ function twshop_apply_cart_discount_rules( $cart ) {
 function twshop_get_cart_discount_fees( $cart ) {
     $rules = twshop_get_rules();
     if ( empty($rules) ) return array();
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
     $cart_total = $cart->get_subtotal();
     // 儲值金商品不計入購物車層折扣的小計基準（v25.8.79 新增）：這裡算出來的折扣是
     // 整單負費用，不是改單一商品價格，但結果一樣——含了儲值金商品的小計會讓顧客
@@ -792,6 +788,7 @@ function twshop_get_cart_discount_fees( $cart ) {
             $cart_total -= (float) $cart_item['line_subtotal'];
         }
     }
+    // label 不先跳脫：WooCommerce 輸出費用名稱時會自己 esc_html()，先跳脫會讓「&」顯示成「&amp;」。
     $fees = array();
 
     // 疊加群組 B（cart 層）：cart_percent + cart_discount + tiered_cart 依卡片排序（優先權）逐一套用；
@@ -803,7 +800,7 @@ function twshop_get_cart_discount_fees( $cart ) {
                 // 折扣後應付原價 90%，即折抵掉 10%）；修法前這裡誤算成 value=90 折抵掉 90%（只收10%），
                 // 跟商品層 percent 的算法方向剛好相反（v25.5.67 修正，見 CLAUDE.md）。
                 $discount_amount = ($rule['type'] === 'cart_percent') ? ($cart_total * ( 1 - floatval($rule['value']) / 100 )) : abs(floatval($rule['value']));
-                $fees[] = array( 'rule_id' => $rule['rule_id'], 'label' => esc_html( $rule['name'] ), 'amount' => $discount_amount );
+                $fees[] = array( 'rule_id' => $rule['rule_id'], 'label' => $rule['name'], 'amount' => $discount_amount );
                 if ( ( $rule['stack_exclusive'] ?? 'no' ) === 'yes' ) break;
             }
         } elseif ( $rule['type'] === 'tiered_cart' ) {
@@ -814,7 +811,7 @@ function twshop_get_cart_discount_fees( $cart ) {
                     $discount_amount = ( ( $tier['discount_type'] ?? 'fixed' ) === 'percent' )
                         ? ( $cart_total * ( 1 - floatval( $tier['value'] ?? 0 ) / 100 ) )
                         : abs( floatval( $tier['value'] ?? 0 ) );
-                    $fee_label = esc_html( $rule['name'] ) . '（滿 ' . wp_strip_all_tags( wc_price( floatval( $tier['min_amount'] ?? 0 ) ) ) . '）';
+                    $fee_label = $rule['name'] . '（滿 ' . twshop_plain_price( floatval( $tier['min_amount'] ?? 0 ) ) . '）';
                     $fees[] = array( 'rule_id' => $rule['rule_id'], 'label' => $fee_label, 'amount' => $discount_amount );
                     if ( ( $rule['stack_exclusive'] ?? 'no' ) === 'yes' ) break;
                 }
@@ -831,14 +828,15 @@ function twshop_get_cart_discount_fees( $cart ) {
 function twshop_get_active_free_shipping_rule() {
     $rules = twshop_get_rules();
     if ( empty( $rules ) || ! WC()->cart ) return null;
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
 
     $subtotal        = WC()->cart->get_subtotal();
     $coupon_discount = WC()->cart->get_discount_total(); // WooCommerce 優惠券折扣（正數）
     $fee_discount    = 0;
     foreach ( WC()->cart->get_fees() as $fee ) {
-        // 點數折抵視為付款方式，不計入商品折扣（不影響免運門檻）
-        if ( $fee->total < 0 && $fee->name !== twshop_points_term() . '折抵' ) {
+        // 點數與儲值金折抵視為付款方式，不計入商品折扣（不影響免運門檻）；
+        // v25.8.105 前只排除點數，用儲值金付款會讓小計掉到免運門檻以下。
+        if ( $fee->total < 0 && ! in_array( $fee->name, array( twshop_points_fee_name(), twshop_wallet_fee_name() ), true ) ) {
             $fee_discount += abs( $fee->total );
         }
     }
@@ -890,7 +888,7 @@ function twshop_apply_free_shipping_rules( $rates, $package ) {
  */
 function twshop_collect_applied_rule_ids( $cart ) {
     $ids = array();
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array('customer');
+    $user_roles = twshop_current_user_roles();
 
     foreach ( $cart->get_cart() as $cart_item ) {
         if ( isset( $cart_item['twshop_gift_rule_id'] ) )  { $ids[] = $cart_item['twshop_gift_rule_id']; continue; }

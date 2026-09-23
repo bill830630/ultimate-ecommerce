@@ -279,6 +279,7 @@ function twshop_wallet_ledger_tab() {
 
 function twshop_wallet_settings_tab() {
     $full_amount   = twshop_option( 'wc_wallet_tier_spend_full_amount' );
+    $earn_points   = twshop_option( 'wc_wallet_earn_points' );
     $email_enabled = twshop_option( 'wc_wallet_topup_email_enabled' );
     $email_subject = twshop_option( 'wc_wallet_topup_email_subject' );
     $email_body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
@@ -297,19 +298,6 @@ function twshop_wallet_settings_tab() {
     $tag_options = array();
     foreach ( $product_tags as $term ) { $tag_options[ $term->term_id ] = $term->name; }
 
-    // 提示文字（v25.8.76 起效仿「紅利點數 ▸ 點數提示文字」新增，取代原本寫死在
-    // twshop_render_wallet_redemption_ui() 裡的字串，見 wallet-checkout.php）
-    $w_ui_heading        = twshop_option( 'wc_wallet_ui_heading' );
-    $w_balance_text      = twshop_option( 'wc_wallet_balance_text' );
-    $w_input_placeholder = twshop_option( 'wc_wallet_input_placeholder' );
-    $w_btn_apply_text    = twshop_option( 'wc_wallet_btn_apply_text' );
-    $w_btn_update_text   = twshop_option( 'wc_wallet_btn_update_text' );
-    $w_applied_text      = twshop_option( 'wc_wallet_applied_text' );
-    $w_no_balance_text   = twshop_option( 'wc_wallet_no_balance_text' );
-    $w_min_cart_text     = twshop_option( 'wc_wallet_min_cart_text' );
-    $w_restricted_text   = twshop_option( 'wc_wallet_restricted_text' );
-    $w_topup_restricted_text = twshop_option( 'wc_wallet_topup_restricted_text' );
-
     // 允許使用的付款方式（v25.8.79 新增）：只列出「已啟用」的金流，比照「系統設定 ▸
     // 一般 ▸ 運送與付款方式名稱」（page-general.php）已驗證過的既有寫法，避免掛了一堆
     // gateway 的站台整面都是用不到的欄位。
@@ -322,14 +310,28 @@ function twshop_wallet_settings_tab() {
     <form action="options.php" method="post">
         <?php settings_fields( 'wc_wallet_settings_group' ); ?>
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'settings', '儲值金與等級消費額' ); ?>
+            <?php twshop_panel_head( 'settings', '儲值金與會員權益' ); ?>
             <div class="twshop-panel-body">
                 <table class="form-table">
+                    <tr>
+                        <th scope="row">儲值金名稱</th>
+                        <td>
+                            <input type="text" name="wc_wallet_term_name" value="<?php echo esc_attr( get_option( 'wc_wallet_term_name', '' ) ); ?>" class="regular-text" placeholder="儲值金" />
+                            <p class="description">設定前台顯示的儲值金名稱（購物車折抵區塊、會員中心頁籤、結帳提示等）；留空則使用「儲值金」。</p>
+                        </td>
+                    </tr>
                     <tr>
                         <th scope="row">用儲值金折抵時，等級消費額計算方式</th>
                         <td>
                             <label><input type="checkbox" name="wc_wallet_tier_spend_full_amount" value="yes" <?php checked( $full_amount, 'yes' ); ?>> 計入商品全額（折抵掉的部分仍算進等級消費額）</label>
                             <p class="description">預設勾選：儲值金是顧客先前已經付過的真錢，折抵消費時仍視同全額消費計算會員等級門檻。取消勾選則只計入實際透過其他金流付款的部分（跟點數折抵的既有計算方式一致）。線上儲值訂單本身（不論金額大小）一律不計入消費額與紅利點數，不受這個設定影響。</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">用儲值金折抵的金額是否累積紅利點數</th>
+                        <td>
+                            <label><input type="checkbox" name="wc_wallet_earn_points" value="yes" <?php checked( $earn_points, 'yes' ); ?>> 累積點數（儲值金折抵的部分也算進消費回饋點數）</label>
+                            <p class="description">預設不勾選：只有實際透過其他金流付款的部分會累積點數。購買儲值金商品本身一律不給點數，不受這個設定影響——勾選後點數是在「花掉儲值金消費時」才給，同一筆錢不會被算兩次。</p>
                         </td>
                     </tr>
                 </table>
@@ -363,7 +365,7 @@ function twshop_wallet_settings_tab() {
                     <tr>
                         <th scope="row">禁止用儲值金購買儲值金商品</th>
                         <td>
-                            <p class="description">購物車內只要有任一件儲值金商品，儲值金折抵區塊就會整個不可用——這條規則恆常生效，不是可關閉的選項，避免顧客用既有餘額折抵儲值金商品，等於不花真錢就無中生有出更多餘額（尤其面額高於售價的促銷型儲值金商品風險更高）。提示文字見下方「儲值金提示文字」面板的「購物車含儲值金商品提示」欄位。</p>
+                            <p class="description">購物車內只要有任一件儲值金商品，儲值金折抵區塊就會整個不可用——這條規則恆常生效，不是可關閉的選項，避免顧客用既有餘額折抵儲值金商品，等於不花真錢就無中生有出更多餘額（尤其面額高於售價的促銷型儲值金商品風險更高）。</p>
                         </td>
                     </tr>
                 </table>
@@ -391,24 +393,6 @@ function twshop_wallet_settings_tab() {
                 </table>
                 <?php endif; ?>
                 <p class="description">購物車內含儲值金商品時，結帳頁只會顯示這裡勾選的付款方式。留空＝不限制（所有已啟用付款方式皆可用）。這是為了避免貨到付款/銀行轉帳這類延遲收款的金流，在真正收到現金前訂單就先被轉成處理中/已完成而入帳。</p>
-            </div>
-        </div>
-
-        <div class="twshop-panel">
-            <?php twshop_panel_head( 'pencil', '儲值金提示文字', '設定購物車與結帳頁的儲值金文案；可用變數請參照各欄位說明。' ); ?>
-            <div class="twshop-panel-body">
-                <table class="form-table">
-                    <tr><th scope="row">區塊標題</th><td><input type="text" name="wc_wallet_ui_heading" value="<?php echo esc_attr( $w_ui_heading ); ?>" class="regular-text" /></td></tr>
-                    <tr><th scope="row">目前餘額文字</th><td><input type="text" name="wc_wallet_balance_text" value="<?php echo esc_attr( $w_balance_text ); ?>" class="regular-text" /> <p class="description">可用 <code>{amount}</code>（目前餘額）。</p></td></tr>
-                    <tr><th scope="row">輸入框提示文字</th><td><input type="text" name="wc_wallet_input_placeholder" value="<?php echo esc_attr( $w_input_placeholder ); ?>" class="regular-text" /></td></tr>
-                    <tr><th scope="row">套用按鈕（尚未套用）</th><td><input type="text" name="wc_wallet_btn_apply_text" value="<?php echo esc_attr( $w_btn_apply_text ); ?>" class="regular-text" /></td></tr>
-                    <tr><th scope="row">套用按鈕（已套用）</th><td><input type="text" name="wc_wallet_btn_update_text" value="<?php echo esc_attr( $w_btn_update_text ); ?>" class="regular-text" /></td></tr>
-                    <tr><th scope="row">已套用折抵確認文字</th><td><input type="text" name="wc_wallet_applied_text" value="<?php echo esc_attr( $w_applied_text ); ?>" class="regular-text" /> <p class="description">可用 <code>{amount}</code>（本次折抵金額）。</p></td></tr>
-                    <tr><th scope="row">餘額不足提示</th><td><input type="text" name="wc_wallet_no_balance_text" value="<?php echo esc_attr( $w_no_balance_text ); ?>" class="regular-text" /></td></tr>
-                    <tr><th scope="row">未達最低消費門檻提示</th><td><input type="text" name="wc_wallet_min_cart_text" value="<?php echo esc_attr( $w_min_cart_text ); ?>" class="regular-text" /> <p class="description">可用 <code>{amount}</code>（門檻金額）。</p></td></tr>
-                    <tr><th scope="row">限定商品未達成提示</th><td><input type="text" name="wc_wallet_restricted_text" value="<?php echo esc_attr( $w_restricted_text ); ?>" class="regular-text" /> <p class="description">可用 <code>{names}</code>（限定的分類/標籤名稱）。</p></td></tr>
-                    <tr><th scope="row">購物車含儲值金商品提示</th><td><input type="text" name="wc_wallet_topup_restricted_text" value="<?php echo esc_attr( $w_topup_restricted_text ); ?>" class="regular-text" /></td></tr>
-                </table>
             </div>
         </div>
 

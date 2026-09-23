@@ -190,7 +190,7 @@ function twshop_render_cart_addons() {
     }
 
     $rules      = twshop_get_rules();
-    $user_roles = is_user_logged_in() ? wp_get_current_user()->roles : array( 'customer' );
+    $user_roles = twshop_current_user_roles();
 
     $cart_total      = twshop_get_cart_threshold_total( WC()->cart );
     $addon_rules_in_cart = array();
@@ -216,97 +216,97 @@ function twshop_render_cart_addons() {
 
     echo '<div class="twshop-cart-addons-wrapper">';
     if ( ! empty( $available_addons ) ) {
-        // 建立以 product_id 為 key 的查詢 map
-        $addon_map = $available_addons;
-
-        // 用 WP_Query 建立真正的 loop，確保主題所有 hooks（Blocksy ct-media-container 等）正確觸發
-        $addon_query = new WP_Query( array(
-            'post_type'              => 'product',
-            'post__in'               => array_keys( $addon_map ),
-            'orderby'                => 'post__in',
-            'posts_per_page'         => count( $addon_map ),
-            'post_status'            => 'publish',
-            'no_found_rows'          => true,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-        ) );
-
-        if ( $addon_query->have_posts() ) {
-            echo '<div class="twshop-cart-addons woocommerce">';
-            echo '<h3 class="twshop-cart-addons-title">' . esc_html( twshop_option( 'wc_addon_section_title' ) ) . '</h3>';
-
-            // 使用 WooCommerce 標準 loop 容器，主題的 hooks 會自動套用正確的 class 與屬性
-            woocommerce_product_loop_start();
-
-            while ( $addon_query->have_posts() ) {
-                $addon_query->the_post();
-                $pid         = get_the_ID();
-                $product_obj = wc_get_product( $pid );
-                if ( ! $product_obj ) continue;
-
-                // 設定 global $product，讓 WooCommerce template 函式取得正確商品
-                $GLOBALS['product'] = $product_obj;
-
-                $addon       = $addon_map[ $pid ];
-                $addon_price = $addon['price'];
-                $in_cart     = $addon['in_cart'];
-
-                // 覆蓋價格：顯示原價劃線 + 加購特價
-                $price_filter = function( $price_html, $prod ) use ( $pid, $addon_price ) {
-                    if ( (int) $prod->get_id() !== $pid ) return $price_html;
-                    $regular = wc_get_price_to_display( $prod, array( 'price' => $prod->get_regular_price() ) );
-                    $special = wc_get_price_to_display( $prod, array( 'price' => $addon_price ) );
-                    return wc_format_sale_price( $regular, $special );
-                };
-
-                // 覆蓋按鈕：換成後台設定的文字（預設「加入加購」/「已在購物車」）
-                $btn_add_text    = twshop_option( 'wc_addon_btn_add_text' );
-                $btn_incart_text = twshop_option( 'wc_addon_btn_incart_text' );
-                $addon_rule_id = $addon['rule_id'];
-                $button_filter = function( $html, $prod, $args ) use ( $pid, $in_cart, $btn_add_text, $btn_incart_text, $addon_rule_id ) {
-                    if ( (int) $prod->get_id() !== $pid ) return $html;
-                    if ( $in_cart ) {
-                        return sprintf(
-                            '<button type="button" data-product_id="%d" class="button twshop-remove-addon-btn" style="background-color:#dc3232!important;color:#fff!important;border-color:#dc3232!important;">%s</button>',
-                            esc_attr( $pid ),
-                            esc_html( $btn_incart_text )
-                        );
-                    }
-                    // data-twshop_addon 會被 WooCommerce add-to-cart.js 一起 POST，由 twshop_mark_addon_cart_item() 標記成加購項目。
+        $btn_add_text    = twshop_option( 'wc_addon_btn_add_text' );
+        $btn_incart_text = twshop_option( 'wc_addon_btn_incart_text' );
+        twshop_render_product_cards(
+            array_keys( $available_addons ),
+            'twshop-cart-addons',
+            '<h3 class="twshop-cart-addons-title">' . esc_html( twshop_option( 'wc_addon_section_title' ) ) . '</h3>',
+            // 價格：原價劃線＋加購特價
+            function( $prod ) use ( $available_addons ) {
+                $regular = wc_get_price_to_display( $prod, array( 'price' => $prod->get_regular_price() ) );
+                $special = wc_get_price_to_display( $prod, array( 'price' => $available_addons[ $prod->get_id() ]['price'] ) );
+                return wc_format_sale_price( $regular, $special );
+            },
+            function( $prod ) use ( $available_addons, $btn_add_text, $btn_incart_text ) {
+                $pid   = $prod->get_id();
+                $addon = $available_addons[ $pid ];
+                if ( $addon['in_cart'] ) {
                     return sprintf(
-                        '<a href="%s" data-quantity="1" data-product_id="%d" data-twshop_addon="%s" class="button product_type_simple add_to_cart_button ajax_add_to_cart">%s</a>',
-                        esc_url( add_query_arg( array( 'add-to-cart' => $pid, 'twshop_addon' => $addon_rule_id ), wc_get_cart_url() ) ),
+                        '<button type="button" data-product_id="%d" class="button twshop-remove-addon-btn" style="background-color:#dc3232!important;color:#fff!important;border-color:#dc3232!important;">%s</button>',
                         esc_attr( $pid ),
-                        esc_attr( $addon_rule_id ),
-                        esc_html( $btn_add_text )
+                        esc_html( $btn_incart_text )
                     );
-                };
-
-                // 強制讓目錄可見性為「隱藏」的加購商品通過 content-product.php 的 is_visible() 檢查
-                $visibility_filter = function( $visible, $product_id ) use ( $pid ) {
-                    return ( (int) $product_id === $pid ) ? true : $visible;
-                };
-
-                add_filter( 'woocommerce_product_is_visible',    $visibility_filter, 999, 2 );
-                add_filter( 'woocommerce_get_price_html',        $price_filter,      999, 2 );
-                // WooCommerce 9.2+ 使用 woocommerce_loop_add_to_cart_link；舊版用 woocommerce_loop_add_to_cart_html
-                add_filter( 'woocommerce_loop_add_to_cart_link', $button_filter,     999, 3 );
-                add_filter( 'woocommerce_loop_add_to_cart_html', $button_filter,     999, 3 );
-
-                // 使用 WooCommerce 標準商品模板，主題樣式（Blocksy ct-media-container 等）自動套用
-                wc_get_template_part( 'content', 'product' );
-
-                remove_filter( 'woocommerce_product_is_visible',    $visibility_filter, 999 );
-                remove_filter( 'woocommerce_get_price_html',        $price_filter,      999 );
-                remove_filter( 'woocommerce_loop_add_to_cart_link', $button_filter,     999 );
-                remove_filter( 'woocommerce_loop_add_to_cart_html', $button_filter,     999 );
+                }
+                // data-twshop_addon 會被 WooCommerce add-to-cart.js 一起 POST，由 twshop_mark_addon_cart_item() 標記成加購項目。
+                return sprintf(
+                    '<a href="%s" data-quantity="1" data-product_id="%d" data-twshop_addon="%s" class="button product_type_simple add_to_cart_button ajax_add_to_cart">%s</a>',
+                    esc_url( add_query_arg( array( 'add-to-cart' => $pid, 'twshop_addon' => $addon['rule_id'] ), wc_get_cart_url() ) ),
+                    esc_attr( $pid ),
+                    esc_attr( $addon['rule_id'] ),
+                    esc_html( $btn_add_text )
+                );
             }
-
-            wp_reset_postdata();
-            woocommerce_product_loop_end();
-            echo '</div>';
-        }
+        );
     }
+    echo '</div>';
+}
+
+/**
+ * 在購物車頁用 WooCommerce 標準商品卡片列出指定商品（加購區、點數兌換區共用）。用真正的
+ * WP_Query loop＋content-product 樣板，主題的 hooks（Blocksy ct-media-container 等）才會正確觸發；
+ * 價格與按鈕由呼叫端提供，目錄可見性設為「隱藏」的商品也照樣列出（常見：專門拿來加購/兌換的商品）。
+ * 沒有任何可列出的商品時不輸出任何東西。
+ *
+ * @param callable $price_html  fn( WC_Product ): string
+ * @param callable $button_html fn( WC_Product ): string
+ */
+function twshop_render_product_cards( array $product_ids, $class, $header_html, callable $price_html, callable $button_html ) {
+    $ids   = array_map( 'intval', $product_ids );
+    $query = new WP_Query( array(
+        'post_type'              => 'product',
+        'post__in'               => $ids,
+        'orderby'                => 'post__in',
+        'posts_per_page'         => count( $ids ),
+        'post_status'            => 'publish',
+        'no_found_rows'          => true,
+        'update_post_meta_cache' => false,
+        'update_post_term_cache' => false,
+    ) );
+    if ( ! $query->have_posts() ) return;
+
+    $visibility_filter = function( $visible, $product_id ) use ( $ids ) {
+        return in_array( (int) $product_id, $ids, true ) ? true : $visible;
+    };
+    $price_filter = function( $html, $prod ) use ( $ids, $price_html ) {
+        return in_array( (int) $prod->get_id(), $ids, true ) ? $price_html( $prod ) : $html;
+    };
+    $button_filter = function( $html, $prod ) use ( $ids, $button_html ) {
+        return in_array( (int) $prod->get_id(), $ids, true ) ? $button_html( $prod ) : $html;
+    };
+
+    echo '<div class="' . esc_attr( $class ) . ' woocommerce">' . $header_html;
+    add_filter( 'woocommerce_product_is_visible', $visibility_filter, 999, 2 );
+    add_filter( 'woocommerce_get_price_html', $price_filter, 999, 2 );
+    // WooCommerce 9.2+ 使用 woocommerce_loop_add_to_cart_link；舊版用 woocommerce_loop_add_to_cart_html
+    add_filter( 'woocommerce_loop_add_to_cart_link', $button_filter, 999, 2 );
+    add_filter( 'woocommerce_loop_add_to_cart_html', $button_filter, 999, 2 );
+
+    woocommerce_product_loop_start();
+    while ( $query->have_posts() ) {
+        $query->the_post();
+        $product_obj = wc_get_product( get_the_ID() );
+        if ( ! $product_obj ) continue;
+        $GLOBALS['product'] = $product_obj; // WooCommerce 樣板函式讀 global $product
+        wc_get_template_part( 'content', 'product' );
+    }
+    woocommerce_product_loop_end();
+
+    remove_filter( 'woocommerce_product_is_visible', $visibility_filter, 999 );
+    remove_filter( 'woocommerce_get_price_html', $price_filter, 999 );
+    remove_filter( 'woocommerce_loop_add_to_cart_link', $button_filter, 999 );
+    remove_filter( 'woocommerce_loop_add_to_cart_html', $button_filter, 999 );
+    wp_reset_postdata();
     echo '</div>';
 }
 

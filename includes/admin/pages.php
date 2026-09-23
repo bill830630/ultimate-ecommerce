@@ -53,7 +53,6 @@ function twshop_points_section() {
     $tabs = array(
         'balances' => '會員餘額',
         'rules'    => '點數規則設定',
-        'texts'    => '點數提示文字',
         'award'    => '發放與退還時機',
         'redeem'   => '點數兌換商品',
         'import'   => '匯入點數資料',
@@ -62,7 +61,6 @@ function twshop_points_section() {
     twshop_render_admin_tabs( $tabs, $current, 'wc-general-settings', array( 'section' => 'points' ) );
     if ( 'balances' === $current ) twshop_points_balances_tab();
     elseif ( 'rules' === $current ) twshop_points_rules_tab();
-    elseif ( 'texts' === $current ) twshop_points_texts_tab();
     elseif ( 'award' === $current ) twshop_points_award_tab();
     elseif ( 'redeem' === $current ) twshop_points_redeem_tab();
     elseif ( 'import' === $current ) twshop_points_import_tab();

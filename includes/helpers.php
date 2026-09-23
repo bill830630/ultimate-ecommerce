@@ -160,11 +160,27 @@ function twshop_backfill_missing_rule_ids( $rules ) {
     return $rules;
 }
 
-function twshop_get_earn_base_amount( $items_data, $unrestricted_total ) {
-    list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
+/**
+ * 折扣規則判斷用的目前使用者角色：訪客視為 customer。
+ */
+function twshop_current_user_roles() {
+    return is_user_logged_in() ? (array) wp_get_current_user()->roles : array( 'customer' );
+}
+
+function twshop_points_earn_restriction() {
+    return twshop_get_typed_restriction(
         'wc_points_earn_restrict_type', 'wc_points_earn_restrict_values',
         array( 'category' => 'wc_points_earn_restricted_category', 'tag' => 'wc_points_earn_restricted_tag' )
     );
+}
+
+function twshop_points_earn_is_restricted() {
+    list( $restrict_type, $restrict_values ) = twshop_points_earn_restriction();
+    return ! empty( $restrict_type ) && ! empty( $restrict_values );
+}
+
+function twshop_get_earn_base_amount( $items_data, $unrestricted_total ) {
+    list( $restrict_type, $restrict_values ) = twshop_points_earn_restriction();
 
     if ( empty( $restrict_type ) || empty( $restrict_values ) ) {
         return $unrestricted_total;
@@ -243,30 +259,7 @@ function twshop_get_option_defaults() {
         'wc_addon_section_title'   => '🎉 專屬加購優惠',
 
         // 點數前台文字
-        'wc_points_applied_text'      => '已套用 {amount} {term}，折抵 {discount} 元',
-        'wc_points_balance_text'      => '您目前擁有 {amount} {term}可用',
-        'wc_points_btn_apply_text'    => '套用折抵',
-        'wc_points_btn_update_text'   => '更新或取消{term}',
-        'wc_points_expiry_soon_text'  => '有 {amount} {term}將於 {date} 到期',
-        'wc_points_input_placeholder' => '輸入欲使用{term}（{rate} 的倍數）',
         'wc_points_redeem_min_cart_text' => '購物車需滿 {amount} 才可兌換商品',
-        'wc_points_min_cart_text'     => '購物車需滿 {amount} 才可使用{term}折抵',
-        'wc_points_no_balance_text'   => '您目前沒有可用的{term}',
-        'wc_points_restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用{term}',
-        'wc_points_ui_heading'        => '使用{term}折抵',
-
-        // 儲值金前台文字（v25.8.76 起效仿點數折抵區塊新增，見 wallet-checkout.php
-        // twshop_wallet_block_reason()／twshop_render_wallet_redemption_ui()）
-        'wc_wallet_applied_text'      => '本次訂單將折抵 NT{amount}',
-        'wc_wallet_balance_text'      => '目前餘額：NT{amount}',
-        'wc_wallet_btn_apply_text'    => '套用折抵',
-        'wc_wallet_btn_update_text'   => '更新折抵',
-        'wc_wallet_input_placeholder' => '輸入要折抵的金額',
-        'wc_wallet_min_cart_text'     => '購物車需滿 {amount} 才可使用儲值金折抵',
-        'wc_wallet_no_balance_text'   => '您目前沒有可用的儲值金',
-        'wc_wallet_restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用儲值金折抵',
-        'wc_wallet_topup_restricted_text' => '購物車內含儲值金商品時，無法使用儲值金折抵',
-        'wc_wallet_ui_heading'        => '使用儲值金折抵',
 
         // 會員通知信與等級文字
         'wc_birthday_email_subject'        => '祝您生日快樂！專屬生日禮金',
@@ -294,6 +287,7 @@ function twshop_get_option_defaults() {
         'wc_classic_cart_show_progress' => 'yes',
         'wc_classic_cart_show_wallet'   => 'yes',
         'wc_wallet_tier_spend_full_amount' => 'yes',
+        'wc_wallet_earn_points'            => 'no',
         'wc_wallet_topup_email_enabled' => 'yes',
         'wc_wallet_topup_email_subject' => '儲值成功通知',
         'wc_shopee_sync_enabled'        => 'no',

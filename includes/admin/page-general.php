@@ -289,12 +289,12 @@ function twshop_system_general_tab() {
                             <span class="drag-handle twshop-text-muted" style="cursor:move;"><?php echo twshop_get_account_tab_icon_svg( 'grip-vertical' ); ?></span>
                             <input type="hidden" name="wc_product_tabs_settings[slug][]" value="<?php echo esc_attr( $tab_slug ); ?>" />
                             <input type="hidden" class="tab-enabled-input" name="wc_product_tabs_settings[enabled][]" value="<?php echo esc_attr( $tab_enabled ); ?>" />
-                            <span style="flex:1; display:flex; align-items:center; gap:8px;">
-                                <input type="text" class="regular-text" style="max-width:260px;" name="wc_product_tab_titles[<?php echo esc_attr( $tab_slug ); ?>]"
+                            <span class="twshop-tab-row-name">
+                                <input type="text" class="regular-text" name="wc_product_tab_titles[<?php echo esc_attr( $tab_slug ); ?>]"
                                        value="<?php echo esc_attr( $tab_titles[ $tab_slug ] ?? '' ); ?>" placeholder="<?php echo esc_attr( $tab_defaults[ $tab_slug ][1] ); ?>">
-                                <code class="twshop-text-muted" style="font-weight:normal;"><?php echo esc_html( $tab_defaults[ $tab_slug ][0] ); ?></code>
+                                <code class="twshop-text-muted"><?php echo esc_html( $tab_defaults[ $tab_slug ][0] ); ?></code>
                             </span>
-                            <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                            <label class="twshop-tab-row-toggle">
                                 <input type="checkbox" class="tab-enabled-checkbox" <?php checked( 'yes', $tab_enabled ); ?> /> 顯示
                             </label>
                         </div>

@@ -132,15 +132,15 @@ function twshop_get_account_tab_row_html( $slug, $label, $enabled, $icon = '' ) 
         <input type="hidden" name="wc_account_tabs_settings[slug][]" value="<?php echo esc_attr( $slug ); ?>" />
         <input type="hidden" class="tab-enabled-input" name="wc_account_tabs_settings[enabled][]" value="<?php echo esc_attr( $is_logout ? 'yes' : $enabled ); ?>" />
         <?php echo twshop_render_account_tab_icon_picker( $slug, $icon ); ?>
-        <span style="flex:1; display:flex; align-items:center; gap:8px;">
+        <span class="twshop-tab-row-name">
             <?php if ( isset( $name_option[ $slug ] ) ) : ?>
-                <input type="text" name="<?php echo esc_attr( $name_option[ $slug ] ); ?>" value="<?php echo esc_attr( $label ); ?>" class="regular-text" style="max-width:220px;" />
+                <input type="text" name="<?php echo esc_attr( $name_option[ $slug ] ); ?>" value="<?php echo esc_attr( $label ); ?>" class="regular-text" />
             <?php else : ?>
-                <input type="text" name="wc_account_tab_names[<?php echo esc_attr( $slug ); ?>]" value="<?php echo esc_attr( $label ); ?>" class="regular-text" style="max-width:220px;" />
+                <input type="text" name="wc_account_tab_names[<?php echo esc_attr( $slug ); ?>]" value="<?php echo esc_attr( $label ); ?>" class="regular-text" />
             <?php endif; ?>
-            <code class="twshop-text-muted" style="font-weight:normal;">(<?php echo esc_html( $slug ); ?>)</code>
+            <code class="twshop-text-muted">(<?php echo esc_html( $slug ); ?>)</code>
         </span>
-        <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+        <label class="twshop-tab-row-toggle">
             <input type="checkbox" class="tab-enabled-checkbox" <?php checked( $is_logout || 'yes' === $enabled ); ?> <?php disabled( $is_logout ); ?> />
             啟用<?php if ( $is_logout ) echo '（登出無法關閉）'; ?>
         </label>

@@ -318,6 +318,20 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-tier-card .twshop-card-header{ display:flex; justify-content:space-between; align-items:center; padding:15px; background:#fff; border-bottom:1px solid #dcdcde; cursor:pointer; font-weight:600; }
 .twshop-rule-card{ margin-bottom:20px; }
 .twshop-tab-row{ display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #c3c4c7; padding:10px 14px; margin-bottom:8px; }
+/* 會員中心頁籤與商品頁頁籤共用的列內欄位（twshop_get_account_tab_row_html()／twshop_system_general_tab()）。
+   min-width:0 讓名稱欄在窄螢幕可以縮小，不會把勾選框推出畫面；代號用 nowrap，避免被擠成一字一行把列高撐爆。 */
+.twshop-tab-row-name{ flex:1; display:flex; align-items:center; gap:8px; min-width:0; }
+.twshop-tab-row-name input{ max-width:240px; }
+.twshop-tab-row-name code{ font-weight:normal; white-space:nowrap; }
+.twshop-tab-row-toggle{ display:flex; align-items:center; gap:6px; white-space:nowrap; }
+/* WordPress 後台手機斷點：列改成可換行，名稱欄與代號各佔一行，勾選框換到下一行 */
+@media (max-width:782px){
+	.twshop-tab-row{ flex-wrap:wrap; row-gap:8px; }
+	.twshop-tab-row-name{ flex:1 1 0; flex-wrap:wrap; row-gap:4px; }
+	.twshop-tab-row-name input{ max-width:none; width:100%; }
+	.twshop-tab-row-name code{ font-size:12px; }
+	.twshop-tab-row-toggle{ flex-basis:100%; }
+}
 .twshop-card-header:hover{ background:#eee!important; }
 .twshop-card-toggle-icon{ color:var(--twshop-color-muted); transition:transform 0.2s; }
 .twshop-card-toggle-icon.is-open{ transform:rotate(180deg); }

@@ -63,8 +63,24 @@ function twshop_license_error_message( $code ) {
         'license_not_active'       => '授權已停用。',
         'missing_fields'           => '授權資料不完整。',
         'invalid_site_url'         => '網站網址格式不正確。',
+        'domain_mismatch'          => '授權綁定的網域與目前網站不同，請重新啟用授權。',
     );
     return $messages[ $code ] ?? '授權驗證失敗，請確認金鑰後再試一次。';
+}
+
+function twshop_license_host( $url ) {
+    $host = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_HOST ) );
+    return preg_replace( '/^www\./', '', $host );
+}
+
+/**
+ * 網站網址跟上次驗證成功時綁定的網址不同（測試站轉正式站、整站搬家、複製站台）。
+ * 選項會跟著資料庫一起被搬過去，快取的「已啟用」不能沿用到新網域（v25.8.112）。
+ * 用未經過濾的 home 選項比對，避免多語系外掛依語言切換 home_url() 時誤判。
+ */
+function twshop_license_site_moved( array $data ) {
+    if ( empty( $data['site_url'] ) ) return false;
+    return twshop_license_host( $data['site_url'] ) !== twshop_license_host( get_option( 'home' ) );
 }
 
 function twshop_license_payload( array $data ) {
@@ -104,12 +120,16 @@ function twshop_license_is_active( $force = false ) {
     $data = twshop_license_get_data();
     if ( empty( $data['license_key'] ) ) return false;
 
-    $now = time();
-    if ( ! $force && ! empty( $data['last_checked'] ) && ( $now - (int) $data['last_checked'] ) < TWSHOP_LICENSE_CACHE_TTL ) {
-        return in_array( $data['status'] ?? '', array( 'active', 'grace' ), true );
+    $now    = time();
+    $moved  = twshop_license_site_moved( $data );
+    $cached = in_array( $data['status'] ?? '', array( 'active', 'grace' ), true );
+    // 換了網域時「已啟用」的快取作廢，要重新問授權伺服器；已經是失效狀態則照常沿用快取，不用每頁都打 API
+    if ( ! $force && ! empty( $data['last_checked'] ) && ( $now - (int) $data['last_checked'] ) < TWSHOP_LICENSE_CACHE_TTL && ! ( $moved && $cached ) ) {
+        return $cached;
     }
 
-    $within_grace = ! empty( $data['last_success'] ) && ( $now - (int) $data['last_success'] ) < TWSHOP_LICENSE_GRACE_TTL;
+    // 換了網域不給離線寬限期：前台（不能連線驗證）會直接視為未啟用
+    $within_grace = ! $moved && ! empty( $data['last_success'] ) && ( $now - (int) $data['last_success'] ) < TWSHOP_LICENSE_GRACE_TTL;
 
     // 前台訪客不等授權伺服器（最長 10 秒逾時）：快取過期時沿用上次結果，
     // 重新驗證交給後台頁面、WP-Cron 或 WP-CLI 請求（admin-ajax 也常是前台購物車呼叫，排除）（v25.8.107）。
@@ -156,7 +176,10 @@ function twshop_license_handle_activate() {
     $license_key = strtoupper( sanitize_text_field( wp_unslash( $_POST['license_key'] ?? '' ) ) );
     if ( '' === $license_key ) twshop_license_redirect( 'missing' );
 
-    $data     = twshop_license_update_data( array( 'license_key' => $license_key ) );
+    $changes = array( 'license_key' => $license_key );
+    // 從別的網站搬過來的 instance_id 還綁在原網站上，換一組新的，讓這個網站算成獨立的一個站台啟用
+    if ( twshop_license_site_moved( twshop_license_get_data() ) ) $changes['instance_id'] = wp_generate_uuid4();
+    $data     = twshop_license_update_data( $changes );
     $response = twshop_license_request( '/v1/licenses/activate', twshop_license_payload( $data ) );
     if ( is_wp_error( $response ) ) {
         twshop_license_update_data( array( 'status' => 'unreachable', 'last_checked' => time(), 'error' => '無法連線授權伺服器。' ) );

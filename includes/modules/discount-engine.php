@@ -253,8 +253,10 @@ function twshop_mark_addon_cart_item( $cart_item_data, $product_id, $variation_i
     return $cart_item_data;
 }
 
+// 加購品與自動贈品的數量欄位改成純文字（v25.8.113 起含贈品）；伺服器端由
+// twshop_auto_manage_gifts_and_addons() 夾回 1 件，這裡只是讓畫面上不能改。
 function twshop_lock_addon_item_quantity( $product_quantity, $cart_item_key, $cart_item ) {
-    if ( isset( $cart_item['twshop_addon_rule_id'] ) ) {
+    if ( isset( $cart_item['twshop_addon_rule_id'] ) || isset( $cart_item['twshop_gift_rule_id'] ) ) {
         return '<span class="twshop-addon-qty">' . esc_html( $cart_item['quantity'] ) . '</span>';
     }
     return $product_quantity;
@@ -417,6 +419,11 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
     // 第三階段：將自動帶入的贈品／買N送N 免費項目強制售價改為 $0，並處理加購商品的售價
     foreach ( $cart_obj->get_cart() as $cart_item_key => $cart_item ) {
         if ( isset($cart_item['twshop_gift_rule_id']) || isset($cart_item['twshop_bxgy_rule_id']) ) {
+            // 贈品每條規則只送 1 件：擋掉從購物車更新端點把 $0 贈品數量改大的路徑（v25.8.113 修正）。
+            // 買N送N 項目不在此限，下一輪會先還原再依實際購買數量重新拆分，數量本來就會被校正。
+            if ( isset( $cart_item['twshop_gift_rule_id'] ) && (int) $cart_item['quantity'] > 1 ) {
+                $cart_obj->set_quantity( $cart_item_key, 1, false );
+            }
             $cart_item['data']->set_price(0);
             continue;
         }

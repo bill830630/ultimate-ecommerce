@@ -733,14 +733,15 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     margin-bottom: 6px;
     color: var(--theme-text-color, #444);
 }
+/* 顏色一律跟主題：進度條與達標文字用主色（palette-color-1），軌道用主題邊框色（v25.8.116） */
 .twshop-cart-progress-item.is-achieved .twshop-cart-progress-text {
-    color: #2a8a3e;
+    color: var(--theme-palette-color-1, #2271b1);
     font-weight: 600;
 }
 .twshop-cart-progress-track {
     height: 10px;
     border-radius: 5px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--theme-border-color, rgba(0, 0, 0, 0.08));
     overflow: hidden;
 }
 .twshop-cart-progress-fill {
@@ -750,7 +751,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     transition: width 0.3s ease;
 }
 .twshop-cart-progress-item.is-achieved .twshop-cart-progress-fill {
-    background: #2a8a3e;
+    background: var(--theme-palette-color-1, #2271b1);
 }
 
 /* 加購商品／點數兌換商品區塊：外框與標題對齊主題（Blocksy）購物車總計框（.cart_totals）——

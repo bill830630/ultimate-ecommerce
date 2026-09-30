@@ -281,10 +281,10 @@ function twshop_render_mini_cart_progress() {
         .twshop-minicart-progress{ margin:0 0 12px; padding:0 0 12px; border-bottom:1px solid rgba(0,0,0,.08); }
         .twshop-minicart-progress-item + .twshop-minicart-progress-item{ margin-top:10px; }
         .twshop-minicart-progress-text{ font-size:12px; margin-bottom:6px; color:#444; }
-        .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-text{ color:#2a8a3e; font-weight:600; }
-        .twshop-minicart-progress-track{ height:10px; border-radius:5px; background:rgba(0,0,0,.1); overflow:hidden; }
+        .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-text{ color:var(--theme-palette-color-1, #2271b1); font-weight:600; }
+        .twshop-minicart-progress-track{ height:10px; border-radius:5px; background:var(--theme-border-color, rgba(0,0,0,.1)); overflow:hidden; }
         .twshop-minicart-progress-fill{ height:100%; border-radius:5px; min-width:4px; background:var(--theme-palette-color-1, #2271b1); transition:width .3s ease; }
-        .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-fill{ background:#2a8a3e; }
+        .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-fill{ background:var(--theme-palette-color-1, #2271b1); }
     </style>
     <?php
 }

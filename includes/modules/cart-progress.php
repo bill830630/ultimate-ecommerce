@@ -65,12 +65,14 @@ function twshop_get_coupon_progress_items() {
             $min = floatval( $coupon_obj->get_minimum_amount() );
             if ( $min <= 0 ) continue;
 
-            $title = get_post_meta( $c->ID, '_visual_coupon_title', true ) ?: wp_strip_all_tags( twshop_format_wc_coupon_discount( $coupon_obj->get_discount_type(), $coupon_obj->get_amount() ) );
+            // title 是 HTML（輸出時不再跳脫），achieved_title 是純文字（輸出時才 esc_html）；
+            // wc_price() 的 NT$ 是 HTML 實體，要先還原成字元，否則會被跳脫成「&#078;&#084;&#036;」顯示出來。
+            $title = get_post_meta( $c->ID, '_visual_coupon_title', true ) ?: html_entity_decode( wp_strip_all_tags( twshop_format_wc_coupon_discount( $coupon_obj->get_discount_type(), $coupon_obj->get_amount() ) ), ENT_QUOTES, 'UTF-8' );
             $items[] = array(
                 'type'           => 'coupon',
                 'threshold'      => $min,
                 'title'          => '再消費 {amount} 即可使用「' . esc_html( $title ) . '」',
-                'achieved_title' => '🎉 可使用「' . esc_html( $title ) . '」了',
+                'achieved_title' => '可使用「' . $title . '」了',
             );
         }
     }
@@ -116,12 +118,12 @@ function twshop_get_cart_progress_items() {
         if ( ! twshop_is_discount_rule_valid( $rule, $user_roles, PHP_INT_MAX, 0 ) ) continue;
 
         if ( 'free_gift' === $rule['type'] && ! empty( $rule['min_amount'] ) && ! empty( $rule['gift_product_id'] ) ) {
-            $gift_name = esc_html( get_the_title( $rule['gift_product_id'] ) );
+            $gift_name = html_entity_decode( get_the_title( $rule['gift_product_id'] ), ENT_QUOTES, 'UTF-8' );
             $items[] = array(
                 'type'           => 'gift',
                 'threshold'      => floatval( $rule['min_amount'] ),
-                'title'          => '再消費 {amount} 即可獲得贈品「' . $gift_name . '」',
-                'achieved_title' => '🎁 已獲得贈品「' . $gift_name . '」',
+                'title'          => '再消費 {amount} 即可獲得贈品「' . esc_html( $gift_name ) . '」',
+                'achieved_title' => '已獲得贈品「' . $gift_name . '」',
             );
         } elseif ( 'tiered_cart' === $rule['type'] ) {
             $tiers = is_array( $rule['tiers'] ?? null ) ? $rule['tiers'] : array();

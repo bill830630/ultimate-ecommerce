@@ -278,11 +278,20 @@ function twshop_render_product_cards( array $product_ids, $class, $header_html, 
     $visibility_filter = function( $visible, $product_id ) use ( $ids ) {
         return in_array( (int) $product_id, $ids, true ) ? true : $visible;
     };
-    $price_filter = function( $html, $prod ) use ( $ids, $price_html ) {
-        return in_array( (int) $prod->get_id(), $ids, true ) ? $price_html( $prod ) : $html;
+    // 記錄主題有沒有真的輸出價格／按鈕：佈景主題可以把商品卡片的「價格」「加入購物車」圖層關掉
+    // （例：Blocksy 自訂器 商品彙整 ▸ 卡片選項），那時 woocommerce_template_loop_add_to_cart() 根本不會被呼叫，
+    // 兌換/加購按鈕跟著消失、無法兌換。沒輸出到的部分由下方迴圈自己補在卡片最後。
+    $rendered_price  = false;
+    $rendered_button = false;
+    $price_filter = function( $html, $prod ) use ( $ids, $price_html, &$rendered_price ) {
+        if ( ! in_array( (int) $prod->get_id(), $ids, true ) ) return $html;
+        $rendered_price = true;
+        return $price_html( $prod );
     };
-    $button_filter = function( $html, $prod ) use ( $ids, $button_html ) {
-        return in_array( (int) $prod->get_id(), $ids, true ) ? $button_html( $prod ) : $html;
+    $button_filter = function( $html, $prod ) use ( $ids, $button_html, &$rendered_button ) {
+        if ( ! in_array( (int) $prod->get_id(), $ids, true ) ) return $html;
+        $rendered_button = true;
+        return $button_html( $prod );
     };
 
     echo '<div class="' . esc_attr( $class ) . ' woocommerce">' . $header_html;
@@ -298,7 +307,26 @@ function twshop_render_product_cards( array $product_ids, $class, $header_html, 
         $product_obj = wc_get_product( get_the_ID() );
         if ( ! $product_obj ) continue;
         $GLOBALS['product'] = $product_obj; // WooCommerce 樣板函式讀 global $product
+
+        $rendered_price  = false;
+        $rendered_button = false;
+        ob_start();
         wc_get_template_part( 'content', 'product' );
+        $card_html = ob_get_clean();
+
+        $fallback = '';
+        if ( ! $rendered_price ) {
+            $fallback .= '<span class="price">' . $price_html( $product_obj ) . '</span>';
+        }
+        if ( ! $rendered_button ) {
+            $fallback .= '<div class="twshop-card-fallback-button">' . $button_html( $product_obj ) . '</div>';
+        }
+        if ( '' !== $fallback ) {
+            $fallback  = '<div class="twshop-card-fallback">' . $fallback . '</div>';
+            $close_pos = strripos( $card_html, '</li>' );
+            $card_html = false === $close_pos ? $card_html . $fallback : substr_replace( $card_html, $fallback, $close_pos, 0 );
+        }
+        echo $card_html;
     }
     woocommerce_product_loop_end();
 

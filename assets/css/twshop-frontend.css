@@ -809,4 +809,13 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     vertical-align: middle;
 }
 
+/* 主題把商品卡片的價格／加入購物車圖層關掉時，twshop_render_product_cards() 自己補在卡片最後的
+   價格與按鈕（沒關的話不會出現這個容器）。 */
+.twshop-card-fallback {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
 .twshop-points-redeem-min-notice{ margin:0 0 12px; font-size:14px; color:var(--theme-text-color, #687279); }

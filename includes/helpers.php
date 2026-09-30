@@ -382,7 +382,9 @@ function twshop_get_purchase_restricted_product_ids( $force_refresh = false ) {
     if ( null === $ids_cache ) {
         $ids = array();
 
-        if ( twshop_module_enabled( 'points' ) ) {
+        // 「紅利點數 ▸ 點數兌換商品 ▸ 原價購買」勾選時兌換商品不擋（v25.8.115）；原價那一行跟兌換那一行
+        // 的 cart_item_data 不同，是兩筆獨立項目，歸零/鎖數量只認 twshop_points_redeem_product_id，互不影響。
+        if ( twshop_module_enabled( 'points' ) && 'yes' !== get_option( 'wc_points_redeem_allow_purchase', 'no' ) ) {
             $list = get_option( 'wc_points_redeemable_products', array() );
             if ( ! empty( $list ) && is_array( $list ) ) {
                 foreach ( twshop_resolve_redeemable_products( $list ) as $entry ) {

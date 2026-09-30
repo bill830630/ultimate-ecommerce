@@ -125,6 +125,7 @@ function twshop_register_settings() {
     register_setting( 'wc_points_redeem_group', 'wc_points_redeem_min_cart_amount', 'floatval' );
     register_setting( 'wc_points_redeem_group', 'wc_points_redeem_min_cart_text', 'sanitize_text_field' );
     register_setting( 'wc_points_redeem_group', 'wc_points_redeemable_products', 'twshop_sanitize_points_redeemable_products' );
+    register_setting( 'wc_points_redeem_group', 'wc_points_redeem_allow_purchase', 'twshop_sanitize_yes_no' );
 
     // v25.5.58 修正：這 5 組原本全部共用 wc_general_settings_group，但實際渲染在 5 個不同頁籤
     // （即 5 個獨立 <form>）。options.php 儲存時是依「整個 group 底下註冊過的所有 option」逐一比對

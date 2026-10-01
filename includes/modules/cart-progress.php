@@ -224,15 +224,17 @@ function twshop_classic_cart_progress() {
  * 是否已載入。
  *
  * 掛載點不受任何模組開關限制（`twshop_get_cart_progress_items()` 內部已經分別判斷
- * visual_coupons／discount_rules 兩個模組），跟 twshop_classic_cart_addons() 等「傳統購物車
+ * visual_coupons／discount_rules 兩個模組；v25.8.119 起函式內另外檢查「滿額進度區塊」開關），跟 twshop_classic_cart_addons() 等「傳統購物車
  * 自動注入」hook 一樣，統一在 twshop_membership_init() 裡不受模組開關影響的區塊註冊。
  */
 function twshop_render_mini_cart_progress() {
     if ( ! WC()->cart || WC()->cart->is_empty() ) return;
+    // v25.8.119：後台關掉「滿額進度區塊」時 mini cart 也要一起隱藏。原本刻意不看這個開關，
+    // 結果店家關掉後頁首購物車下拉仍顯示進度條，看起來像開關沒作用。
+    if ( 'yes' !== twshop_option( 'wc_classic_cart_show_progress' ) ) return;
 
-    // 只列優惠券項目。它不受 discount_rules 模組與 wc_classic_cart_show_progress 開關影響——
-    // 那是獨立的 visual_coupons 模組功能（是否啟用已經在 twshop_get_coupon_progress_items()
-    // 內部個別判斷過），沿革見上方 v25.5.94 說明。
+    // 只列優惠券項目。它不受 discount_rules 模組影響——那是獨立的 visual_coupons 模組功能
+    // （是否啟用已經在 twshop_get_coupon_progress_items() 內部個別判斷過），沿革見上方 v25.5.94 說明。
     $items = array_values( array_filter( twshop_get_cart_progress_items(), function( $item ) {
         return 'coupon' === $item['type'];
     } ) );

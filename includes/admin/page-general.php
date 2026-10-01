@@ -164,7 +164,7 @@ function twshop_system_general_tab() {
                             <td>
                                 <label>
                                     <input type="checkbox" name="wc_classic_cart_show_progress" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_progress' ), 'yes' ); ?> />
-                                    在購物車頁面自動顯示滿額/滿件進度提示
+                                    在購物車頁面與迷你購物車自動顯示滿額/滿件進度提示
                                 </label>
                             </td>
                         </tr>

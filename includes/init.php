@@ -188,6 +188,7 @@ function twshop_membership_init() {
         add_action( 'twshop_send_birthday_gift_notice', 'twshop_send_birthday_gift_notice_email', 10, 3 );
         add_action( 'woocommerce_account_my-membership_endpoint', 'twshop_my_membership_endpoint_content' );
         add_action( 'woocommerce_register_form', 'twshop_add_birthday_field_registration' );
+        add_filter( 'woocommerce_process_registration_errors', 'twshop_validate_birthday_field_registration' );
         add_action( 'woocommerce_created_customer', 'twshop_save_birthday_field_registration' );
         add_action( 'woocommerce_edit_account_form', 'twshop_add_birthday_field_frontend' );
         add_action( 'woocommerce_save_account_details', 'twshop_save_birthday_field_frontend' );

@@ -295,8 +295,11 @@ function twshop_parse_birthday_month_day( $value ) {
     return array( 0, 0 );
 }
 
-function twshop_render_birthday_select_fields( $month, $day, $disabled = false ) {
+function twshop_render_birthday_select_fields( $month, $day, $disabled = false, $required = false ) {
     $attr = $disabled ? ' disabled style="background:#f5f5f5; cursor:not-allowed;"' : '';
+    if ( $required ) {
+        $attr .= ' required';
+    }
     ?>
     <span class="twshop-birthday-select-row" style="display:flex; gap:8px;">
         <select name="twshop_birthday_month" id="twshop_birthday_month" class="woocommerce-Input woocommerce-Input-text"<?php echo $attr; ?>>
@@ -324,10 +327,23 @@ function twshop_add_birthday_field_registration() {
     $day   = isset( $_POST['twshop_birthday_day'] ) ? (int) $_POST['twshop_birthday_day'] : 0;
     ?>
     <p class="form-row form-row-wide">
-        <label for="twshop_birthday_month"><?php esc_html_e( '生日（月/日）', 'ultimate-ecommerce' ); ?></label>
-        <?php twshop_render_birthday_select_fields( $month, $day ); ?>
+        <label for="twshop_birthday_month"><?php esc_html_e( '生日（月/日）', 'ultimate-ecommerce' ); ?>&nbsp;<span class="required" aria-hidden="true">*</span></label>
+        <?php twshop_render_birthday_select_fields( $month, $day, false, true ); ?>
+        <span style="font-size:12px; color:#888; display:block; margin-top:4px;">生日設定後將無法自行更改。</span>
     </p>
     <?php
+}
+
+/**
+ * 註冊時生日（月/日）為必填：瀏覽器端有 required，這裡是伺服器端驗證（擋掉繞過前端的送出）。
+ */
+function twshop_validate_birthday_field_registration( $errors ) {
+    $month = isset( $_POST['twshop_birthday_month'] ) ? (int) $_POST['twshop_birthday_month'] : 0;
+    $day   = isset( $_POST['twshop_birthday_day'] ) ? (int) $_POST['twshop_birthday_day'] : 0;
+    if ( ! ( $month >= 1 && $month <= 12 && $day >= 1 && $day <= 31 && checkdate( $month, $day, 2000 ) ) ) {
+        $errors->add( 'twshop_birthday_required', '請選擇您的生日（月/日）。' );
+    }
+    return $errors;
 }
 
 /**

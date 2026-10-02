@@ -534,7 +534,7 @@ function twshop_cart_usage_restriction( $min_option, $type_option, $values_optio
     $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
 
     foreach ( WC()->cart->get_cart() as $cart_item ) {
-        if ( has_term( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return null;
+        if ( twshop_has_term_cached( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return null;
     }
 
     $term_names = array();

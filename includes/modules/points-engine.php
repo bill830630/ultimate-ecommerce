@@ -807,7 +807,7 @@ function twshop_get_redeem_info_for_product( $product_id ) {
             }
         } else {
             $tax = 'category' === $entry['type'] ? 'product_cat' : 'product_tag';
-            if ( ! has_term( $entry['id'], $tax, $product_id ) ) continue;
+            if ( ! twshop_has_term_cached( $entry['id'], $tax, $product_id ) ) continue;
             $product = wc_get_product( $product_id );
             if ( ! $product || $product->is_type( 'variable' ) ) continue;
             $cost = twshop_calc_redeem_cost_from_price( $product->get_price() );

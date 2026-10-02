@@ -409,7 +409,7 @@ function twshop_points_redeem_tab() {
                     <table class="form-table" role="presentation">
                         <tr><th scope="row">購物車最低金額</th><td>購物車小計需達 <input type="number" step="0.01" min="0" name="wc_points_redeem_min_cart_amount" value="<?php echo esc_attr( get_option( 'wc_points_redeem_min_cart_amount', 0 ) ); ?>" class="small-text" /> 元才可兌換 (0 為無限制)</td></tr>
                         <tr><th scope="row">未達門檻提示</th><td><input type="text" name="wc_points_redeem_min_cart_text" value="<?php echo esc_attr( twshop_option( 'wc_points_redeem_min_cart_text' ) ); ?>" class="regular-text" /> <span class="twshop-text-muted">可用 {amount}</span></td></tr>
-                        <tr><th scope="row">原價購買</th><td><label><input type="checkbox" name="wc_points_redeem_allow_purchase" value="yes" <?php checked( get_option( 'wc_points_redeem_allow_purchase', 'no' ), 'yes' ); ?> /> 兌換商品也可以用原價直接購買</label><p class="description">不勾選時，兌換商品只能用<?php echo esc_html( $p_term ); ?>兌換，商品頁不顯示加入購物車按鈕。</p></td></tr>
+                        <tr><th scope="row">原價購買</th><td><label><input type="checkbox" class="twshop-sw" name="wc_points_redeem_allow_purchase" value="yes" <?php checked( get_option( 'wc_points_redeem_allow_purchase', 'no' ), 'yes' ); ?> /> 兌換商品也可以用原價直接購買</label><p class="description">不勾選時，兌換商品只能用<?php echo esc_html( $p_term ); ?>兌換，商品頁不顯示加入購物車按鈕。</p></td></tr>
                     </table>
                 </div>
             </div>

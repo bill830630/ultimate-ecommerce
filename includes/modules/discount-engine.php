@@ -60,6 +60,25 @@ function twshop_get_product_terms_cached( $product_id, $taxonomy ) {
         if ( is_wp_error( $object_terms ) ) $object_terms = array();
     }
 
+    // 階層式分類：規則選了上層分類時，掛在下層分類的商品也要命中，
+    // 所以把商品所屬分類的所有祖先分類一併加入比對清單。
+    if ( $object_terms && is_taxonomy_hierarchical( $taxonomy ) ) {
+        $have = array();
+        foreach ( $object_terms as $t ) $have[ $t->term_id ] = true;
+        $extra = array();
+        foreach ( $object_terms as $t ) {
+            foreach ( get_ancestors( $t->term_id, $taxonomy, 'taxonomy' ) as $ancestor_id ) {
+                if ( isset( $have[ $ancestor_id ] ) ) continue;
+                $ancestor = get_term( $ancestor_id, $taxonomy );
+                if ( $ancestor && ! is_wp_error( $ancestor ) ) {
+                    $have[ $ancestor_id ] = true;
+                    $extra[] = $ancestor;
+                }
+            }
+        }
+        if ( $extra ) $object_terms = array_merge( $object_terms, $extra );
+    }
+
     $cache[ $key ] = $object_terms;
     return $object_terms;
 }

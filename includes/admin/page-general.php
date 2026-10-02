@@ -121,7 +121,7 @@ function twshop_system_general_tab() {
                             <th scope="row">啟用徽章</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_badge_enabled" value="yes" <?php checked( $badge_enabled, 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_badge_enabled" value="yes" <?php checked( $badge_enabled, 'yes' ); ?> />
                                     在有折扣的商品上顯示徽章
                                 </label>
                             </td>
@@ -145,7 +145,7 @@ function twshop_system_general_tab() {
                             <th scope="row">優惠券區塊</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_classic_cart_show_coupons" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_coupons' ), 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_classic_cart_show_coupons" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_coupons' ), 'yes' ); ?> />
                                     在購物車頁面自動顯示優惠券區塊
                                 </label>
                             </td>
@@ -154,7 +154,7 @@ function twshop_system_general_tab() {
                             <th scope="row">加購區塊</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_classic_cart_show_addons" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_addons' ), 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_classic_cart_show_addons" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_addons' ), 'yes' ); ?> />
                                     在購物車頁面自動顯示加購區塊
                                 </label>
                             </td>
@@ -163,7 +163,7 @@ function twshop_system_general_tab() {
                             <th scope="row">滿額進度區塊</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_classic_cart_show_progress" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_progress' ), 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_classic_cart_show_progress" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_progress' ), 'yes' ); ?> />
                                     在購物車頁面與迷你購物車自動顯示滿額/滿件進度提示
                                 </label>
                             </td>
@@ -172,7 +172,7 @@ function twshop_system_general_tab() {
                             <th scope="row">點數折抵區塊</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_classic_cart_show_points" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_points' ), 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_classic_cart_show_points" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_points' ), 'yes' ); ?> />
                                     在購物車頁面自動顯示點數折抵區塊
                                 </label>
                             </td>
@@ -181,7 +181,7 @@ function twshop_system_general_tab() {
                             <th scope="row">儲值金折抵區塊</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_classic_cart_show_wallet" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_wallet' ), 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_classic_cart_show_wallet" value="yes" <?php checked( twshop_option( 'wc_classic_cart_show_wallet' ), 'yes' ); ?> />
                                     在購物車頁面自動顯示儲值金折抵區塊
                                 </label>
                             </td>
@@ -295,7 +295,7 @@ function twshop_system_general_tab() {
                                 <code class="twshop-text-muted"><?php echo esc_html( $tab_defaults[ $tab_slug ][0] ); ?></code>
                             </span>
                             <label class="twshop-tab-row-toggle">
-                                <input type="checkbox" class="tab-enabled-checkbox" <?php checked( 'yes', $tab_enabled ); ?> /> 顯示
+                                <input type="checkbox" class="tab-enabled-checkbox twshop-sw" <?php checked( 'yes', $tab_enabled ); ?> /> 顯示
                             </label>
                         </div>
                         <?php endforeach; ?>
@@ -311,7 +311,7 @@ function twshop_system_general_tab() {
                     <table class="form-table">
                         <tr>
                             <th scope="row">啟用</th>
-                            <td><label><input type="checkbox" name="wc_product_image_alt_enabled" value="yes" <?php checked( get_option( 'wc_product_image_alt_enabled', 'no' ), 'yes' ); ?> /> 商品圖片 alt 統一由格式產生</label></td>
+                            <td><label><input type="checkbox" class="twshop-sw" name="wc_product_image_alt_enabled" value="yes" <?php checked( get_option( 'wc_product_image_alt_enabled', 'no' ), 'yes' ); ?> /> 商品圖片 alt 統一由格式產生</label></td>
                         </tr>
                         <tr>
                             <th scope="row">主圖</th>
@@ -338,7 +338,7 @@ function twshop_system_general_tab() {
                             <th scope="row">網址格式</th>
                             <td>
                                 <label>
-                                    <input type="checkbox" name="wc_product_slug_use_id" value="yes" <?php checked( $slug_use_id, 'yes' ); ?> />
+                                    <input type="checkbox" class="twshop-sw" name="wc_product_slug_use_id" value="yes" <?php checked( $slug_use_id, 'yes' ); ?> />
                                     商品網址改用商品編號
                                 </label>
                                 <p class="description">
@@ -408,7 +408,7 @@ function twshop_member_tabs_tab() {
 
                     <p style="margin:14px 0 0;">
                         <label>
-                            <input type="checkbox" name="wc_account_tab_mobile_scroll" value="yes" <?php checked( $tab_mobile_scroll, 'yes' ); ?> />
+                            <input type="checkbox" class="twshop-sw" name="wc_account_tab_mobile_scroll" value="yes" <?php checked( $tab_mobile_scroll, 'yes' ); ?> />
                             手機版頁籤改為橫向滑動
                         </label>
                     </p>

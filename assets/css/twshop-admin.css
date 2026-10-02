@@ -502,3 +502,12 @@ input:checked + .twshop-slider:before { transform:translateX(20px); }
 .twshop-redeem-type.is-category{ background:#e8f0fe; }
 .twshop-redeem-type.is-tag{ background:#eef7ee; }
 .twshop-redeem-table .redeem-chip-maxqty{ font-size:inherit; color:inherit; }
+
+/* 單一開/關設定一律用切換開關：直接把 input.twshop-sw 畫成開關，label 文字照舊跟在後面。
+   多選清單（訂單狀態、金流、運送方式）仍維持 checkbox。 */
+input[type="checkbox"].twshop-sw{ -webkit-appearance:none; appearance:none; position:relative; flex-shrink:0; width:40px; height:22px; margin:0 8px 0 0; border:0; border-radius:22px; background:#c3c4c7; box-shadow:none; vertical-align:middle; cursor:pointer; transition:background .2s; }
+input[type="checkbox"].twshop-sw::before{ content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; margin:0; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .2s; }
+input[type="checkbox"].twshop-sw:checked{ background:#2271b1; }
+input[type="checkbox"].twshop-sw:checked::before{ content:""; transform:translateX(18px); margin:0; width:18px; height:18px; }
+input[type="checkbox"].twshop-sw:focus{ box-shadow:0 0 0 2px #fff, 0 0 0 4px #2271b1; outline:none; }
+input[type="checkbox"].twshop-sw:disabled{ opacity:.5; cursor:not-allowed; }

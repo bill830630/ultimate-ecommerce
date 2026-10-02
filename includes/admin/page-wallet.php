@@ -323,14 +323,14 @@ function twshop_wallet_settings_tab() {
                     <tr>
                         <th scope="row">用儲值金折抵時，等級消費額計算方式</th>
                         <td>
-                            <label><input type="checkbox" name="wc_wallet_tier_spend_full_amount" value="yes" <?php checked( $full_amount, 'yes' ); ?>> 計入商品全額（折抵掉的部分仍算進等級消費額）</label>
+                            <label><input type="checkbox" class="twshop-sw" name="wc_wallet_tier_spend_full_amount" value="yes" <?php checked( $full_amount, 'yes' ); ?>> 計入商品全額（折抵掉的部分仍算進等級消費額）</label>
                             <p class="description">預設勾選：儲值金是顧客先前已經付過的真錢，折抵消費時仍視同全額消費計算會員等級門檻。取消勾選則只計入實際透過其他金流付款的部分（跟點數折抵的既有計算方式一致）。線上儲值訂單本身（不論金額大小）一律不計入消費額與紅利點數，不受這個設定影響。</p>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">用儲值金折抵的金額是否累積紅利點數</th>
                         <td>
-                            <label><input type="checkbox" name="wc_wallet_earn_points" value="yes" <?php checked( $earn_points, 'yes' ); ?>> 累積點數（儲值金折抵的部分也算進消費回饋點數）</label>
+                            <label><input type="checkbox" class="twshop-sw" name="wc_wallet_earn_points" value="yes" <?php checked( $earn_points, 'yes' ); ?>> 累積點數（儲值金折抵的部分也算進消費回饋點數）</label>
                             <p class="description">預設不勾選：只有實際透過其他金流付款的部分會累積點數。購買儲值金商品本身一律不給點數，不受這個設定影響——勾選後點數是在「花掉儲值金消費時」才給，同一筆錢不會被算兩次。</p>
                         </td>
                     </tr>
@@ -402,7 +402,7 @@ function twshop_wallet_settings_tab() {
                 <table class="form-table">
                     <tr>
                         <th scope="row">寄送通知信</th>
-                        <td><label><input type="checkbox" name="wc_wallet_topup_email_enabled" value="yes" <?php checked( $email_enabled, 'yes' ); ?>> 儲值訂單付款完成、入帳成功後寄送通知信給會員</label></td>
+                        <td><label><input type="checkbox" class="twshop-sw" name="wc_wallet_topup_email_enabled" value="yes" <?php checked( $email_enabled, 'yes' ); ?>> 儲值訂單付款完成、入帳成功後寄送通知信給會員</label></td>
                     </tr>
                     <tr>
                         <th scope="row">主旨</th>

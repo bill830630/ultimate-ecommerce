@@ -253,7 +253,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                 <span class="twshop-rule-footer-group">
                     <span class="twshop-rule-status twshop-rule-footer-status" aria-live="polite"></span>
                     <label class="rule-stack-wrap" title="勾選後，排序在這條規則後面的同類折扣規則不會再套用">
-                        <input type="checkbox" name="stack_exclusive" value="yes" <?php checked( $stack_exclusive, 'yes' ); ?> /> 不與同類折扣疊加
+                        <input type="checkbox" class="twshop-sw" name="stack_exclusive" value="yes" <?php checked( $stack_exclusive, 'yes' ); ?> /> 不與同類折扣疊加
                     </label>
                     <button type="submit" class="button button-primary save-rule-btn">儲存規則</button>
                 </span>

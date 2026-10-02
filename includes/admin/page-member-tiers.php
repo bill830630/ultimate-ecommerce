@@ -141,7 +141,7 @@ function twshop_get_account_tab_row_html( $slug, $label, $enabled, $icon = '' ) 
             <code class="twshop-text-muted">(<?php echo esc_html( $slug ); ?>)</code>
         </span>
         <label class="twshop-tab-row-toggle">
-            <input type="checkbox" class="tab-enabled-checkbox" <?php checked( $is_logout || 'yes' === $enabled ); ?> <?php disabled( $is_logout ); ?> />
+            <input type="checkbox" class="tab-enabled-checkbox twshop-sw" <?php checked( $is_logout || 'yes' === $enabled ); ?> <?php disabled( $is_logout ); ?> />
             啟用<?php if ( $is_logout ) echo '（登出無法關閉）'; ?>
         </label>
     </div>
@@ -226,7 +226,7 @@ function twshop_get_tier_row_html( $t ) {
             </div>
             
             <div class="gifts-section" style="background:#f9f9f9; padding:15px; border-radius:4px; margin-bottom:15px; border: 1px solid #eee;">
-                <label style="font-weight:bold;"><input type="checkbox" name="wc_member_tiers_settings[b_enable][]" value="yes" <?php checked($b_enable, 'yes'); ?>> 啟用專屬生日禮包</label>
+                <label style="font-weight:bold;"><input type="checkbox" class="twshop-sw" name="wc_member_tiers_settings[b_enable][]" value="yes" <?php checked($b_enable, 'yes'); ?>> 啟用專屬生日禮包</label>
                 <input type="hidden" name="wc_member_tiers_settings[b_gifts][]" value="<?php echo esc_attr($b_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -237,7 +237,7 @@ function twshop_get_tier_row_html( $t ) {
             </div>
 
             <div class="gifts-section" style="background:#fffcf5; padding:15px; border-radius:4px; margin-bottom:15px; border: 1px solid #fae8c3;">
-                <label style="font-weight:bold;"><input type="checkbox" name="wc_member_tiers_settings[u_enable][]" value="yes" <?php checked($u_enable, 'yes'); ?>> 啟用達成升級禮包</label>
+                <label style="font-weight:bold;"><input type="checkbox" class="twshop-sw" name="wc_member_tiers_settings[u_enable][]" value="yes" <?php checked($u_enable, 'yes'); ?>> 啟用達成升級禮包</label>
                 <input type="hidden" name="wc_member_tiers_settings[u_gifts][]" value="<?php echo esc_attr($u_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">

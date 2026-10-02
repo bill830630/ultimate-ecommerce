@@ -189,7 +189,7 @@ function twshop_get_earn_base_amount( $items_data, $unrestricted_total ) {
 
     $total = 0;
     foreach ( $items_data as $item ) {
-        if ( has_term( $restrict_values, $taxonomy, $item['product_id'] ) ) $total += $item['total'];
+        if ( twshop_has_term_cached( $restrict_values, $taxonomy, $item['product_id'] ) ) $total += $item['total'];
     }
     return $total;
 }

@@ -34,7 +34,7 @@ function twshop_shopee_settings_tab() {
         <div class="twshop-panel-body">
             <form action="options.php" method="post">
                 <?php settings_fields( 'wc_shopee_enable_group' ); ?>
-                <label><input type="checkbox" name="wc_shopee_sync_enabled" value="yes" <?php checked( $enabled, 'yes' ); ?>> 啟用蝦皮串接</label>
+                <label><input type="checkbox" class="twshop-sw" name="wc_shopee_sync_enabled" value="yes" <?php checked( $enabled, 'yes' ); ?>> 啟用蝦皮串接</label>
                 <p class="description">開啟後才會出現「授權」「商品對應」「同步設定」「同步紀錄」頁籤，並開始背景排程（推送庫存/價格、匯入訂單）。需要先向蝦皮申請 Partner ID / Partner Key 才能實際使用，見下方「授權」頁籤說明。</p>
                 <?php submit_button( '儲存設定', 'primary', 'submit', false ); ?>
             </form>
@@ -302,15 +302,15 @@ function twshop_shopee_sync_tab() {
             <table class="form-table">
                 <tr>
                     <th>庫存推送</th>
-                    <td><label><input type="checkbox" name="twshop_shopee_sync_settings[stock_push_enabled]" value="yes" <?php checked( $settings['stock_push_enabled'], 'yes' ); ?>> 啟用（Woo → 蝦皮，永遠不回寫）</label></td>
+                    <td><label><input type="checkbox" class="twshop-sw" name="twshop_shopee_sync_settings[stock_push_enabled]" value="yes" <?php checked( $settings['stock_push_enabled'], 'yes' ); ?>> 啟用（Woo → 蝦皮，永遠不回寫）</label></td>
                 </tr>
                 <tr>
                     <th>價格推送</th>
-                    <td><label><input type="checkbox" name="twshop_shopee_sync_settings[price_push_enabled]" value="yes" <?php checked( $settings['price_push_enabled'], 'yes' ); ?>> 啟用</label></td>
+                    <td><label><input type="checkbox" class="twshop-sw" name="twshop_shopee_sync_settings[price_push_enabled]" value="yes" <?php checked( $settings['price_push_enabled'], 'yes' ); ?>> 啟用</label></td>
                 </tr>
                 <tr>
                     <th>訂單匯入</th>
-                    <td><label><input type="checkbox" name="twshop_shopee_sync_settings[order_import_enabled]" value="yes" <?php checked( $settings['order_import_enabled'], 'yes' ); ?>> 啟用</label></td>
+                    <td><label><input type="checkbox" class="twshop-sw" name="twshop_shopee_sync_settings[order_import_enabled]" value="yes" <?php checked( $settings['order_import_enabled'], 'yes' ); ?>> 啟用</label></td>
                 </tr>
                 <tr>
                     <th>要匯入的蝦皮訂單狀態</th>

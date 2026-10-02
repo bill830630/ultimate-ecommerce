@@ -235,7 +235,7 @@ function twshop_sanitize_shopee_credentials( $input ) {
 
 /**
  * 訂單匯入狀態白名單比對蝦皮官方訂單狀態列舉；Woo 訂單初始狀態白名單比對
- * wc_get_order_statuses()（現存狀態，含 twshop 自訂的 wc-twshop-in-transit/wc-twshop-shipped）。
+ * wc_get_order_statuses()（現存狀態，含 twshop 自訂的 wc-twshop-in-transit/wc-twshop-shipped/wc-twshop-unclaimed）。
  */
 function twshop_sanitize_shopee_sync_settings( $input ) {
     $valid_shopee_statuses = array( 'UNPAID', 'READY_TO_SHIP', 'PROCESSED', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'TO_RETURN', 'INVOICE_PENDING' );

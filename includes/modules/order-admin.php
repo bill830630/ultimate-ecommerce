@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // =========================================================================
 
 /**
- * 註冊「配送中」「已出貨」兩個自訂訂單狀態（post_status，HPOS 訂單清單頁也吃這套機制顯示狀態下拉與計數）。
+ * 註冊「配送中」「已出貨」「未取件退回」三個自訂訂單狀態（post_status，HPOS 訂單清單頁也吃這套機制顯示狀態下拉與計數）。
  */
 function twshop_register_order_statuses() {
     register_post_status( 'wc-twshop-in-transit', array(
@@ -33,6 +33,16 @@ function twshop_register_order_statuses() {
         /* translators: %s: 訂單數量 */
         'label_count'               => _n_noop( '已出貨 <span class="count">(%s)</span>', '已出貨 <span class="count">(%s)</span>', 'twshop' ),
     ) );
+    // slug 含 wc- 前綴後須 ≤ 20 字元（post_status 欄位上限）：wc-twshop-unclaimed = 19。
+    register_post_status( 'wc-twshop-unclaimed', array(
+        'label'                     => '未取件退回',
+        'public'                    => true,
+        'show_in_admin_status_list' => true,
+        'show_in_admin_all_list'    => true,
+        'exclude_from_search'       => false,
+        /* translators: %s: 訂單數量 */
+        'label_count'               => _n_noop( '未取件退回 <span class="count">(%s)</span>', '未取件退回 <span class="count">(%s)</span>', 'twshop' ),
+    ) );
 }
 
 /**
@@ -45,6 +55,7 @@ function twshop_add_custom_order_statuses( $order_statuses ) {
         if ( 'wc-processing' === $key ) {
             $new_statuses['wc-twshop-in-transit'] = '配送中';
             $new_statuses['wc-twshop-shipped']    = '已出貨';
+            $new_statuses['wc-twshop-unclaimed']  = '未取件退回';
         }
     }
     return $new_statuses;
@@ -234,10 +245,42 @@ function twshop_maybe_auto_complete_order_from_logistic_note( $note_id, $order )
     }
 
     $completed_codes = array( '2067', '3022', '3308', '3309', '3003' );
-    if ( ! in_array( $matches[1], $completed_codes, true ) ) {
+    if ( in_array( $matches[1], $completed_codes, true ) ) {
+        $order->update_status( 'completed', '物流貨態顯示取件/送達完成，系統自動將訂單標記為已完成。' );
         return;
     }
 
-    $order->update_status( 'completed', '物流貨態顯示取件/送達完成，系統自動將訂單標記為已完成。' );
+    /*
+     * 出貨／配送中貨態 → 自訂狀態。只往前推進、不倒退：已出貨只由處理中轉入，配送中由處理中或已出貨轉入。
+     * 保留與未取件退回一律不轉入：ATM／超商代碼尚未付款的訂單停在保留，七天未取件退回的訂單停在未取件退回，
+     * 不能被誤到或重發的貨態拉回出貨流程。
+     * 代碼依綠界物流整合 API 技術文件「常用物流狀態 RtnCode」：
+     *   商品已送至物流中心（賣家已寄出）：7-ELEVEN 2030、全家 3024、萊爾富 2030/3024 → 已出貨
+     *   商品已送達門市（待取件）：7-ELEVEN B2C 2063／C2C 2073、全家 3018、萊爾富 2063/3018 → 配送中
+     * 宅配（黑貓、郵局）的轉運／配送中代碼文件未列，未納入；可透過 twshop_logistic_shipped_codes／
+     * twshop_logistic_in_transit_codes filter 補上。
+     */
+    $shipped_codes    = apply_filters( 'twshop_logistic_shipped_codes', array( '2030', '3024' ) );
+    $in_transit_codes = apply_filters( 'twshop_logistic_in_transit_codes', array( '2063', '2073', '3018' ) );
+
+    // 消費者七天未取件（7-ELEVEN／萊爾富 2074、全家／萊爾富 3020）：貨會退回，轉成「未取件退回」並留備註，
+    // 由管理員決定退貨、退款或重寄；不自動取消，避免回補庫存或誤動已付款項。
+    $unclaimed_codes = apply_filters( 'twshop_logistic_unclaimed_codes', array( '2074', '3020' ) );
+    if ( in_array( $matches[1], $unclaimed_codes, true ) ) {
+        if ( $order->has_status( array( 'processing', 'twshop-shipped', 'twshop-in-transit' ) ) ) {
+            $order->update_status( 'twshop-unclaimed', '物流貨態顯示消費者七天未取件，貨品將退回，系統自動將訂單標記為未取件退回，請確認後續處理（退貨、退款或重寄）。' );
+        }
+        return;
+    }
+
+    if ( in_array( $matches[1], $in_transit_codes, true ) ) {
+        if ( $order->has_status( array( 'processing', 'twshop-shipped' ) ) ) {
+            $order->update_status( 'twshop-in-transit', '物流貨態顯示配送中，系統自動將訂單標記為配送中。' );
+        }
+    } elseif ( in_array( $matches[1], $shipped_codes, true ) ) {
+        if ( $order->has_status( array( 'processing' ) ) ) {
+            $order->update_status( 'twshop-shipped', '物流貨態顯示已出貨，系統自動將訂單標記為已出貨。' );
+        }
+    }
 }
 

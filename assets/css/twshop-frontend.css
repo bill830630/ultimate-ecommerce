@@ -791,7 +791,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
 
 .twshop-points-redeem-cost {
     font-weight: 700;
-    color: var(--theme-link-color, #2271b1);
+    color: var(--theme-palette-color-1, #2271b1); /* 跟隨主題主色，與進度條等一致 */
 }
 
 /* 購物車列表內「用點數兌換商品」項目的數量欄位（twshop_lock_redeemed_item_quantity()

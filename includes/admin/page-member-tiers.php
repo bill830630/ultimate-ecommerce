@@ -230,7 +230,7 @@ function twshop_get_tier_row_html( $t ) {
                 <input type="hidden" name="wc_member_tiers_settings[b_gifts][]" value="<?php echo esc_attr($b_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <select class="gift-add-type"><option value="percent">百分比折扣(%)</option><option value="fixed_cart">固定金額折抵($)</option><option value="points"><?php echo esc_html( twshop_points_term() ); ?></option></select>
+                    <select class="gift-add-type"><option value="percent">百分比折扣(%)</option><option value="fixed_cart">固定金額折抵($)</option><option value="free_shipping">免運券</option><option value="points"><?php echo esc_html( twshop_points_term() ); ?></option></select>
                     <input type="number" class="gift-add-val small-text" placeholder="額度" />
                     <button type="button" class="button add-gift-btn">加入禮包</button>
                 </div>
@@ -241,7 +241,7 @@ function twshop_get_tier_row_html( $t ) {
                 <input type="hidden" name="wc_member_tiers_settings[u_gifts][]" value="<?php echo esc_attr($u_gifts); ?>" class="gifts-json">
                 <div class="gifts-list" style="margin:10px 0;"></div>
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <select class="gift-add-type"><option value="percent">百分比折扣(%)</option><option value="fixed_cart">固定金額折抵($)</option><option value="points"><?php echo esc_html( twshop_points_term() ); ?></option></select>
+                    <select class="gift-add-type"><option value="percent">百分比折扣(%)</option><option value="fixed_cart">固定金額折抵($)</option><option value="free_shipping">免運券</option><option value="points"><?php echo esc_html( twshop_points_term() ); ?></option></select>
                     <input type="number" class="gift-add-val small-text" placeholder="額度" />
                     <button type="button" class="button add-gift-btn">加入禮包</button>
                 </div>

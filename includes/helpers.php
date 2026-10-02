@@ -211,13 +211,17 @@ function twshop_get_user_point_multiplier( $user ) {
 function twshop_create_gift_coupon( $code, $gift, $email, $validity_days, $title, $desc ) {
     $coupon = new WC_Coupon();
     $coupon->set_code( $code );
-    $coupon->set_discount_type( $gift['type'] );
-    $coupon->set_amount( $gift['amount'] );
+    // 免運禮：沒有金額，用 WC 原生的「允許免運費」旗標（amount 0 + free_shipping）。
+    $is_free_shipping = ( $gift['type'] ?? '' ) === 'free_shipping';
+    $coupon->set_discount_type( $is_free_shipping ? 'fixed_cart' : $gift['type'] );
+    $coupon->set_amount( $is_free_shipping ? 0 : $gift['amount'] );
+    $coupon->set_free_shipping( $is_free_shipping );
     $coupon->set_date_expires( strtotime( '+' . $validity_days . ' days' ) );
     $coupon->set_usage_limit( 1 );
     $coupon->set_usage_limit_per_user( 1 );
     $coupon->set_email_restrictions( array( $email ) );
-    $coupon->set_individual_use( true );
+    // 免運券不扣商品金額，不獨占，才能跟折扣券一起用。
+    $coupon->set_individual_use( ! $is_free_shipping );
     $coupon->update_meta_data( '_visual_coupon_title', $title );
     $coupon->update_meta_data( '_visual_coupon_desc', $desc );
     $coupon->save();

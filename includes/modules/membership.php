@@ -142,6 +142,10 @@ function twshop_issue_tier_gifts( WP_User $user, array $gifts, $code_prefix, $co
         $code = $code_prefix . strtoupper( wp_generate_password( 6, false ) ) . $code_suffix;
         twshop_create_gift_coupon( $code, $gift, $user->user_email, $days, $title, $desc );
         $claimed[]   = $code;
+        if ( $gift['type'] === 'free_shipping' ) {
+            $msg_lines[] = "【{$code}】 (免運費)";
+            continue;
+        }
         $t_txt       = ( $gift['type'] === 'percent' ) ? '打折(%)' : '折抵($)';
         $msg_lines[] = "【{$code}】 ({$t_txt}: {$gift['amount']})";
     }
@@ -727,9 +731,11 @@ function twshop_my_membership_endpoint_content() {
                     $b_parts = array();
                     foreach ( $b_gifts as $g ) {
                         $amount = floatval( $g['amount'] ?? 0 );
-                        $b_parts[] = $g['type'] === 'percent'
+                        $b_parts[] = $g['type'] === 'free_shipping'
+                            ? '免運費'
+                            : ( $g['type'] === 'percent'
                             ? esc_html( $amount . '% 折扣' )
-                            : ( $g['type'] === 'points' ? esc_html( $amount . ' ' . $pt ) : wc_price( $amount ) . ' 折抵' );
+                            : ( $g['type'] === 'points' ? esc_html( $amount . ' ' . $pt ) : wc_price( $amount ) . ' 折抵' ) );
                     }
                     $b_text = implode( '<br>', $b_parts );
                 }
@@ -743,9 +749,11 @@ function twshop_my_membership_endpoint_content() {
                     $u_parts = array();
                     foreach ( $u_gifts as $g ) {
                         $amount = floatval( $g['amount'] ?? 0 );
-                        $u_parts[] = $g['type'] === 'percent'
+                        $u_parts[] = $g['type'] === 'free_shipping'
+                            ? '免運費'
+                            : ( $g['type'] === 'percent'
                             ? esc_html( $amount . '% 折扣' )
-                            : ( $g['type'] === 'points' ? esc_html( $amount . ' ' . $pt ) : wc_price( $amount ) . ' 折抵' );
+                            : ( $g['type'] === 'points' ? esc_html( $amount . ' ' . $pt ) : wc_price( $amount ) . ' 折抵' ) );
                     }
                     $u_text = implode( '<br>', $u_parts );
                 }
@@ -948,7 +956,7 @@ function twshop_format_wc_coupon_discount( $discount_type, $amount ) {
     $amount = floatval( $amount );
     return match ( $discount_type ) {
         'percent'                 => sprintf( '折扣 %s%%', rtrim( rtrim( number_format( $amount, 2 ), '0' ), '.' ) ),
-        'fixed_cart', 'fixed_product' => sprintf( '折抵 %s', wc_price( $amount ) ),
+        'fixed_cart', 'fixed_product' => $amount > 0 ? sprintf( '折抵 %s', wc_price( $amount ) ) : '',
         default                   => '',
     };
 }

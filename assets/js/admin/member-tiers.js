@@ -11,8 +11,8 @@ jQuery(document).ready(function($) {
         let arr = JSON.parse(val);
         let html = '';
         arr.forEach((g, i) => {
-            let tName = g.type === 'percent' ? '打折(%)' : (g.type === 'points' ? twshopMemberTiers.pointsTerm : '折抵($)');
-            html += `<span style="display:inline-block; background:#fff; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px; margin:4px 6px 4px 0;">${tName}: ${g.amount} <a href="#" class="remove-gift-btn twshop-text-danger" data-idx="${i}" style="text-decoration:none; margin-left:8px; font-weight:bold;">[移除]</a></span>`;
+            let tName = g.type === 'percent' ? '打折(%)' : (g.type === 'points' ? twshopMemberTiers.pointsTerm : (g.type === 'free_shipping' ? '免運券' : '折抵($)'));
+            html += `<span style="display:inline-block; background:#fff; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px; margin:4px 6px 4px 0;">${tName}${g.type === 'free_shipping' ? '' : ': ' + g.amount} <a href="#" class="remove-gift-btn twshop-text-danger" data-idx="${i}" style="text-decoration:none; margin-left:8px; font-weight:bold;">[移除]</a></span>`;
         });
         $wrap.find('.gifts-list').html(html);
     }
@@ -22,6 +22,7 @@ jQuery(document).ready(function($) {
         let $wrap = $(this).closest('.gifts-section');
         let type = $wrap.find('.gift-add-type').val();
         let val = $wrap.find('.gift-add-val').val();
+        if(type === 'free_shipping') val = '0';
         if(!val) return alert('請輸入優惠額度');
         let $input = $wrap.find('.gifts-json');
         let arr = JSON.parse($input.val() || '[]');

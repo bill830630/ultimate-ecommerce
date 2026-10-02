@@ -288,7 +288,7 @@ function twshop_sanitize_gifts_json( $json ) {
     $decoded = json_decode( is_string( $json ) ? $json : '', true );
     if ( ! is_array( $decoded ) ) return '[]';
 
-    $allowed_types = array( 'percent', 'points', 'fixed' );
+    $allowed_types = array( 'percent', 'points', 'fixed', 'fixed_cart', 'free_shipping' );
     $sanitized     = array();
     foreach ( $decoded as $item ) {
         if ( ! is_array( $item ) ) continue;
@@ -297,7 +297,7 @@ function twshop_sanitize_gifts_json( $json ) {
         if ( ! in_array( $type, $allowed_types, true ) ) $type = 'fixed';
         $sanitized[] = array(
             'type'   => $type,
-            'amount' => floatval( $item['amount'] ?? 0 ),
+            'amount' => 'free_shipping' === $type ? 0 : floatval( $item['amount'] ?? 0 ),
         );
     }
 

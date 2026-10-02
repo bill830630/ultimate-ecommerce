@@ -825,3 +825,18 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
 .fee .woocommerce-Price-amount,
 .twshop-points-used td strong,
 .twshop-estimated-points td strong { white-space: nowrap; }
+
+/* 購物車／結帳／迷你購物車：自動贈品標籤 */
+.twshop-gift-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--theme-palette-color-1, #2271b1); /* 跟隨主題主色，與滿額進度條一致 */
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    vertical-align: middle;
+    white-space: nowrap;
+}

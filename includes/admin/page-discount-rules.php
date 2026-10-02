@@ -152,6 +152,11 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                         // 加入購物車，但同一個欄位語意是「指定商品」，一併排除避免混淆。
                         echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable', 'wallet_credit' ) ); ?>
                     </div>
+                    <div class="twshop-rule-field rule-freegift-wrap" style="display:none;">
+                        <label class="twshop-rule-label">原價購買</label>
+                        <label><input type="checkbox" class="twshop-sw" name="gift_allow_purchase" value="yes" <?php checked( $r['gift_allow_purchase'] ?? 'no', 'yes' ); ?> /> 贈品商品也可以讓顧客用原價單買</label>
+                        <p class="description">不勾選時，這件商品只能由規則自動送出，商品頁不顯示加入購物車。勾選後顧客買的那一件是正價，跟贈送的那一件分開計算。</p>
+                    </div>
                     <div class="twshop-rule-field rule-bxgy-wrap" style="display:none;">
                         <label class="twshop-rule-label">買滿件數 (N)</label>
                         <input type="number" step="1" name="buy_qty" value="<?php echo esc_attr( $buy_qty ); ?>" />
@@ -324,6 +329,7 @@ function twshop_ajax_save_rule() {
         'type'              => sanitize_text_field( wp_unslash( $_POST['type'] ?? '' ) ),
         'value'             => floatval( wp_unslash( $_POST['value'] ?? 0 ) ),
         'gift_product_id'   => absint( wp_unslash( $_POST['gift_product_id'] ?? 0 ) ),
+        'gift_allow_purchase' => ( $_POST['gift_allow_purchase'] ?? '' ) === 'yes' ? 'yes' : 'no',
         'shipping_methods'  => $shipping_methods,
         'logic'             => sanitize_text_field( wp_unslash( $_POST['logic'] ?? '' ) ),
         'condition_type'    => $condition_type,

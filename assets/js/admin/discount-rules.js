@@ -127,6 +127,7 @@ jQuery(document).ready(function($) {
         $valueWrap.toggle(!!VALUE_LABELS[type]);
         if (VALUE_LABELS[type]) $valueWrap.find('.rule-value-label').text(VALUE_LABELS[type]);
         $card.find('.rule-gift-wrap').toggle(type === 'free_gift' || type === 'addon_product');
+        $card.find('.rule-freegift-wrap').toggle(type === 'free_gift');
         $card.find('.rule-shipping-methods-wrap').toggle(type === 'free_shipping');
         $card.find('.rule-bxgy-wrap').toggle(type === 'buy_x_get_y');
         $card.find('.rule-tiers-wrap').toggle(type === 'tiered_cart');

@@ -405,6 +405,8 @@ function twshop_get_purchase_restricted_product_ids( $force_refresh = false ) {
                 if ( 'free_gift' === ( $rule['type'] ?? '' )
                     && ( $rule['enabled'] ?? 'yes' ) !== 'no'
                     && ! empty( $rule['gift_product_id'] )
+                    // 規則勾了「原價購買」就不擋（顧客買的是正價那一行，跟 twshop_gift_rule_id 的 $0 贈品行是兩筆獨立項目）。
+                    && ( $rule['gift_allow_purchase'] ?? 'no' ) !== 'yes'
                 ) {
                     $ids[] = (int) $rule['gift_product_id'];
                 }

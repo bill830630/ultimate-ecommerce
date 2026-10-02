@@ -610,6 +610,16 @@ function twshop_product_is_on_sale( $is_on_sale, $product ) {
 }
 
 /**
+ * 自動贈品（twshop_gift_rule_id）在商品名稱後加上「贈品」標籤，讓顧客一眼看出這件是免費送的。
+ * 只標 free_gift 規則帶入的項目；買N送N 免費件（twshop_bxgy_rule_id）、加購品、點數兌換商品不在此列。
+ * 名稱欄在購物車頁、結帳頁訂單摘要、迷你購物車共用 woocommerce_cart_item_name，一個 filter 全涵蓋。
+ */
+function twshop_cart_item_name_gift_badge( $name, $cart_item, $cart_item_key ) {
+    if ( ! isset( $cart_item['twshop_gift_rule_id'] ) ) return $name;
+    return $name . ' <span class="twshop-gift-badge">贈品</span>';
+}
+
+/**
  * 傳統購物車頁「價格」欄（`templates/cart/cart.php`）的「價格」欄。
  *
  * WooCommerce 核心這一欄一律只印一個數字（`WC_Cart::get_product_price()` 直接

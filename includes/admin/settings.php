@@ -61,6 +61,7 @@ function twshop_sanitize_discount_rules_settings( $input ) {
             'type'              => sanitize_text_field( $rule['type'] ?? '' ),
             'value'             => floatval( $rule['value'] ?? 0 ),
             'gift_product_id'   => absint( $rule['gift_product_id'] ?? 0 ),
+            'gift_allow_purchase' => ( $rule['gift_allow_purchase'] ?? '' ) === 'yes' ? 'yes' : 'no',
             'shipping_methods'  => $shipping_methods,
             'logic'             => sanitize_text_field( $rule['logic'] ?? '' ),
             'condition_type'    => $condition_type,

@@ -64,7 +64,10 @@
             }
             var $progressWrapper = $('.twshop-cart-progress-wrapper');
             if ($progressWrapper.length && res.data.progress_html !== undefined) {
-                $progressWrapper.replaceWith(res.data.progress_html);
+                // 購物車頁有「商品列表上方」與「總計框內」兩份（見 twshop_render_cart_progress()），
+                // 各自保留自己的 wrapper（含版型 class），只換內容。
+                var progressInner = $('<div>').html(res.data.progress_html).children().first().html() || '';
+                $progressWrapper.each(function () { $(this).html(progressInner); });
             }
 
             // 點數折抵區塊：若 wrapper 已在 DOM 則替換；若被 React 清除則重新注入

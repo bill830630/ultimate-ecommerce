@@ -126,8 +126,13 @@
    並把「時間＋異動點數」提升為卡片標頭同一行顯示，一眼就能看到何時變動多少，
    其餘（說明/餘額/使用期限）維持 label:value 各自一行，比純文字表格直排更容易閱讀。 */
 @media screen and (max-width: 600px) {
+    /* 手機不再用內部捲動框：手指在長頁面上滑動時容易卡在框裡，改回跟著整頁捲動 */
     .twshop-points-history-wrap {
-        max-height: 420px;
+        max-height: none;
+        overflow-y: visible;
+    }
+    .twshop-points-history-wrap table.shop_table tr td.twshop-cell-empty {
+        display: none;
     }
     .twshop-points-history-wrap table.shop_table thead {
         display: none;
@@ -188,10 +193,10 @@
     }
 }
 
-/* 會員中心：兩個區塊之間的分隔線 */
+/* 會員中心：兩個區塊之間的分隔線（顏色跟隨主題邊框色） */
 .twshop-section-divider {
     border: none;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    border-top: 1px solid var(--theme-border-color, rgba(0, 0, 0, 0.08));
     margin: 2.5em 0;
 }
 
@@ -265,32 +270,49 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     .twshop-tier-table thead {
         display: none;
     }
-    .twshop-tier-table tr {
-        display: block;
-        border: 1px solid rgba(0, 0, 0, 0.08);
+    /* 每個等級一張卡片：等級名稱當標題，門檻／效期／倍率／折扣排成兩欄，
+       生日禮／升等禮整列顯示；沒有內容的欄位（—）不顯示，卡片比逐欄直排短很多。
+       欄位用 block（不用 flex）：折扣／禮物欄的內容含 <br>，flex 會把文字片段拆成各自一列。 */
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border: 1px solid var(--theme-border-color, rgba(0, 0, 0, 0.08));
         border-radius: 6px;
-        margin-bottom: 1em;
-        padding: 8px 0;
+        margin-bottom: 1.4em;
+        padding: 0 0 8px;
+        overflow: hidden;
     }
-    table.twshop-tier-table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 6px 14px;
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td {
+        display: block;
+        padding: 8px 14px;
         border: none;
         white-space: normal;
-        text-align: right;
+        text-align: left;
     }
-    table.twshop-tier-table tbody td:first-child { padding-inline-start: 14px; }
-    table.twshop-tier-table tbody td:last-child  { padding-inline-end:   14px; }
-    table.twshop-tier-table tbody td[data-title]::before {
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td:first-child {
+        grid-column: 1 / -1;
+        font-weight: 700;
+        font-size: 1.15em;
+        color: var(--theme-headings-color, inherit);
+        padding-top: 12px;
+        padding-bottom: 12px;
+        margin-bottom: 6px;
+        /* 等級名稱列：淡底色，一眼分辨每張卡片是哪個等級 */
+        background: rgba(0, 0, 0, 0.05);
+    }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td:first-child::before { content: none !important; }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td:nth-child(n+5) { grid-column: 1 / -1; }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td.twshop-cell-empty { display: none; }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td:first-child { padding-inline-start: 14px; }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td:last-child  { padding-inline-end:   14px; }
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr td[data-title]::before {
         content: attr(data-title);
         font-weight: 600;
-        flex-shrink: 0;
         float: none;
         display: block;
         text-align: left;
+        font-size: 12px;
+        margin-bottom: 2px;
         color: var(--theme-text-color, #555);
         opacity: 0.75;
     }
@@ -307,13 +329,18 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
 
 /* 等級表格：目前等級列 */
 .twshop-tier-table tr.twshop-tier-current {
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--theme-form-field-background-initial-color, rgba(0, 0, 0, 0.04));
     font-weight: 700;
 }
 
 @media screen and (max-width: 600px) {
     .twshop-tier-table tr.twshop-tier-current {
-        border: 2px solid rgba(0, 0, 0, 0.22);
+        border: 2px solid var(--theme-palette-color-1, rgba(0, 0, 0, 0.22));
+    }
+    /* 目前等級：名稱列整條主色底白字，跟其他等級明顯區隔 */
+    body .woocommerce table.shop_table.twshop-tier-table tbody tr.twshop-tier-current td:first-child {
+        background: var(--theme-palette-color-1, #2271b1);
+        color: #fff;
     }
 }
 
@@ -647,20 +674,26 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     }
 }
 
-/* 會員中心：點數單一卡片 — 餘額置頂最醒目，其餘規則以 label/value 列表呈現（獨立版面，不依賴主題的 woocommerce-message 樣式） */
+/* 會員中心：點數單一卡片 — 餘額置頂最醒目，其餘規則以 label/value 列表呈現（獨立版面，不依賴主題的 woocommerce-message 樣式）。
+   v25.8.132：外框與分隔線對齊 Blocksy 購物車總計框／優惠券卡片（2px 主題邊框、無圓角、透明底），數字用主題主色。 */
 .twshop-points-card {
-    padding: 24px 20px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    background: var(--theme-palette-color-8, #f8f9fa);
+    padding: 28px;
+    border: 2px solid var(--theme-border-color, #e9ebec);
+    border-radius: 0;
+    background: transparent;
     box-sizing: border-box;
     margin-bottom: 1.2em;
+}
+@media (max-width: 480px) {
+    .twshop-points-card {
+        padding: 20px 16px;
+    }
 }
 .twshop-points-card__balance {
     text-align: center;
     padding-bottom: 18px;
     margin-bottom: 6px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid var(--theme-border-color, rgba(0, 0, 0, 0.08));
 }
 .twshop-points-card__balance-label {
     font-size: 12px;
@@ -671,6 +704,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     font-size: 2.4em;
     font-weight: 700;
     line-height: 1.2;
+    color: var(--theme-palette-color-1, inherit);
 }
 .twshop-points-card__balance-unit {
     font-size: 0.4em;
@@ -693,7 +727,7 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     justify-content: space-between;
     gap: 12px;
     padding: 10px 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    border-top: 1px solid var(--theme-border-color, rgba(0, 0, 0, 0.08));
     font-size: 13px;
     line-height: 1.6;
 }
@@ -728,6 +762,13 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     display: flex;
     flex-direction: column;
     gap: 18px;
+}
+/* 兩份擇一顯示：並排版面（總計框在右側）只顯示總計框內那份；上下堆疊（Blocksy ≤999.98px，
+   總計框被排到商品列表下方）改顯示商品列表上方那份，手機/平板一進頁面就看得到進度。 */
+.twshop-cart-progress--top { display: none; }
+@media (max-width: 999.98px) {
+    .twshop-cart-progress--top { display: block; }
+    .twshop-cart-progress--totals { display: none; }
 }
 .twshop-cart-progress-text {
     font-size: 14px;

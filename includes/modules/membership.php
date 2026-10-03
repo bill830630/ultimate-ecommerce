@@ -764,9 +764,10 @@ function twshop_my_membership_endpoint_content() {
             echo '<td data-title="升級門檻">' . $threshold_text . '</td>';
             echo '<td data-title="維持效期">' . esc_html( $period_text ) . '</td>';
             echo '<td data-title="' . esc_attr( $pt . '倍率' ) . '">' . esc_html( $multiplier ) . 'x</td>';
-            echo '<td data-title="折扣">' . $discount_text . '</td>';
-            echo '<td data-title="生日禮">' . $b_text . '</td>';
-            echo '<td data-title="升等禮">' . $u_text . '</td>';
+            // 沒有內容的欄位（顯示「—」）加 twshop-cell-empty，手機版卡片直接隱藏，不佔一行。
+            echo '<td data-title="折扣"' . ( '—' === $discount_text ? ' class="twshop-cell-empty"' : '' ) . '>' . $discount_text . '</td>';
+            echo '<td data-title="生日禮"' . ( '—' === $b_text ? ' class="twshop-cell-empty"' : '' ) . '>' . $b_text . '</td>';
+            echo '<td data-title="升等禮"' . ( '—' === $u_text ? ' class="twshop-cell-empty"' : '' ) . '>' . $u_text . '</td>';
             echo '</tr>';
         }
 
@@ -883,7 +884,7 @@ function twshop_my_membership_endpoint_content() {
             echo '<td data-title="' . esc_attr( '異動' . $pt ) . '" class="' . esc_attr( $cls ) . '">' . $amt . '</td>';
             echo '<td data-title="說明">'     . esc_html( $log['reason'] )  . '</td>';
             echo '<td data-title="餘額">'     . esc_html( $log['balance'] ) . '</td>';
-            echo '<td data-title="使用期限">' . $expire_text . '</td>';
+            echo '<td data-title="使用期限"' . ( '—' === $expire_text ? ' class="twshop-cell-empty"' : '' ) . '>' . $expire_text . '</td>';
             echo '</tr>';
         }
         echo '</tbody></table>';

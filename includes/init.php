@@ -251,6 +251,7 @@ function twshop_membership_init() {
         add_action( 'woocommerce_before_calculate_totals', 'twshop_auto_manage_gifts_and_addons', 10, 1 );
         add_filter( 'woocommerce_add_cart_item_data', 'twshop_mark_addon_cart_item', 10, 3 );
         add_filter( 'woocommerce_cart_item_quantity', 'twshop_lock_addon_item_quantity', 10, 3 );
+        add_action( 'woocommerce_before_cart_table', 'twshop_classic_cart_progress_top' );
         add_action( 'woocommerce_before_cart_totals', 'twshop_classic_cart_progress', 5 );
     }
 

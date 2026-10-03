@@ -214,18 +214,31 @@ function twshop_output_progress_bar_vars() {
     }
 }
 
-function twshop_render_cart_progress() {
-    echo '<div class="twshop-cart-progress-wrapper">';
+function twshop_render_cart_progress( $variant = '' ) {
+    // $variant：'top'（商品列表上方）／'totals'（總計框內）。購物車頁兩處各輸出一份，
+    // 由 CSS 依版面是否上下堆疊（Blocksy 在 ≤999.98px 把總計框排到商品列表下方）只顯示其中一份，
+    // 手機/平板仍像以前一樣一進頁面就在商品列表上方看到進度。AJAX 刷新傳 ''（只取內容）。
+    echo '<div class="twshop-cart-progress-wrapper' . ( $variant ? ' twshop-cart-progress--' . esc_attr( $variant ) : '' ) . '">';
     if ( WC()->cart && ! WC()->cart->is_empty() ) {
         twshop_render_progress_item_list( twshop_get_cart_progress_items() );
     }
     echo '</div>';
 }
 
-function twshop_classic_cart_progress() {
+function twshop_classic_cart_progress_variant( $variant ) {
     if ( ! twshop_module_enabled( 'discount_rules' ) ) return;
     if ( 'yes' !== twshop_option( 'wc_classic_cart_show_progress' ) ) return;
-    twshop_render_cart_progress();
+    twshop_render_cart_progress( $variant );
+}
+
+// 兩個掛載點各用獨立的 callback，不能共用一個帶預設參數的函式：do_action() 沒帶參數時，
+// WordPress 仍會傳一個空字串 '' 當第一個參數，預設值根本不會生效。
+function twshop_classic_cart_progress_top() {
+    twshop_classic_cart_progress_variant( 'top' );
+}
+
+function twshop_classic_cart_progress() {
+    twshop_classic_cart_progress_variant( 'totals' );
 }
 
 /**

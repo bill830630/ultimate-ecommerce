@@ -715,43 +715,41 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     font-weight: 700;
 }
 
-/* 購物車頁「滿額/滿件進度」區塊 */
+/* 購物車頁「滿額/滿件進度」區塊
+   v25.8.127：位置改到購物車總計框內最上方（woocommerce_before_cart_totals，priority 5，點數折抵之前），
+   跟點數/儲值金/優惠券區塊一樣靠底部細線分隔；達標時文字不換色，只靠進度條滿格表示。
+   顏色一律跟主題：金額與進度條用主色（palette-color-1），軌道用主題邊框色。 */
 .twshop-cart-progress-wrapper:not(:empty) {
-    margin-bottom: 1.2em;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--theme-border-color, rgba(0, 0, 0, 0.08));
 }
 .twshop-cart-progress-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-}
-.twshop-cart-progress-item {
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    gap: 18px;
 }
 .twshop-cart-progress-text {
-    font-size: 13px;
-    margin-bottom: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
     color: var(--theme-text-color, #444);
 }
-/* 顏色一律跟主題：進度條與達標文字用主色（palette-color-1），軌道用主題邊框色（v25.8.116） */
-.twshop-cart-progress-item.is-achieved .twshop-cart-progress-text {
+.twshop-cart-progress-text strong {
     color: var(--theme-palette-color-1, #2271b1);
-    font-weight: 600;
+    font-weight: 700;
 }
 .twshop-cart-progress-track {
-    height: 10px;
-    border-radius: 5px;
+    height: var(--twshop-bar-height, 8px);
+    border-radius: var(--twshop-bar-radius, 4px);
     background: var(--theme-border-color, rgba(0, 0, 0, 0.08));
     overflow: hidden;
 }
 .twshop-cart-progress-fill {
     height: 100%;
-    border-radius: 5px;
+    border-radius: var(--twshop-bar-radius, 4px);
     background: var(--theme-palette-color-1, #2271b1);
     transition: width 0.3s ease;
-}
-.twshop-cart-progress-item.is-achieved .twshop-cart-progress-fill {
-    background: var(--theme-palette-color-1, #2271b1);
 }
 
 /* 加購商品／點數兌換商品區塊：外框與標題對齊主題（Blocksy）購物車總計框（.cart_totals）——

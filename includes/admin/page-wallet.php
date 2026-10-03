@@ -289,14 +289,6 @@ function twshop_wallet_settings_tab() {
     list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction(
         'wc_wallet_restrict_type', 'wc_wallet_restrict_values'
     );
-    $product_cats = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) );
-    if ( is_wp_error( $product_cats ) ) $product_cats = array();
-    $product_tags = get_terms( array( 'taxonomy' => 'product_tag', 'hide_empty' => false ) );
-    if ( is_wp_error( $product_tags ) ) $product_tags = array();
-    $cat_options = array();
-    foreach ( $product_cats as $term ) { $cat_options[ $term->term_id ] = $term->name; }
-    $tag_options = array();
-    foreach ( $product_tags as $term ) { $tag_options[ $term->term_id ] = $term->name; }
 
     // 允許使用的付款方式（v25.8.79 新增）：只列出「已啟用」的金流，比照「系統設定 ▸
     // 一般 ▸ 運送與付款方式名稱」（page-general.php）已驗證過的既有寫法，避免掛了一堆
@@ -350,16 +342,9 @@ function twshop_wallet_settings_tab() {
                         <th scope="row">限制使用的商品</th>
                         <td>
                             <?php
-                            echo twshop_render_typed_condition_field(
-                                'wc_wallet_restrict_type', $restrict_type,
-                                array( 'category' => '商品分類', 'tag' => '商品標籤' ),
-                                array(
-                                    'category' => array( 'name' => 'wc_wallet_restrict_values', 'options' => $cat_options, 'selected' => $restrict_type === 'category' ? $restrict_values : array() ),
-                                    'tag'      => array( 'name' => 'wc_wallet_restrict_values', 'options' => $tag_options, 'selected' => $restrict_type === 'tag' ? $restrict_values : array() ),
-                                )
-                            );
+                            echo twshop_render_restriction_field( 'wc_wallet_restrict_type', 'wc_wallet_restrict_values', $restrict_type, $restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類或商品標籤），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到儲值金折抵區塊。選擇「無限制」則全館皆可使用。</p>
+                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到儲值金折抵區塊。選擇「無限制」則全館皆可使用。</p>
                         </td>
                     </tr>
                     <tr>

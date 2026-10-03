@@ -191,6 +191,31 @@ function twshop_system_general_tab() {
             </div>
 
             <div class="twshop-panel">
+                <?php twshop_panel_head( 'sliders', '進度條樣式', '套用到整個外掛的前台進度條：購物車滿額進度、迷你購物車進度、會員等級升級進度。顏色固定跟隨主題。' ); ?>
+                <div class="twshop-panel-body">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">進度條粗細</th>
+                            <td>
+                                <input type="number" name="wc_progress_height" value="<?php echo esc_attr( twshop_option( 'wc_progress_height' ) ); ?>" min="4" max="24" step="1" class="small-text" /> px
+                                <p class="description">4～24；留空使用預設（購物車 8px、迷你購物車與會員等級 10px）。</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">圓角</th>
+                            <td>
+                                <select name="wc_progress_radius">
+                                    <option value="round" <?php selected( twshop_option( 'wc_progress_radius' ), 'round' ); ?>>膠囊形（預設）</option>
+                                    <option value="small" <?php selected( twshop_option( 'wc_progress_radius' ), 'small' ); ?>>小圓角</option>
+                                    <option value="square" <?php selected( twshop_option( 'wc_progress_radius' ), 'square' ); ?>>直角</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="twshop-panel">
                 <?php twshop_panel_head( 'tag', '加購商品顯示文字' ); ?>
                 <div class="twshop-panel-body">
                     <table class="form-table">

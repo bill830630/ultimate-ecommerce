@@ -148,6 +148,7 @@ function twshop_membership_init() {
     // --- 前端腳本（始終掛載）---
     add_action( 'wp_enqueue_scripts', 'twshop_global_frontend_js' );
     add_action( 'wp_footer', 'twshop_login_register_btn_text_inline_js' );
+    add_action( 'wp_head', 'twshop_output_progress_bar_vars', 20 );
     add_filter( 'woocommerce_account_menu_items', 'twshop_modify_account_menu_items', 20 );
     add_filter( 'body_class', 'twshop_maybe_add_account_tab_mobile_scroll_class' );
     add_action( 'template_redirect', 'twshop_redirect_account_dashboard' );
@@ -250,7 +251,7 @@ function twshop_membership_init() {
         add_action( 'woocommerce_before_calculate_totals', 'twshop_auto_manage_gifts_and_addons', 10, 1 );
         add_filter( 'woocommerce_add_cart_item_data', 'twshop_mark_addon_cart_item', 10, 3 );
         add_filter( 'woocommerce_cart_item_quantity', 'twshop_lock_addon_item_quantity', 10, 3 );
-        add_action( 'woocommerce_before_cart_table', 'twshop_classic_cart_progress' );
+        add_action( 'woocommerce_before_cart_totals', 'twshop_classic_cart_progress', 5 );
     }
 
     // ── 紅利點數 ──────────────────────────────────────────────────────────

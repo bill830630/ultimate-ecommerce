@@ -194,6 +194,26 @@ function twshop_render_progress_item_list( $items ) {
  * 這個區塊原本兩者共用同一個 wrapper，現在只剩滿額/滿件進度，wrapper／option/開關
  * （wc_classic_cart_show_progress）都沿用原名沒有改，避免動到既有資料庫欄位。
  */
+/**
+ * 後台「一般設定 ▸ 進度條樣式」的前台輸出：在 <head> 印一段 :root 變數（粗細有設定才輸出，圓角每次輸出），
+ * 購物車進度（twshop-frontend.css）、迷你購物車進度（內嵌樣式）、會員等級進度
+ * （membership.php）都用 var(--twshop-bar-*, 原預設值) 讀取；顏色一律跟隨主題，不開放自訂。
+ * 掛 wp_head 而不是各處內嵌：迷你購物車是 AJAX fragment，沒有 wp_head 可掛，但變數
+ * 定義在頁面 :root 上，fragment 插進頁面後照樣吃得到。
+ */
+function twshop_output_progress_bar_vars() {
+    $vars = array();
+    $height = absint( twshop_option( 'wc_progress_height' ) );
+    if ( $height > 0 ) $vars[] = '--twshop-bar-height:' . max( 4, min( 24, $height ) ) . 'px';
+    $radius = twshop_option( 'wc_progress_radius' );
+    // 膠囊形是預設，每次都輸出 999px：各處原本的預設圓角不同（4／5／99px），自訂粗細後
+    // 固定半徑就不再是膠囊形，所以改成統一用 999px。
+    $vars[] = '--twshop-bar-radius:' . ( 'small' === $radius ? '3px' : ( 'square' === $radius ? '0' : '999px' ) );
+    if ( $vars ) {
+        echo '<style id="twshop-progress-bar-vars">:root{' . implode( ';', $vars ) . '}</style>' . "\n";
+    }
+}
+
 function twshop_render_cart_progress() {
     echo '<div class="twshop-cart-progress-wrapper">';
     if ( WC()->cart && ! WC()->cart->is_empty() ) {
@@ -283,9 +303,8 @@ function twshop_render_mini_cart_progress() {
         .twshop-minicart-progress{ margin:0 0 12px; padding:0 0 12px; border-bottom:1px solid rgba(0,0,0,.08); }
         .twshop-minicart-progress-item + .twshop-minicart-progress-item{ margin-top:10px; }
         .twshop-minicart-progress-text{ font-size:12px; margin-bottom:6px; color:#444; }
-        .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-text{ color:var(--theme-palette-color-1, #2271b1); font-weight:600; }
-        .twshop-minicart-progress-track{ height:10px; border-radius:5px; background:var(--theme-border-color, rgba(0,0,0,.1)); overflow:hidden; }
-        .twshop-minicart-progress-fill{ height:100%; border-radius:5px; min-width:4px; background:var(--theme-palette-color-1, #2271b1); transition:width .3s ease; }
+        .twshop-minicart-progress-track{ height:var(--twshop-bar-height, 10px); border-radius:var(--twshop-bar-radius, 5px); background:var(--theme-border-color, rgba(0,0,0,.1)); overflow:hidden; }
+        .twshop-minicart-progress-fill{ height:100%; border-radius:var(--twshop-bar-radius, 5px); min-width:4px; background:var(--theme-palette-color-1, #2271b1); transition:width .3s ease; }
         .twshop-minicart-progress-item.is-achieved .twshop-minicart-progress-fill{ background:var(--theme-palette-color-1, #2271b1); }
     </style>
     <?php

@@ -19,6 +19,7 @@ function twshop_marketing_rules_tab() {
     $product_tags = get_terms( array( 'taxonomy' => 'product_tag', 'hide_empty' => false ) );
     if ( is_wp_error( $product_cats ) ) $product_cats = array();
     if ( is_wp_error( $product_tags ) ) $product_tags = array();
+    $product_brands = twshop_get_product_brand_terms();
 
     ?>
         <?php echo twshop_render_rule_overlap_warnings( $rules ); ?>
@@ -26,13 +27,13 @@ function twshop_marketing_rules_tab() {
         <p class="twshop-rule-status" id="twshop-rule-toolbar-status" aria-live="polite"></p>
 
         <div id="discount-repeater-container" style="margin-top:10px;">
-            <?php foreach ( $rules as $rule ) echo twshop_get_rule_row_html( $rule, $tiers, $product_cats, $product_tags ); ?>
+            <?php foreach ( $rules as $rule ) echo twshop_get_rule_row_html( $rule, $tiers, $product_cats, $product_tags, $product_brands ); ?>
         </div>
 
         <?php // 必須是 <template>，不能是隱藏的 <div>：隱藏 div 仍是真的 DOM，頁面載入時 WooCommerce 的
         // wc-enhanced-select.js 會先對範本裡的下拉選單套 selectWoo（加 enhanced class＋插入 .select2-container），
         // 「新增規則表單」複製 innerHTML 時連這些一起複製，新卡片的選單被當成已初始化而跳過，點了沒反應。 ?>
-        <template id="discount-rule-template"><?php echo twshop_get_rule_row_html(array(), $tiers, $product_cats, $product_tags); ?></template>
+        <template id="discount-rule-template"><?php echo twshop_get_rule_row_html(array(), $tiers, $product_cats, $product_tags, $product_brands); ?></template>
         <template id="twshop-tier-row-template"><?php echo twshop_get_rule_tier_row_html(); ?></template>
 
         <p><button type="button" class="button" id="add-rule-row">新增規則表單</button></p>
@@ -46,7 +47,7 @@ function twshop_marketing_rules_tab() {
     <?php
 }
 
-function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array(), $tags = array() ) {
+function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array(), $tags = array(), $brands = array() ) {
     $r_id = $r['rule_id'] ?? ''; $name = $r['name'] ?? ''; $role = $r['role'] ?? 'all'; $type = $r['type'] ?? 'percent';
     $val = $r['value'] ?? ''; $gift_id = $r['gift_product_id'] ?? ''; $logic = $r['logic'] ?? 'and';
     $min = $r['min_amount'] ?? '';
@@ -70,11 +71,14 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
     $cond_products = ( $cond_type === 'product' ) ? array_map( 'strval', $cond_values ) : array();
     $cond_cats     = ( $cond_type === 'category' ) ? $cond_values : array();
     $cond_tags     = ( $cond_type === 'tag' ) ? $cond_values : array();
+    $cond_brands   = ( $cond_type === 'brand' ) ? $cond_values : array();
 
     $cat_options = array();
     foreach ( $cats as $term ) { $cat_options[ $term->slug ] = $term->name; }
     $tag_options = array();
     foreach ( $tags as $term ) { $tag_options[ $term->slug ] = $term->name; }
+    $brand_options = array();
+    foreach ( $brands as $term ) { $brand_options[ $term->slug ] = $term->name; }
 
     ob_start();
     ?>
@@ -203,6 +207,9 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                             <option value="product" <?php selected($cond_type, 'product'); ?>>指定商品</option>
                             <option value="category" <?php selected($cond_type, 'category'); ?>>指定商品分類</option>
                             <option value="tag" <?php selected($cond_type, 'tag'); ?>>指定商品標籤</option>
+                            <?php if ( $brand_options || 'brand' === $cond_type ) : ?>
+                            <option value="brand" <?php selected($cond_type, 'brand'); ?>>指定商品品牌</option>
+                            <?php endif; ?>
                         </select>
                     </div>
                     <div class="twshop-rule-field is-wide condition-values-wrap condition-values-product rule-scope-toggle" style="display:none;">
@@ -216,6 +223,10 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                     <div class="twshop-rule-field is-wide condition-values-wrap condition-values-tag rule-scope-toggle" style="display:none;">
                         <label class="twshop-rule-label">選擇商品標籤 <small>可複選</small></label>
                         <?php echo twshop_render_chip_field( 'condition_values_tag', $cond_tags, $tag_options ); ?>
+                    </div>
+                    <div class="twshop-rule-field is-wide condition-values-wrap condition-values-brand rule-scope-toggle" style="display:none;">
+                        <label class="twshop-rule-label">選擇商品品牌 <small>可複選</small></label>
+                        <?php echo twshop_render_chip_field( 'condition_values_brand', $cond_brands, $brand_options ); ?>
                     </div>
                     <div class="twshop-rule-field is-row-start rule-min-amount-wrap rule-scope-toggle">
                         <label class="twshop-rule-label">訂單小計滿 ($) <small>留空不限</small></label>
@@ -292,11 +303,13 @@ function twshop_ajax_save_rule() {
     if(empty($rule_id)) $rule_id = uniqid('rule_');
 
     $condition_type = sanitize_text_field( wp_unslash( $_POST['condition_type'] ?? '' ) );
-    if ( ! in_array( $condition_type, array( 'product', 'category', 'tag' ), true ) ) $condition_type = '';
+    if ( ! in_array( $condition_type, array( 'product', 'category', 'tag', 'brand' ), true ) ) $condition_type = '';
     if ( $condition_type === 'product' ) {
         $condition_values = array_map( 'absint', (array) ( $_POST['condition_values_product'] ?? array() ) );
     } elseif ( $condition_type === 'category' ) {
         $condition_values = twshop_sanitize_term_slugs( wp_unslash( (array) ( $_POST['condition_values_category'] ?? array() ) ), 'product_cat' );
+    } elseif ( $condition_type === 'brand' ) {
+        $condition_values = twshop_sanitize_term_slugs( wp_unslash( (array) ( $_POST['condition_values_brand'] ?? array() ) ), 'product_brand' );
     } elseif ( $condition_type === 'tag' ) {
         $condition_values = twshop_sanitize_term_slugs( wp_unslash( (array) ( $_POST['condition_values_tag'] ?? array() ) ), 'product_tag' );
     } else {
@@ -448,7 +461,8 @@ function twshop_ajax_duplicate_rule() {
             $copy,
             get_option( 'wc_member_tiers_settings', array() ),
             is_wp_error( $product_cats ) ? array() : $product_cats,
-            is_wp_error( $product_tags ) ? array() : $product_tags
+            is_wp_error( $product_tags ) ? array() : $product_tags,
+            twshop_get_product_brand_terms()
         ),
     ) );
 }

@@ -190,6 +190,7 @@ jQuery(document).ready(function($) {
         if (scopeType === 'product') scope = joinNames(selectedTexts($card.find('select[name="condition_values_product[]"]')));
         if (scopeType === 'category') scope = joinNames(selectedTexts($card.find('select[name="condition_values_category[]"]')));
         if (scopeType === 'tag') scope = joinNames(selectedTexts($card.find('select[name="condition_values_tag[]"]')));
+        if (scopeType === 'brand') scope = joinNames(selectedTexts($card.find('select[name="condition_values_brand[]"]')));
         var gift = selectedTexts($card.find('select[name="gift_product_id"]'))[0] || '';
         var $role = $card.find('select[name="role"]');
         var role = $role.val() !== 'all' ? $.trim($role.find('option:selected').text()) : '';

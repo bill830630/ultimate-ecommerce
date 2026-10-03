@@ -117,6 +117,8 @@ function twshop_rule_condition_matches_product( $cond_type, $cond_values, $produ
         return twshop_has_term_cached( $cond_values, 'product_cat', $product_id );
     } elseif ( $cond_type === 'tag' ) {
         return twshop_has_term_cached( $cond_values, 'product_tag', $product_id );
+    } elseif ( $cond_type === 'brand' ) {
+        return twshop_has_term_cached( $cond_values, 'product_brand', $product_id );
     }
     return false;
 }

@@ -218,15 +218,6 @@ function twshop_points_rules_tab() {
     $p_notify_subj   = get_option( 'wc_points_expiry_notify_subject', '您的' . twshop_points_term() . '即將到期' );
     $p_notify_body   = get_option( 'wc_points_expiry_notify_body', "親愛的 {name}：\n\n您有 {amount} {term}將於 {date} 到期，請把握時間使用！" );
 
-    $product_cats = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) );
-    if ( is_wp_error( $product_cats ) ) $product_cats = array();
-    $product_tags = get_terms( array( 'taxonomy' => 'product_tag', 'hide_empty' => false ) );
-    if ( is_wp_error( $product_tags ) ) $product_tags = array();
-
-    $cat_options = array();
-    foreach ( $product_cats as $term ) { $cat_options[ $term->term_id ] = $term->name; }
-    $tag_options = array();
-    foreach ( $product_tags as $term ) { $tag_options[ $term->term_id ] = $term->name; }
     ?>
         <form action="options.php" method="post">
             <?php settings_fields( 'wc_points_rules_group' ); ?>
@@ -250,16 +241,9 @@ function twshop_points_rules_tab() {
                         <th scope="row">限制獲得點數的商品</th>
                         <td>
                             <?php
-                            echo twshop_render_typed_condition_field(
-                                'wc_points_earn_restrict_type', $earn_restrict_type,
-                                array( 'category' => '商品分類', 'tag' => '商品標籤' ),
-                                array(
-                                    'category' => array( 'name' => 'wc_points_earn_restrict_values', 'options' => $cat_options, 'selected' => $earn_restrict_type === 'category' ? $earn_restrict_values : array() ),
-                                    'tag'      => array( 'name' => 'wc_points_earn_restrict_values', 'options' => $tag_options, 'selected' => $earn_restrict_type === 'tag' ? $earn_restrict_values : array() ),
-                                )
-                            );
+                            echo twshop_render_restriction_field( 'wc_points_earn_restrict_type', 'wc_points_earn_restrict_values', $earn_restrict_type, $earn_restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類或商品標籤），再從清單中複選項目。設定後，訂單中只有屬於所選項目的商品金額，才會列入點數計算基準；其餘商品消費不會產生點數。選擇「無限制」則依訂單總額計算點數（維持原有行為）。</p>
+                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，訂單中只有屬於所選項目的商品金額，才會列入點數計算基準；其餘商品消費不會產生點數。選擇「無限制」則依訂單總額計算點數（維持原有行為）。</p>
                         </td>
                     </tr>
                     <tr>
@@ -278,16 +262,9 @@ function twshop_points_rules_tab() {
                         <th scope="row">限制兌換商品</th>
                         <td>
                             <?php
-                            echo twshop_render_typed_condition_field(
-                                'wc_points_redeem_restrict_type', $redeem_restrict_type,
-                                array( 'category' => '商品分類', 'tag' => '商品標籤' ),
-                                array(
-                                    'category' => array( 'name' => 'wc_points_redeem_restrict_values', 'options' => $cat_options, 'selected' => $redeem_restrict_type === 'category' ? $redeem_restrict_values : array() ),
-                                    'tag'      => array( 'name' => 'wc_points_redeem_restrict_values', 'options' => $tag_options, 'selected' => $redeem_restrict_type === 'tag' ? $redeem_restrict_values : array() ),
-                                )
-                            );
+                            echo twshop_render_restriction_field( 'wc_points_redeem_restrict_type', 'wc_points_redeem_restrict_values', $redeem_restrict_type, $redeem_restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類或商品標籤），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到點數折抵區塊。選擇「無限制」則全館皆可使用。</p>
+                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到點數折抵區塊。選擇「無限制」則全館皆可使用。</p>
                         </td>
                     </tr>
                     <tr>

@@ -655,8 +655,8 @@ function twshop_my_membership_endpoint_content() {
             echo '<p style="margin:6px 0 4px;font-size:13px;opacity:.75;">';
             echo esc_html( $time_req_text ) . '&ensp;/&ensp;下一階：<strong>' . esc_html( $next_tier['name'] ) . '</strong>（' . wc_price( $next_tier['threshold'] ) . '）';
             echo '</p>';
-            echo '<div style="background:rgba(0,0,0,0.08);border-radius:99px;height:10px;width:100%;overflow:hidden;margin:6px 0 8px;">';
-            echo '<div style="background:var(--theme-palette-color-1,currentColor);height:100%;width:' . esc_attr( $percentage ) . '%;transition:width .8s ease;"></div>';
+            echo '<div style="background:rgba(0,0,0,0.08);border-radius:var(--twshop-bar-radius,99px);height:var(--twshop-bar-height,10px);width:100%;overflow:hidden;margin:6px 0 8px;">';
+            echo '<div style="background:var(--theme-palette-color-1,currentColor);border-radius:var(--twshop-bar-radius,99px);height:100%;width:' . esc_attr( $percentage ) . '%;transition:width .8s ease;"></div>';
             echo '</div>';
             echo '<p style="margin:0;"><strong>距離升級還差 <mark>' . wc_price( $diff ) . '</mark></strong></p>';
         } else {
@@ -837,13 +837,13 @@ function twshop_my_membership_endpoint_content() {
     if ( $max_percent > 0 ) $limit_parts[] = '最高折抵 ' . esc_html( $max_percent ) . '%';
     if ( $min_cart > 0 ) $limit_parts[] = '滿 ' . esc_html( twshop_plain_price( $min_cart ) ) . ' 可用';
     if ( ! empty( $redeem_restrict_type ) && ! empty( $redeem_restrict_values ) ) {
-        $redeem_taxonomy = $redeem_restrict_type === 'tag' ? 'product_tag' : 'product_cat';
+        $redeem_taxonomy = twshop_restriction_taxonomy( $redeem_restrict_type );
         $term_names = array();
         foreach ( $redeem_restrict_values as $term_id ) {
             $term = get_term( $term_id, $redeem_taxonomy );
             if ( $term && ! is_wp_error( $term ) ) $term_names[] = $term->name;
         }
-        $redeem_label = $redeem_restrict_type === 'tag' ? '標籤' : '分類';
+        $redeem_label = twshop_restriction_type_label( $redeem_restrict_type );
         if ( $term_names ) $limit_parts[] = '限「' . esc_html( implode( '、', $term_names ) ) . '」' . $redeem_label;
     }
     echo '<div class="twshop-points-card__row">';
@@ -944,6 +944,15 @@ function twshop_build_wc_coupon_restrictions( WC_Coupon $coupon ) {
         $names = array();
         foreach ( $ex_cats as $id ) { $t = get_term( $id, 'product_cat' ); if ( $t && ! is_wp_error( $t ) ) $names[] = $t->name; }
         if ( $names ) $parts[] = '排除分類：' . implode( '、', $names );
+    }
+    // 商品品牌限制：WooCommerce 內建品牌功能把設定存在優惠券 meta（product_brands／exclude_product_brands），
+    // 驗證本身由 WC 核心負責，這裡只負責把限制寫進卡片說明。
+    foreach ( array( 'product_brands' => '適用品牌：', 'exclude_product_brands' => '排除品牌：' ) as $meta_key => $label ) {
+        $brand_ids = get_post_meta( $coupon->get_id(), $meta_key, true );
+        if ( empty( $brand_ids ) || ! is_array( $brand_ids ) ) continue;
+        $names = array();
+        foreach ( $brand_ids as $id ) { $t = get_term( (int) $id, 'product_brand' ); if ( $t && ! is_wp_error( $t ) ) $names[] = $t->name; }
+        if ( $names ) $parts[] = $label . implode( '、', $names );
     }
     if ( $coupon->get_individual_use() ) $parts[] = '不可與其他優惠同用';
     $per_user = intval( $coupon->get_usage_limit_per_user() );
@@ -1146,7 +1155,7 @@ function twshop_auto_display_coupons($location = 'account') {
         $display_title = $visual_title ?: $auto_title;
         $display_desc  = get_post_meta( $c->ID, '_visual_coupon_desc', true ) ?: $auto_desc;
 
-        // WC_Coupon 原生只有「限定商品」「限定分類」兩種限制條件（沒有標籤），
+        // WC_Coupon 原生只有「限定商品」「限定分類」兩種限制條件（沒有標籤；品牌由 WooCommerce 品牌功能存在 meta 裡），
         // 有商品限制優先於分類限制（商品是更精確的目標）。
         $coupon_product_ids = $coupon_obj->get_product_ids();
         $coupon_cat_ids     = $coupon_obj->get_product_categories();
@@ -1154,6 +1163,8 @@ function twshop_auto_display_coupons($location = 'account') {
             $shop_url = twshop_get_coupon_shop_url( 'product', $coupon_product_ids );
         } elseif ( ! empty( $coupon_cat_ids ) ) {
             $shop_url = twshop_get_coupon_shop_url( 'category', $coupon_cat_ids );
+        } elseif ( ! empty( $coupon_brand_ids = get_post_meta( $coupon_obj->get_id(), 'product_brands', true ) ) && is_array( $coupon_brand_ids ) ) {
+            $shop_url = twshop_get_coupon_shop_url( 'brand', $coupon_brand_ids );
         } else {
             $shop_url = wc_get_page_permalink( 'shop' );
         }
@@ -1226,8 +1237,8 @@ function twshop_get_coupon_shop_url( $condition_type, $condition_values ) {
         if ( 'product' === $condition_type ) {
             $product_url = get_permalink( (int) $first );
             if ( $product_url ) return $product_url;
-        } elseif ( 'category' === $condition_type || 'tag' === $condition_type ) {
-            $taxonomy = 'tag' === $condition_type ? 'product_tag' : 'product_cat';
+        } elseif ( 'category' === $condition_type || 'tag' === $condition_type || 'brand' === $condition_type ) {
+            $taxonomy = array( 'tag' => 'product_tag', 'brand' => 'product_brand' )[ $condition_type ] ?? 'product_cat';
             $term = is_numeric( $first ) ? get_term( (int) $first, $taxonomy ) : get_term_by( 'slug', $first, $taxonomy );
             if ( $term && ! is_wp_error( $term ) ) {
                 $term_url = get_term_link( $term );

@@ -585,7 +585,7 @@ function twshop_points_text( $key ) {
         'applied_text'      => '已套用 {amount} {term}，折抵 {discount} 元',
         'no_balance_text'   => '您目前沒有可用的{term}',
         'min_cart_text'     => '購物車需滿 {amount} 才可使用{term}折抵',
-        'restricted_text'   => '購物車需包含「{names}」分類/標籤商品才可使用{term}',
+        'restricted_text'   => '購物車需包含「{names}」分類/標籤/品牌商品才可使用{term}',
     );
     return $texts[ $key ] ?? '';
 }
@@ -1503,7 +1503,7 @@ function twshop_display_points_used() {
     ?>
     <tr class="twshop-points-used">
         <th><?php echo esc_html( '本次訂單使用' . $pt ); ?></th>
-        <td data-title="<?php echo esc_attr( '本次訂單使用' . $pt ); ?>"><strong style="color:#2271b1;">-<?php echo esc_html( $used ); ?> <?php echo esc_html( $pt ); ?></strong></td>
+        <td data-title="<?php echo esc_attr( '本次訂單使用' . $pt ); ?>"><strong>-<?php echo esc_html( $used ); ?> <?php echo esc_html( $pt ); ?></strong></td>
     </tr>
     <?php
 }

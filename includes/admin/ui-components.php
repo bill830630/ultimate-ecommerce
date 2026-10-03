@@ -283,6 +283,16 @@ function twshop_render_chip_field_assets() {
  * .twshop-chip／.twshop-chip-box 的純視覺樣式（不經過這支函式，見 redeemable-products.js），
  * 不受影響。
  */
+/**
+ * 商品品牌（WooCommerce 內建的 product_brand 分類法）清單；站台沒有這個分類法時回傳空陣列，
+ * 折扣規則的「指定商品品牌」選項也就不會出現。
+ */
+function twshop_get_product_brand_terms() {
+    if ( ! taxonomy_exists( 'product_brand' ) ) return array();
+    $terms = get_terms( array( 'taxonomy' => 'product_brand', 'hide_empty' => false ) );
+    return is_wp_error( $terms ) ? array() : $terms;
+}
+
 function twshop_render_chip_field( $name, $selected_values, $options ) {
     $selected_values = array_map( 'strval', (array) $selected_values );
     ob_start();
@@ -432,10 +442,46 @@ function twshop_sanitize_term_slugs( $values, $taxonomy ) {
     return array_values( array_intersect( array_unique( $values ), $existing ) );
 }
 
-// 分類/標籤限制類型 option 的 sanitize callback（register_setting 用）：只允許 category/tag，其餘一律視為「無限制」
+// 分類/標籤/品牌限制類型 option 的 sanitize callback（register_setting 用）：只允許 category/tag/brand，其餘一律視為「無限制」
 function twshop_sanitize_cat_tag_type( $value ) {
     $value = sanitize_text_field( $value );
-    return in_array( $value, array( 'category', 'tag' ), true ) ? $value : '';
+    return in_array( $value, array( 'category', 'tag', 'brand' ), true ) ? $value : '';
+}
+
+/**
+ * 點數／儲值金「限制商品」的類型 → 分類法對照（category／tag／brand），全站只有這一份，
+ * 不要再各處寫 `=== 'tag' ? 'product_tag' : 'product_cat'`（那樣加品牌會漏改）。
+ */
+function twshop_restriction_taxonomy( $type ) {
+    return array( 'tag' => 'product_tag', 'brand' => 'product_brand' )[ $type ] ?? 'product_cat';
+}
+
+function twshop_restriction_type_label( $type ) {
+    return array( 'tag' => '標籤', 'brand' => '品牌' )[ $type ] ?? '分類';
+}
+
+/**
+ * 「限制商品」欄位（類型下拉＋分類/標籤/品牌複選）。三個設定頁（累點限制、兌換限制、儲值金使用限制）
+ * 共用；品牌選項只在站台有品牌（或目前已選品牌）時出現。選項值存 term ID。
+ */
+function twshop_render_restriction_field( $type_name, $values_name, $current_type, $current_values ) {
+    $taxonomies = array( 'category' => 'product_cat', 'tag' => 'product_tag' );
+    $labels     = array( 'category' => '商品分類', 'tag' => '商品標籤' );
+    $brands     = twshop_get_product_brand_terms();
+    if ( $brands || 'brand' === $current_type ) {
+        $taxonomies['brand'] = 'product_brand';
+        $labels['brand']     = '商品品牌';
+    }
+    $configs = array();
+    foreach ( $taxonomies as $type => $taxonomy ) {
+        $terms = ( 'brand' === $type ) ? $brands : get_terms( array( 'taxonomy' => $taxonomy, 'hide_empty' => false ) );
+        $options = array();
+        if ( ! is_wp_error( $terms ) ) {
+            foreach ( $terms as $term ) { $options[ $term->term_id ] = $term->name; }
+        }
+        $configs[ $type ] = array( 'name' => $values_name, 'options' => $options, 'selected' => $current_type === $type ? $current_values : array() );
+    }
+    return twshop_render_typed_condition_field( $type_name, $current_type, $labels, $configs );
 }
 
 // 訂單狀態複選 option 的 sanitize callback（register_setting 用）：只保留 wc_get_order_statuses() 認得的合法狀態 slug（不含 'wc-' 前綴）
@@ -531,7 +577,7 @@ function twshop_cart_usage_restriction( $min_option, $type_option, $values_optio
 
     list( $restrict_type, $restrict_values ) = twshop_get_typed_restriction( $type_option, $values_option, $legacy_map );
     if ( empty( $restrict_type ) || empty( $restrict_values ) ) return null;
-    $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
+    $taxonomy = twshop_restriction_taxonomy( $restrict_type );
 
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         if ( twshop_has_term_cached( $restrict_values, $taxonomy, $cart_item['product_id'] ) ) return null;

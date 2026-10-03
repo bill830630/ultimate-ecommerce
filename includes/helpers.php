@@ -185,7 +185,7 @@ function twshop_get_earn_base_amount( $items_data, $unrestricted_total ) {
     if ( empty( $restrict_type ) || empty( $restrict_values ) ) {
         return $unrestricted_total;
     }
-    $taxonomy = $restrict_type === 'tag' ? 'product_tag' : 'product_cat';
+    $taxonomy = twshop_restriction_taxonomy( $restrict_type );
 
     $total = 0;
     foreach ( $items_data as $item ) {
@@ -290,6 +290,8 @@ function twshop_get_option_defaults() {
         'wc_classic_cart_show_points'   => 'yes',
         'wc_classic_cart_show_progress' => 'yes',
         'wc_classic_cart_show_wallet'   => 'yes',
+        'wc_progress_height'            => '',
+        'wc_progress_radius'            => 'round',
         'wc_wallet_tier_spend_full_amount' => 'yes',
         'wc_wallet_earn_points'            => 'no',
         'wc_wallet_topup_email_enabled' => 'yes',

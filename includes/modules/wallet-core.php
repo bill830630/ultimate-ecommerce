@@ -45,7 +45,7 @@ function twshop_wallet_text( $key ) {
         'applied_text'          => '本次訂單將折抵 {amount}',
         'no_balance_text'       => '您目前沒有可用的{term}',
         'min_cart_text'         => '購物車需滿 {amount} 才可使用{term}折抵',
-        'restricted_text'       => '購物車需包含「{names}」分類/標籤商品才可使用{term}折抵',
+        'restricted_text'       => '購物車需包含「{names}」分類/標籤/品牌商品才可使用{term}折抵',
         'topup_restricted_text' => '購物車內含{term}商品時，無法使用{term}折抵',
     );
     return str_replace( '{term}', twshop_wallet_term(), $texts[ $key ] ?? '' );

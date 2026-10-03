@@ -28,12 +28,13 @@ function twshop_sanitize_discount_rules_settings( $input ) {
         if ( empty( $rule_id ) ) $rule_id = uniqid( 'rule_' );
 
         $condition_type = sanitize_text_field( $rule['condition_type'] ?? '' );
-        if ( ! in_array( $condition_type, array( 'product', 'category', 'tag' ), true ) ) $condition_type = '';
+        if ( ! in_array( $condition_type, array( 'product', 'category', 'tag', 'brand' ), true ) ) $condition_type = '';
         $raw_condition_values = is_array( $rule['condition_values'] ?? null ) ? $rule['condition_values'] : array();
         if ( 'product' === $condition_type ) {
             $condition_values = array_map( 'absint', $raw_condition_values );
-        } elseif ( in_array( $condition_type, array( 'category', 'tag' ), true ) ) {
-            $condition_values = twshop_sanitize_term_slugs( $raw_condition_values, 'category' === $condition_type ? 'product_cat' : 'product_tag' );
+        } elseif ( in_array( $condition_type, array( 'category', 'tag', 'brand' ), true ) ) {
+            $taxonomies       = array( 'category' => 'product_cat', 'tag' => 'product_tag', 'brand' => 'product_brand' );
+            $condition_values = twshop_sanitize_term_slugs( $raw_condition_values, $taxonomies[ $condition_type ] );
         } else {
             $condition_values = array();
         }
@@ -169,6 +170,8 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_classic_cart_show_progress', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_system_general_group', 'wc_classic_cart_show_points', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_system_general_group', 'wc_classic_cart_show_wallet', 'twshop_sanitize_yes_no' );
+    register_setting( 'wc_system_general_group', 'wc_progress_height', 'twshop_sanitize_progress_height' );
+    register_setting( 'wc_system_general_group', 'wc_progress_radius', 'twshop_sanitize_progress_radius' );
     register_setting( 'wc_system_general_group', 'wc_shipping_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_payment_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_product_tab_titles', 'twshop_sanitize_method_titles' );
@@ -421,6 +424,19 @@ function twshop_sanitize_product_tabs_settings( $input ) {
         $clean['enabled'][] = ( ( $input['enabled'][ $i ] ?? 'yes' ) === 'no' ) ? 'no' : 'yes';
     }
     return $clean;
+}
+
+/**
+ * 進度條樣式設定（v25.8.128）：顏色一律跟隨主題、不開放自訂；高度留空＝各處原本的預設高度，
+ * 有填則限制在 4～24px；圓角只接受 round／small／square，其餘（含舊值 default）一律當 round。
+ */
+function twshop_sanitize_progress_height( $input ) {
+    $height = absint( $input );
+    if ( $height <= 0 ) return '';
+    return (string) max( 4, min( 24, $height ) );
+}
+function twshop_sanitize_progress_radius( $input ) {
+    return in_array( $input, array( 'small', 'square' ), true ) ? $input : 'round';
 }
 
 function twshop_sanitize_yes_no( $input ) {

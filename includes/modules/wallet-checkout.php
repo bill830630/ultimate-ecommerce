@@ -328,6 +328,43 @@ function twshop_deduct_wallet_on_checkout( $order_id, $posted_data, $order ) {
 }
 
 /**
+ * 付款失敗後從訂單頁（「付款」連結、失敗通知信）重新付款（v25.8.154）：這條路徑只觸發
+ * woocommerce_before_pay_action，不會再觸發 woocommerce_checkout_order_processed，
+ * 但訂單轉「失敗」時儲值金已經全部退回（twshop_refund_wallet_on_order_cancel()），訂單上的折抵費用卻還在——
+ * 沒有補扣的話，顧客享有折抵、儲值金一毛沒少（2026-10-06 在正式站實測發現）。
+ * 付款前先結算回訂單套用的金額（已扣過就是 no-op）；餘額不足時不讓顧客用折扣價付款，導回付款頁。
+ */
+function twshop_charge_wallet_on_order_pay( $order ) {
+    if ( ! $order instanceof WC_Order ) return;
+    $applied = (float) $order->get_meta( '_twshop_wallet_applied' );
+    if ( $applied <= 0 ) return;
+
+    $result = twshop_wallet_settle_order( $order, $applied, '訂單 #' . $order->get_id() . ' 儲值金折抵（重新付款）' );
+    if ( is_wp_error( $result ) ) {
+        wc_add_notice( sprintf( '%s扣款失敗：%s這張訂單含有%s折抵，無法繼續付款，請重新下單。', twshop_wallet_term(), $result->get_error_message(), twshop_wallet_term() ), 'error' );
+        wp_safe_redirect( $order->get_checkout_payment_url() );
+        exit;
+    }
+}
+
+/**
+ * 付款完成時的保險（v25.8.154）：不論從哪條路徑付款（訂單頁、金流非同步回傳、後台手動），只要訂單
+ * 套用了儲值金折抵、帳本卻還沒扣到，就補扣。這時款項已經收了，扣不到不能擋，改在訂單備註留下警告請人工處理。
+ * 已經扣過就是 no-op（結算函式以帳本為準），跟結帳／重新付款兩個時機重複觸發也不會多扣。
+ */
+function twshop_wallet_ensure_charged_on_payment_complete( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order instanceof WC_Order || ! $order->get_customer_id() ) return;
+    $applied = (float) $order->get_meta( '_twshop_wallet_applied' );
+    if ( $applied <= 0 ) return;
+
+    $result = twshop_wallet_settle_order( $order, $applied, '訂單 #' . $order_id . ' 儲值金折抵（付款完成補扣）' );
+    if ( is_wp_error( $result ) ) {
+        $order->add_order_note( sprintf( '⚠️ 這張訂單套用了%s折抵 %s，付款完成時補扣失敗（%s），請人工處理。', twshop_wallet_term(), twshop_plain_price( $applied ), $result->get_error_message() ) );
+    }
+}
+
+/**
  * 訂單取消/已退款/付款失敗，以及訂單頁「手動退回儲值金」：全部退回。
  */
 function twshop_refund_wallet_on_order_cancel( $order_id ) {

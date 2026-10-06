@@ -342,6 +342,9 @@ function twshop_membership_init() {
         add_action( 'woocommerce_checkout_create_order', 'twshop_store_wallet_applied_on_order', 10, 1 );
         add_action( 'woocommerce_after_checkout_validation', 'twshop_validate_wallet_balance', 10, 2 );
         add_action( 'woocommerce_checkout_order_processed', 'twshop_deduct_wallet_on_checkout', 15, 3 );
+        // 付款失敗後從訂單頁重新付款不會再觸發上面那個 hook（v25.8.154）
+        add_action( 'woocommerce_before_pay_action', 'twshop_charge_wallet_on_order_pay' );
+        add_action( 'woocommerce_payment_complete', 'twshop_wallet_ensure_charged_on_payment_complete', 5, 1 );
         add_action( 'woocommerce_cart_emptied', 'twshop_clear_applied_wallet_on_cart_emptied' );
 
         // 購物車含儲值金商品時限縮可用付款方式（v25.8.79 新增，「儲值中心 ▸ 設定 ▸

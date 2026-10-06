@@ -19,10 +19,23 @@ function twshop_returns_items_text( array $row ) {
     return implode( "\n", $lines );
 }
 
+/**
+ * 寄件人沿用 WooCommerce 設定（WooCommerce → 設定 → 電子郵件 → 「寄件人」名稱與地址），
+ * 跟 WooCommerce 原生信件（已退款的訂單、新訂單…）同一個名稱；寄件人名稱沒填時用網站名稱，地址沒填或無效時退回 WordPress 預設寄件人。
+ */
+function twshop_returns_mail_headers() {
+    $name    = trim( wp_specialchars_decode( (string) get_option( 'woocommerce_email_from_name' ), ENT_QUOTES ) );
+    $address = sanitize_email( (string) get_option( 'woocommerce_email_from_address' ) );
+    if ( ! is_email( $address ) ) return array();
+    if ( '' === $name ) $name = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+    $name = str_replace( array( '"', "\r", "\n" ), '', $name );
+    return array( sprintf( 'From: "%s" <%s>', $name, $address ) );
+}
+
 function twshop_returns_send( $to, $subject, $body ) {
     if ( ! is_email( $to ) ) return false;
     $subject = sprintf( '[%s] %s', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ), $subject );
-    return wp_mail( $to, $subject, $body );
+    return wp_mail( $to, $subject, $body, twshop_returns_mail_headers() );
 }
 
 /**
@@ -99,11 +112,21 @@ function twshop_returns_send_mail( $return_id, $event ) {
     twshop_returns_send( $customer_to, $subject, $body );
 }
 
+/**
+ * 這筆取消申請核准時，WooCommerce 原生的「已退款的訂單」信件會不會寄給顧客（有建立退款，且該封信件有開啟）。
+ * 會寄的話就不再另外寄「訂單已取消」，兩封講的是同一件事。
+ */
+function twshop_returns_wc_refund_mail_covers( array $row ) {
+    if ( empty( $row['refund_id'] ) ) return false;
+    $emails = function_exists( 'WC' ) && WC()->mailer() ? WC()->mailer()->get_emails() : array();
+    return isset( $emails['WC_Email_Customer_Refunded_Order'] ) && $emails['WC_Email_Customer_Refunded_Order']->is_enabled();
+}
+
 add_action( 'twshop_returns_created', function ( $id ) { twshop_returns_send_mail( $id, 'submitted' ); } );
 add_action( 'twshop_returns_status_changed', function ( $id, $to ) {
-    if ( 'refunded' === $to ) { // 退貨的退款由 WooCommerce 原生信件通知；取消訂單另外寄一封說明訂單已取消
+    if ( 'refunded' === $to ) { // 退貨的退款由 WooCommerce 原生信件通知；取消訂單只在原生退款信不會寄時（沒有退款、或信件被關閉）補寄「訂單已取消」
         $r = twshop_returns_get( $id );
-        if ( $r && 'cancel' === $r['type'] ) twshop_returns_send_mail( $id, 'cancel_done' );
+        if ( $r && 'cancel' === $r['type'] && ! twshop_returns_wc_refund_mail_covers( $r ) ) twshop_returns_send_mail( $id, 'cancel_done' );
         return;
     }
     if ( in_array( $to, array( 'approved', 'rejected', 'received', 'exchanged' ), true ) ) twshop_returns_send_mail( $id, $to );

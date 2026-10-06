@@ -84,12 +84,15 @@ function twshop_returns_status_labels() {
     );
 }
 
-function twshop_returns_status_label( $status ) {
+function twshop_returns_status_label( $status, $type = '' ) {
+    // 取消訂單申請核准後（取消＋退款）沒有「退貨」的過程，終點文字另外顯示
+    if ( 'cancel' === $type && 'refunded' === $status ) return '已取消並退款';
     $labels = twshop_returns_status_labels();
     return $labels[ $status ] ?? $status;
 }
 
 function twshop_returns_type_label( $type ) {
+    if ( 'cancel' === $type ) return '取消訂單';
     return 'exchange' === $type ? '換貨' : '退貨';
 }
 
@@ -99,7 +102,9 @@ function twshop_returns_active_statuses() {
 }
 
 /** 狀態轉換表：from => 允許的 to。終點（refunded／exchanged／rejected／cancelled）沒有後續。 */
-function twshop_returns_transitions() {
+function twshop_returns_transitions( $type = '' ) {
+    // 取消訂單申請沒有寄回流程：待審核 → 核准即取消並退款（refunded）／拒絕／顧客撤回
+    if ( 'cancel' === $type ) return array( 'pending' => array( 'refunded', 'rejected', 'cancelled' ) );
     return array(
         'pending'  => array( 'approved', 'rejected', 'cancelled' ),
         'approved' => array( 'shipped', 'received', 'cancelled' ),
@@ -290,6 +295,74 @@ function twshop_returns_order_eligibility( $order, $user_id = 0, $exclude_return
 }
 
 // =========================================================================
+// 取消訂單申請（v25.8.153）：還沒出貨（付款後、處理中）的訂單，顧客申請取消，店家審核後取消並退款
+// =========================================================================
+
+function twshop_returns_cancel_enabled() {
+    return 'yes' === twshop_option( 'wc_returns_allow_cancel' );
+}
+
+/**
+ * 取消訂單資格：開關開啟、訂單本人、狀態是「處理中」（已付款、未出貨；已出貨／配送中／已完成都不行，
+ * 要收到貨才能走退換貨）、沒有進行中的申請、不含儲值金商品。整張訂單取消，不選品項。
+ * 回傳 array( ok, message, items )，items 是全部商品（寫進申請供審核面板顯示）。
+ */
+function twshop_returns_cancel_eligibility( $order, $user_id = 0 ) {
+    $fail = function ( $msg ) { return array( 'ok' => false, 'message' => $msg, 'items' => array() ); };
+
+    if ( ! $order instanceof WC_Order ) return $fail( '找不到這張訂單。' );
+    if ( $user_id && (int) $order->get_customer_id() !== (int) $user_id ) return $fail( '找不到這張訂單。' );
+    if ( ! twshop_returns_cancel_enabled() ) return $fail( '目前未開放申請取消訂單。' );
+    if ( 'processing' !== $order->get_status() ) return $fail( '這張訂單目前的狀態無法申請取消（已出貨的訂單請在收到商品後申請退換貨）。' );
+
+    foreach ( twshop_returns_for_order( $order->get_id() ) as $existing ) {
+        if ( in_array( $existing['status'], twshop_returns_active_statuses(), true ) ) return $fail( '這張訂單已經有進行中的申請。' );
+    }
+
+    $items = array();
+    foreach ( $order->get_items() as $item_id => $item ) {
+        if ( ! $item instanceof WC_Order_Item_Product ) continue;
+        $product = $item->get_product();
+        if ( $product && function_exists( 'twshop_is_wallet_credit_product' ) && twshop_is_wallet_credit_product( $product ) ) {
+            return $fail( '含儲值金商品的訂單無法線上申請取消，請聯絡店家。' );
+        }
+        $items[] = array(
+            'item_id'      => (int) $item_id,
+            'product_id'   => (int) $item->get_product_id(),
+            'variation_id' => (int) $item->get_variation_id(),
+            'name'         => $item->get_name(),
+            'qty'          => (int) $item->get_quantity(),
+        );
+    }
+    if ( ! $items ) return $fail( '這張訂單沒有商品，無法申請取消。' );
+
+    return array( 'ok' => true, 'message' => '', 'items' => $items );
+}
+
+/** 建立取消訂單申請。$input：reason、reason_note。成功回傳申請 ID，失敗回傳 WP_Error。 */
+function twshop_returns_create_cancel( $order, $user_id, array $input ) {
+    $elig = twshop_returns_cancel_eligibility( $order, $user_id );
+    if ( ! $elig['ok'] ) return new WP_Error( 'ineligible', $elig['message'] );
+
+    $reason = trim( (string) ( $input['reason'] ?? '' ) );
+    if ( ! in_array( $reason, twshop_returns_reasons(), true ) ) return new WP_Error( 'reason', '請選擇申請原因。' );
+
+    $id = twshop_returns_insert( array(
+        'order_id'    => $order->get_id(),
+        'user_id'     => (int) $user_id,
+        'type'        => 'cancel',
+        'reason'      => $reason,
+        'reason_note' => sanitize_textarea_field( (string) ( $input['reason_note'] ?? '' ) ),
+        'items'       => $elig['items'],
+    ) );
+    if ( ! $id ) return new WP_Error( 'db', '申請送出失敗，請稍後再試。' );
+
+    twshop_returns_log( $order, $id, sprintf( '顧客送出取消訂單申請（原因：%s）。', $reason ) );
+    do_action( 'twshop_returns_created', $id );
+    return $id;
+}
+
+// =========================================================================
 // 建立申請
 // =========================================================================
 
@@ -298,6 +371,8 @@ function twshop_returns_order_eligibility( $order, $user_id = 0, $exclude_return
  * $photos：已通過驗證並存好的檔名陣列。成功回傳申請 ID，失敗回傳 WP_Error。
  */
 function twshop_returns_create( $order, $user_id, array $input, array $photos = array() ) {
+    if ( 'cancel' === ( $input['type'] ?? '' ) ) return twshop_returns_create_cancel( $order, $user_id, $input );
+
     $elig = twshop_returns_order_eligibility( $order, $user_id );
     if ( ! $elig['ok'] ) return new WP_Error( 'ineligible', $elig['message'] );
 
@@ -363,11 +438,11 @@ function twshop_returns_transition( $id, $to, array $fields = array(), $note = '
     $row = twshop_returns_get( $id );
     if ( ! $row ) return new WP_Error( 'missing', '找不到這筆申請。' );
 
-    $allowed = twshop_returns_transitions()[ $row['status'] ] ?? array();
+    $allowed = twshop_returns_transitions( $row['type'] )[ $row['status'] ] ?? array();
     if ( ! in_array( $to, $allowed, true ) ) {
-        return new WP_Error( 'transition', sprintf( '「%s」無法直接變更為「%s」。', twshop_returns_status_label( $row['status'] ), twshop_returns_status_label( $to ) ) );
+        return new WP_Error( 'transition', sprintf( '「%s」無法直接變更為「%s」。', twshop_returns_status_label( $row['status'], $row['type'] ), twshop_returns_status_label( $to, $row['type'] ) ) );
     }
-    if ( 'refunded' === $to && 'return' !== $row['type'] ) return new WP_Error( 'transition', '只有退貨申請可以標記為已退款。' );
+    if ( 'refunded' === $to && ! in_array( $row['type'], array( 'return', 'cancel' ), true ) ) return new WP_Error( 'transition', '只有退貨或取消訂單申請可以標記為已退款。' );
     if ( 'exchanged' === $to && 'exchange' !== $row['type'] ) return new WP_Error( 'transition', '只有換貨申請可以標記為換貨完成。' );
 
     $fields['status'] = $to;
@@ -458,6 +533,18 @@ function twshop_returns_calc_refund( $order, array $return_row, $include_shippin
 }
 
 /**
+ * 金流端退款：交給 filter 上的執行器（內建：綠界信用卡退刷，returns-ecpay-refund.php），回傳寫進訂單備註的說明。
+ * 失敗不影響已建立的 WC 退款，只提示手動處理。
+ */
+function twshop_returns_gateway_refund_note( $order, $amount, $refund ) {
+    $gateway = apply_filters( 'twshop_returns_refund_executor', null, $order, $amount, $refund );
+    if ( ! is_array( $gateway ) || empty( $gateway['status'] ) ) $gateway = array( 'status' => 'skipped', 'message' => '' );
+    if ( 'ok' === $gateway['status'] ) return $gateway['message'];
+    if ( 'failed' === $gateway['status'] ) return '⚠️ ' . $gateway['message'] . '請到金流後台手動處理。';
+    return '⚠️ 金流端的退款請到金流後台手動處理。';
+}
+
+/**
  * 建立 WooCommerce 退款並把申請標為「已退款」。$opts：amount（管理員覆寫金額，留空用計算值）、
  * include_shipping、restock。金流端的退款第一期由管理員手動處理（綠界外掛不支援自動退款），
  * 這裡 refund_payment 固定 false。點數／儲值金／儲值金商品由 woocommerce_order_refunded 上
@@ -490,13 +577,65 @@ function twshop_returns_do_refund( $id, array $opts = array() ) {
     ) );
     if ( is_wp_error( $refund ) ) return $refund;
 
+    $gateway_note = twshop_returns_gateway_refund_note( $order, $amount, $refund );
+
     $result = twshop_returns_transition(
         $id,
         'refunded',
         array( 'refund_id' => $refund->get_id(), 'refund_amount' => $amount ),
-        sprintf( '已建立退款 %s（退款單 #%d）。⚠️ 金流端的退款請到金流後台手動處理。', twshop_plain_price( $amount ), $refund->get_id() )
+        sprintf( '已建立退款 %s（退款單 #%d）。%s', twshop_plain_price( $amount ), $refund->get_id(), $gateway_note )
     );
     return is_wp_error( $result ) ? $result : $refund->get_id();
+}
+
+/**
+ * 核准取消訂單申請：把整張訂單全額退款（綠界信用卡自動退刷）並取消。$opts：restock（預設 true）。
+ * 訂單申請後可能已出貨，執行前重新確認狀態仍是「處理中」。沒有現金可退（全額點數／儲值金付款）時不建退款，
+ * 直接取消訂單，由既有的取消 hook 退回點數／儲值金。成功回傳退款 ID（沒有退款時回傳 0），失敗回傳 WP_Error。
+ */
+function twshop_returns_do_cancel( $id, array $opts = array() ) {
+    $row = twshop_returns_get( $id );
+    if ( ! $row ) return new WP_Error( 'missing', '找不到這筆申請。' );
+    if ( 'cancel' !== $row['type'] || 'pending' !== $row['status'] ) return new WP_Error( 'status', '只有「待審核」的取消訂單申請可以核准。' );
+
+    $order = wc_get_order( $row['order_id'] );
+    if ( ! $order instanceof WC_Order ) return new WP_Error( 'order', '找不到這張訂單。' );
+    if ( 'processing' !== $order->get_status() ) {
+        return new WP_Error( 'order_status', '這張訂單已經不是「處理中」（可能已出貨或已處理），無法取消。請拒絕這筆申請，並請顧客在收到商品後改申請退換貨。' );
+    }
+
+    $dec       = wc_get_price_decimals();
+    $remaining = round( (float) $order->get_remaining_refund_amount(), $dec );
+    $restock   = ! array_key_exists( 'restock', $opts ) || ! empty( $opts['restock'] );
+    $refund_id = 0;
+    $amount    = 0.0;
+    $note      = '已核准取消訂單。';
+
+    if ( $remaining > 0 ) {
+        $calc   = twshop_returns_calc_refund( $order, $row, true );
+        $amount = $remaining;
+        $refund = wc_create_refund( array(
+            'amount'         => $amount,
+            'reason'         => sprintf( '取消訂單申請 #%d', $id ),
+            'order_id'       => $order->get_id(),
+            'line_items'     => $calc['line_items'],
+            'refund_payment' => false,
+            'restock_items'  => $restock,
+        ) );
+        if ( is_wp_error( $refund ) ) return $refund;
+        $refund_id = $refund->get_id();
+        $note      = sprintf( '已核准取消訂單並建立退款 %s（退款單 #%d）。%s', twshop_plain_price( $amount ), $refund_id, twshop_returns_gateway_refund_note( $order, $amount, $refund ) );
+        $order     = wc_get_order( $order->get_id() ); // 全額退款時 WooCommerce 會把狀態轉成「已退款」
+    } else {
+        $note = '已核准取消訂單（訂單沒有需要退回的現金，點數／儲值金折抵由系統退回）。';
+    }
+
+    if ( $order instanceof WC_Order && ! in_array( $order->get_status(), array( 'refunded', 'cancelled' ), true ) ) {
+        $order->update_status( 'cancelled', sprintf( '取消訂單申請 #%d 已核准。', $id ) );
+    }
+
+    $result = twshop_returns_transition( $id, 'refunded', array( 'refund_id' => $refund_id, 'refund_amount' => $amount ), $note );
+    return is_wp_error( $result ) ? $result : $refund_id;
 }
 
 // =========================================================================

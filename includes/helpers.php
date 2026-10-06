@@ -300,6 +300,7 @@ function twshop_get_option_defaults() {
         // 退換貨模組（v25.8.152）
         'wc_returns_allow_return'       => 'yes',
         'wc_returns_allow_exchange'     => 'yes',
+        'wc_returns_allow_cancel'       => 'yes',
         'wc_returns_window_days'        => '7',
         'wc_returns_reasons'            => "商品瑕疵或損壞\n收到錯誤的商品\n與商品描述不符\n尺寸或規格不合\n不喜歡或不需要了\n其他",
         'wc_returns_photos_required'    => 'no',

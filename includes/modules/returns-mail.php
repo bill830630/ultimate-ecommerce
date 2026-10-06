@@ -76,7 +76,12 @@ function twshop_returns_send_mail( $return_id, $event ) {
             $subject = sprintf( '您的%s申請 #%d 未能核准', $type_label, $return_id );
             $body    = $head . sprintf( "很抱歉，您對訂單 #%s 的%s申請未能核准。", $order_no, $type_label );
             if ( '' !== trim( (string) $row['reject_reason'] ) ) $body .= "\n\n原因：\n" . $row['reject_reason'];
+            if ( 'cancel' === $row['type'] ) $body .= "\n\n訂單出貨、收到商品後，您可以改申請退換貨。";
             $body .= $foot;
+            break;
+        case 'cancel_done':
+            $subject = sprintf( '您的訂單 #%s 已取消', $order_no );
+            $body    = $head . sprintf( "您申請取消的訂單 #%s 已核准並取消，款項會退回原付款方式（實際入帳時間依付款方式而定）。", $order_no ) . $foot;
             break;
         case 'received':
             $subject = sprintf( '已收到您寄回的商品（申請 #%d）', $return_id );
@@ -96,5 +101,10 @@ function twshop_returns_send_mail( $return_id, $event ) {
 
 add_action( 'twshop_returns_created', function ( $id ) { twshop_returns_send_mail( $id, 'submitted' ); } );
 add_action( 'twshop_returns_status_changed', function ( $id, $to ) {
+    if ( 'refunded' === $to ) { // 退貨的退款由 WooCommerce 原生信件通知；取消訂單另外寄一封說明訂單已取消
+        $r = twshop_returns_get( $id );
+        if ( $r && 'cancel' === $r['type'] ) twshop_returns_send_mail( $id, 'cancel_done' );
+        return;
+    }
     if ( in_array( $to, array( 'approved', 'rejected', 'received', 'exchanged' ), true ) ) twshop_returns_send_mail( $id, $to );
 }, 10, 2 );

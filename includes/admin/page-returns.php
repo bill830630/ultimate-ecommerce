@@ -9,9 +9,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-function twshop_returns_admin_status_badge( $status ) {
+function twshop_returns_admin_status_badge( $status, $type = '' ) {
     $class = in_array( $status, array( 'refunded', 'exchanged' ), true ) ? 'twshop-badge--ok' : ( in_array( $status, array( 'pending', 'rejected' ), true ) ? 'twshop-badge--warn' : '' );
-    return '<span class="twshop-badge ' . esc_attr( $class ) . '">' . esc_html( twshop_returns_status_label( $status ) ) . '</span>';
+    return '<span class="twshop-badge ' . esc_attr( $class ) . '">' . esc_html( twshop_returns_status_label( $status, $type ) ) . '</span>';
 }
 
 // =========================================================================
@@ -42,7 +42,7 @@ function twshop_returns_render_request_panel( array $row, $order ) {
     $user = $row['user_id'] ? get_userdata( $row['user_id'] ) : null;
     ?>
     <div class="twshop-returns-request" style="margin-bottom:24px; padding-bottom:12px; border-bottom:1px solid #dcdcde;">
-        <h3 style="margin-top:0;">申請 #<?php echo $id; ?>　<?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?>　<?php echo wp_kses_post( twshop_returns_admin_status_badge( $row['status'] ) ); ?></h3>
+        <h3 style="margin-top:0;">申請 #<?php echo $id; ?>　<?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?>　<?php echo wp_kses_post( twshop_returns_admin_status_badge( $row['status'], $row['type'] ) ); ?></h3>
         <table class="form-table" style="margin-top:0;">
             <tr><th>申請時間</th><td><?php echo esc_html( $row['created_at'] ); ?><?php if ( $user ) echo '　' . esc_html( $user->display_name ); ?></td></tr>
             <tr><th>商品</th><td><?php foreach ( $row['items'] as $it ) echo esc_html( sprintf( '%s × %d', $it['name'] ?? '', (int) ( $it['qty'] ?? 0 ) ) ) . '<br>'; ?></td></tr>
@@ -66,7 +66,17 @@ function twshop_returns_render_request_panel( array $row, $order ) {
 
 function twshop_returns_render_actions( array $row, $order ) {
     $status = $row['status'];
-    if ( 'pending' === $status ) : ?>
+    if ( 'pending' === $status && 'cancel' === $row['type'] ) :
+        $has_shipment = $order instanceof WC_Order && '' !== (string) $order->get_meta( '_wooecpay_logistic_AllPayLogisticsID' ); ?>
+        <p><strong>顧客申請取消整張訂單（尚未出貨）。</strong>核准後會自動取消訂單並全額退款，綠界信用卡訂單會同時向綠界退刷。</p>
+        <?php if ( $has_shipment ) : ?><p class="twshop-text-danger"><strong>注意：</strong>這張訂單已建立綠界物流單。核准取消後，請到綠界後台取消物流單。</p><?php endif; ?>
+        <p class="twshop-text-muted">核准時會重新確認訂單仍是「處理中」；若已經出貨，請改為拒絕。</p>
+        <p><label><input type="checkbox" class="twshop-sw" data-field="restock" value="1" checked> 退回庫存</label></p>
+        <p><button type="button" class="button button-primary twshop-returns-op" data-op="cancel_approve">核准取消並退款</button></p>
+        <hr>
+        <p><label><strong>拒絕原因（必填，會寄給顧客）</strong><br><textarea data-field="reject_reason" rows="3" class="large-text"></textarea></label></p>
+        <p><button type="button" class="button twshop-button-danger twshop-returns-op" data-op="reject">拒絕</button></p>
+    <?php elseif ( 'pending' === $status ) : ?>
         <p><label><strong>給顧客的回覆（選填，核准信會帶）</strong><br><textarea data-field="admin_note" rows="3" class="large-text"></textarea></label></p>
         <p><button type="button" class="button button-primary twshop-returns-op" data-op="approve">核准</button></p>
         <hr>
@@ -90,7 +100,7 @@ function twshop_returns_render_actions( array $row, $order ) {
         <p><label><strong>給顧客的回覆（選填，如換貨出貨資訊）</strong><br><textarea data-field="admin_note" rows="3" class="large-text"></textarea></label></p>
         <p><button type="button" class="button button-primary twshop-returns-op" data-op="exchanged">標記為換貨完成</button></p>
     <?php else : ?>
-        <p class="twshop-text-muted">這筆申請已結案（<?php echo esc_html( twshop_returns_status_label( $status ) ); ?>）。</p>
+        <p class="twshop-text-muted">這筆申請已結案（<?php echo esc_html( twshop_returns_status_label( $status, $row['type'] ) ); ?>）。</p>
     <?php endif; ?>
     <hr>
     <p><label><strong>內部備註（只寫進訂單備註，顧客看不到）</strong><br><textarea data-field="note" rows="2" class="large-text"></textarea></label></p>
@@ -116,6 +126,9 @@ function twshop_returns_ajax_admin() {
             $reason = $get( 'reject_reason' );
             if ( '' === trim( $reason ) ) wp_send_json_error( array( 'msg' => '請填寫拒絕原因。' ) );
             $res = twshop_returns_transition( $id, 'rejected', array( 'reject_reason' => $reason ), '已拒絕。' );
+            break;
+        case 'cancel_approve':
+            $res = twshop_returns_do_cancel( $id, array( 'restock' => ! empty( $_POST['restock'] ) && '0' !== $_POST['restock'] ) );
             break;
         case 'receive':
             $res = twshop_returns_transition( $id, 'received', array(), '已收到退貨。' );
@@ -169,7 +182,7 @@ function twshop_returns_order_list_column_content( $column, $order_or_id ) {
             '<a href="%s" style="text-decoration:none; display:block; margin-bottom:3px;">%s %s</a>',
             esc_url( $order->get_edit_order_url() ),
             esc_html( twshop_returns_type_label( $row['type'] ) ),
-            wp_kses_post( twshop_returns_admin_status_badge( $row['status'] ) )
+            wp_kses_post( twshop_returns_admin_status_badge( $row['status'], $row['type'] ) )
         );
     }
 }
@@ -246,6 +259,7 @@ function twshop_returns_wc_settings_fields() {
     return array(
         array( 'title' => '退換貨', 'type' => 'title', 'id' => 'twshop_returns_section', 'desc' => '顧客在「我的帳號」自助申請退貨或換貨，申請會出現在訂單列表的「退換貨」欄位，並在訂單編輯頁處理。' ),
         array( 'title' => '開放退貨', 'id' => 'wc_returns_allow_return', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客申請退貨' ),
+        array( 'title' => '開放取消訂單', 'id' => 'wc_returns_allow_cancel', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客對「處理中」（已付款、還沒出貨）的訂單申請取消，經審核後自動取消並全額退款（綠界信用卡同時退刷）' ),
         array( 'title' => '開放換貨', 'id' => 'wc_returns_allow_exchange', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客申請換貨（只收申請與審核，出貨由客服人工處理）' ),
         array( 'title' => '可申請的訂單狀態', 'id' => 'wc_returns_allowed_statuses', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'default' => array( 'completed' ), 'options' => $statuses, 'desc_tip' => '預設只有「已完成」。訂單必須有完成日期才能計算申請期限；開啟「訂單強化」模組時，綠界物流顯示取件完成會自動把訂單轉為已完成。' ),
         array( 'title' => '申請期限（天）', 'id' => 'wc_returns_window_days', 'type' => 'number', 'default' => '7', 'css' => 'width:90px;', 'custom_attributes' => array( 'min' => '0' ), 'desc' => '從訂單完成日起算，0 代表不限制。' ),

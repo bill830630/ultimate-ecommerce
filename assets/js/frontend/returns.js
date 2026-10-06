@@ -42,9 +42,12 @@ jQuery(function ($) {
     $(document).on('submit', '.twshop-returns-form', function (e) {
         e.preventDefault();
         var $form = $(this), $btn = $form.find('.twshop-returns-submit');
-        var any = false;
-        $form.find('.twshop-returns-qty').each(function () { if (parseInt($(this).val(), 10) > 0) any = true; });
-        if (!any) { message($form, '請選擇要申請的商品與數量。', true); return; }
+        var $qty = $form.find('.twshop-returns-qty');
+        if ($qty.length) { // 取消訂單申請是整張訂單，沒有商品數量欄
+            var any = false;
+            $qty.each(function () { if (parseInt($(this).val(), 10) > 0) any = true; });
+            if (!any) { message($form, '請選擇要申請的商品與數量。', true); return; }
+        }
         if (!$form.find('select[name="reason"]').val()) { message($form, '請選擇申請原因。', true); return; }
 
         var fd = new FormData(this);

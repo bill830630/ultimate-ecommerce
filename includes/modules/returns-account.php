@@ -14,8 +14,8 @@ function twshop_returns_account_url( $order_id = 0 ) {
     return wc_get_endpoint_url( 'returns', $order_id ? (string) (int) $order_id : '', wc_get_page_permalink( 'myaccount' ) );
 }
 
-function twshop_returns_status_badge( $status ) {
-    return '<span class="twshop-returns-status twshop-returns-status--' . esc_attr( $status ) . '">' . esc_html( twshop_returns_status_label( $status ) ) . '</span>';
+function twshop_returns_status_badge( $status, $type = '' ) {
+    return '<span class="twshop-returns-status twshop-returns-status--' . esc_attr( $status ) . '">' . esc_html( twshop_returns_status_label( $status, $type ) ) . '</span>';
 }
 
 // =========================================================================
@@ -34,6 +34,12 @@ function twshop_returns_endpoint_content( $value = '' ) {
         else echo '<p>找不到這筆申請。</p>';
     } elseif ( $value && ctype_digit( (string) $value ) ) {
         $order = wc_get_order( (int) $value );
+        if ( 'cancel' === sanitize_key( $_GET['type'] ?? '' ) ) {
+            $elig = twshop_returns_cancel_eligibility( $order, $user_id );
+            if ( $elig['ok'] ) { twshop_returns_render_cancel_form( $order ); echo '</div>'; return; }
+            echo '<p>' . esc_html( $elig['message'] ) . '</p><p><a class="button" href="' . esc_url( wc_get_endpoint_url( 'orders', '', wc_get_page_permalink( 'myaccount' ) ) ) . '">返回我的訂單</a></p></div>';
+            return;
+        }
         $elig  = twshop_returns_order_eligibility( $order, $user_id );
         if ( $elig['ok'] ) twshop_returns_render_form( $order, $elig );
         else echo '<p>' . esc_html( $elig['message'] ) . '</p><p><a class="button" href="' . esc_url( twshop_returns_account_url() ) . '">返回申請列表</a></p>';
@@ -59,7 +65,7 @@ function twshop_returns_render_list( $user_id ) {
                 <td>#<?php echo (int) $row['id']; ?></td>
                 <td>#<?php echo esc_html( ( $o = wc_get_order( $row['order_id'] ) ) ? $o->get_order_number() : $row['order_id'] ); ?></td>
                 <td><?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?></td>
-                <td><?php echo wp_kses_post( twshop_returns_status_badge( $row['status'] ) ); ?></td>
+                <td><?php echo wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) ); ?></td>
                 <td><?php echo esc_html( mysql2date( 'Y-m-d', $row['created_at'] ) ); ?></td>
                 <td><a class="button" href="<?php echo esc_url( twshop_returns_customer_view_url( $row['id'] ) ); ?>">查看</a></td>
             </tr>
@@ -67,6 +73,52 @@ function twshop_returns_render_list( $user_id ) {
         </tbody>
     </table>
     <?php
+}
+
+/**
+ * 原生訂單列表多一個「退換貨」欄：這張訂單的申請狀態（連到詳情）。
+ * 這位會員一筆申請都沒有時不加欄位，訂單列表維持原樣。每個請求只查一次（依使用者）。
+ */
+function twshop_returns_orders_rows_by_order() {
+    static $map = null;
+    if ( null === $map ) {
+        $map = array();
+        if ( is_user_logged_in() ) {
+            $result = twshop_returns_query( array( 'user_id' => get_current_user_id(), 'limit' => 200 ) );
+            foreach ( $result['rows'] as $row ) $map[ (int) $row['order_id'] ][] = $row;
+        }
+    }
+    return $map;
+}
+
+function twshop_returns_orders_column( $columns ) {
+    if ( ! twshop_returns_orders_rows_by_order() ) return $columns;
+    $out = array();
+    foreach ( $columns as $key => $label ) {
+        $out[ $key ] = $label;
+        if ( 'order-status' === $key ) $out['twshop-returns'] = '退換貨';
+    }
+    if ( ! isset( $out['twshop-returns'] ) ) $out['twshop-returns'] = '退換貨';
+    return $out;
+}
+
+function twshop_returns_orders_column_content( $order ) {
+    $rows = twshop_returns_orders_rows_by_order()[ $order->get_id() ] ?? array();
+    if ( ! $rows ) { echo '—'; return; }
+    foreach ( $rows as $row ) {
+        printf(
+            '<a href="%s" class="twshop-returns-order-link">%s %s</a><br>',
+            esc_url( twshop_returns_customer_view_url( $row['id'] ) ),
+            esc_html( twshop_returns_type_label( $row['type'] ) ),
+            wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) )
+        );
+    }
+}
+
+/** 申請表單／詳情頁沒有自己的選單項目，選單反白「訂單」。 */
+function twshop_returns_menu_highlight_orders( $classes, $endpoint ) {
+    if ( 'orders' === $endpoint && function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'returns' ) ) $classes[] = 'is-active';
+    return $classes;
 }
 
 function twshop_returns_render_form( $order, array $elig ) {
@@ -143,11 +195,44 @@ function twshop_returns_render_form( $order, array $elig ) {
     <?php
 }
 
+/** 取消訂單申請表單：整張訂單、不選商品、不用照片，只要原因。 */
+function twshop_returns_render_cancel_form( $order ) {
+    $reasons = twshop_returns_reasons();
+    ?>
+    <h3>申請取消訂單：訂單 #<?php echo esc_html( $order->get_order_number() ); ?></h3>
+    <p class="twshop-returns-hint">這張訂單還沒出貨，店家核准後會取消整張訂單並全額退款（原付款方式）。已出貨的訂單無法取消，請在收到商品後申請退換貨。</p>
+
+    <form class="twshop-returns-form" novalidate>
+        <input type="hidden" name="order_id" value="<?php echo (int) $order->get_id(); ?>" />
+        <input type="hidden" name="type" value="cancel" />
+
+        <p class="twshop-returns-field">
+            <label class="twshop-returns-label" for="twshop-returns-reason">取消原因</label>
+            <select id="twshop-returns-reason" name="reason">
+                <option value="">請選擇</option>
+                <?php foreach ( $reasons as $reason ) : ?><option value="<?php echo esc_attr( $reason ); ?>"><?php echo esc_html( $reason ); ?></option><?php endforeach; ?>
+            </select>
+        </p>
+
+        <p class="twshop-returns-field">
+            <label class="twshop-returns-label" for="twshop-returns-note">補充說明</label>
+            <textarea id="twshop-returns-note" name="reason_note" rows="3"></textarea>
+        </p>
+
+        <p>
+            <button type="submit" class="button alt twshop-returns-submit">送出申請</button>
+            <a class="button" href="<?php echo esc_url( wc_get_endpoint_url( 'orders', '', wc_get_page_permalink( 'myaccount' ) ) ); ?>">返回</a>
+            <span class="twshop-returns-message" aria-live="polite"></span>
+        </p>
+    </form>
+    <?php
+}
+
 function twshop_returns_render_detail( array $row ) {
     $order = wc_get_order( $row['order_id'] );
     ?>
     <p><a href="<?php echo esc_url( twshop_returns_account_url() ); ?>">&larr; 返回申請列表</a></p>
-    <h3>申請 #<?php echo (int) $row['id']; ?>　<?php echo wp_kses_post( twshop_returns_status_badge( $row['status'] ) ); ?></h3>
+    <h3>申請 #<?php echo (int) $row['id']; ?>　<?php echo wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) ); ?></h3>
     <table class="woocommerce-table shop_table twshop-returns-detail">
         <tr><th>類型</th><td><?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?></td></tr>
         <tr><th>訂單</th><td>#<?php echo esc_html( $order ? $order->get_order_number() : $row['order_id'] ); ?></td></tr>
@@ -181,7 +266,7 @@ function twshop_returns_render_detail( array $row ) {
     <?php endif; ?>
 
     <?php if ( in_array( $row['status'], array( 'pending', 'approved' ), true ) ) : ?>
-        <p><button type="button" class="button twshop-returns-cancel" data-return-id="<?php echo (int) $row['id']; ?>">取消這筆申請</button> <span class="twshop-returns-message" aria-live="polite"></span></p>
+        <p><button type="button" class="button twshop-returns-cancel" data-return-id="<?php echo (int) $row['id']; ?>"><?php echo 'cancel' === $row['type'] ? '撤回申請' : '取消這筆申請'; ?></button> <span class="twshop-returns-message" aria-live="polite"></span></p>
     <?php endif;
 }
 
@@ -189,10 +274,16 @@ function twshop_returns_render_detail( array $row ) {
 // 訂單入口
 // =========================================================================
 
-/** 訂單列表：符合資格的訂單多一個「申請退換貨」按鈕 */
+function twshop_returns_cancel_url( $order_id ) {
+    return add_query_arg( 'type', 'cancel', twshop_returns_account_url( $order_id ) );
+}
+
+/** 訂單列表：符合資格的訂單多一個「申請退換貨」（已完成）或「申請取消訂單」（未出貨）按鈕 */
 function twshop_returns_my_orders_actions( $actions, $order ) {
     $elig = twshop_returns_order_eligibility( $order, get_current_user_id() );
     if ( $elig['ok'] ) $actions['twshop-return'] = array( 'url' => twshop_returns_account_url( $order->get_id() ), 'name' => '申請退換貨' );
+    $cancel = twshop_returns_cancel_eligibility( $order, get_current_user_id() );
+    if ( $cancel['ok'] ) $actions['twshop-cancel-order'] = array( 'url' => twshop_returns_cancel_url( $order->get_id() ), 'name' => '申請取消訂單' );
     return $actions;
 }
 
@@ -200,17 +291,19 @@ function twshop_returns_my_orders_actions( $actions, $order ) {
 function twshop_returns_order_details_block( $order ) {
     if ( ! is_account_page() || ! is_user_logged_in() || (int) $order->get_customer_id() !== get_current_user_id() ) return;
     $rows = twshop_returns_for_order( $order->get_id() );
-    $elig = twshop_returns_order_eligibility( $order, get_current_user_id() );
-    if ( ! $rows && ! $elig['ok'] ) return;
+    $elig   = twshop_returns_order_eligibility( $order, get_current_user_id() );
+    $cancel = twshop_returns_cancel_eligibility( $order, get_current_user_id() );
+    if ( ! $rows && ! $elig['ok'] && ! $cancel['ok'] ) return;
     echo '<section class="twshop-returns-order-block"><h2>退換貨</h2>';
     foreach ( $rows as $row ) {
         printf(
             '<p>#%d　%s　%s　<a href="%s">查看</a></p>',
-            (int) $row['id'], esc_html( twshop_returns_type_label( $row['type'] ) ), wp_kses_post( twshop_returns_status_badge( $row['status'] ) ),
+            (int) $row['id'], esc_html( twshop_returns_type_label( $row['type'] ) ), wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) ),
             esc_url( twshop_returns_customer_view_url( $row['id'] ) )
         );
     }
     if ( $elig['ok'] ) echo '<p><a class="button" href="' . esc_url( twshop_returns_account_url( $order->get_id() ) ) . '">申請退換貨</a></p>';
+    if ( $cancel['ok'] ) echo '<p><a class="button" href="' . esc_url( twshop_returns_cancel_url( $order->get_id() ) ) . '">申請取消訂單</a></p>';
     echo '</section>';
 }
 
@@ -227,12 +320,13 @@ function twshop_returns_ajax_submit() {
     twshop_returns_ajax_guard();
     $user_id = get_current_user_id();
     $order   = wc_get_order( absint( $_POST['order_id'] ?? 0 ) );
-    $elig    = twshop_returns_order_eligibility( $order, $user_id );
+    $is_cancel = 'cancel' === sanitize_key( wp_unslash( $_POST['type'] ?? '' ) );
+    $elig    = $is_cancel ? twshop_returns_cancel_eligibility( $order, $user_id ) : twshop_returns_order_eligibility( $order, $user_id );
     if ( ! $elig['ok'] ) wp_send_json_error( array( 'msg' => $elig['message'] ) );
 
-    // 先把照片全部驗證並存好；任何一張失敗就清掉已存的，整筆不成立
+    // 先把照片全部驗證並存好；任何一張失敗就清掉已存的，整筆不成立（取消訂單申請沒有照片）
     $stored = array();
-    $files  = $_FILES['photos'] ?? null;
+    $files  = $is_cancel ? null : ( $_FILES['photos'] ?? null );
     if ( $files && is_array( $files['name'] ?? null ) ) {
         $count = 0;
         foreach ( $files['name'] as $i => $name ) {

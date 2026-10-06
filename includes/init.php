@@ -393,6 +393,9 @@ function twshop_membership_init() {
     if ( twshop_module_enabled( 'order_checkout_enhancements' ) ) {
         add_action( 'woocommerce_account_returns_endpoint', 'twshop_returns_endpoint_content' );
         add_filter( 'woocommerce_my_account_my_orders_actions', 'twshop_returns_my_orders_actions', 10, 2 );
+        add_filter( 'woocommerce_my_account_my_orders_columns', 'twshop_returns_orders_column' );
+        add_action( 'woocommerce_my_account_my_orders_column_twshop-returns', 'twshop_returns_orders_column_content' );
+        add_filter( 'woocommerce_account_menu_item_classes', 'twshop_returns_menu_highlight_orders', 10, 2 );
         add_action( 'woocommerce_order_details_after_order_table', 'twshop_returns_order_details_block' );
         add_action( 'wp_enqueue_scripts', 'twshop_returns_enqueue_assets', 20 );
         add_action( 'wp_ajax_twshop_returns_submit', 'twshop_returns_ajax_submit' );

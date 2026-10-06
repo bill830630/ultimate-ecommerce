@@ -969,3 +969,30 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     flex-direction: column;
 }
 .woocommerce-cart-form td.product-name .twshop-pdp-addon-lines { order: 10; }
+
+/* ── 退換貨（會員中心）──────────────────────────────────────────────
+   表格、按鈕、輸入框沿用主題與 WooCommerce 的樣式，這裡只補狀態標籤與表單欄位的間距。 */
+.twshop-returns-field { margin-bottom: 18px; }
+.twshop-returns-label { display: block; margin-bottom: 6px; font-weight: 600; }
+.twshop-returns-field label { margin-right: 14px; }
+.twshop-returns-field select,
+.twshop-returns-field textarea,
+.twshop-returns-field input[type="text"] { width: 100%; max-width: 480px; }
+.twshop-returns-qty { width: 80px; }
+.twshop-returns-hint { display: block; margin-top: 4px; font-size: 13px; opacity: .7; }
+.twshop-returns-message { margin-left: 10px; font-size: 14px; }
+.twshop-returns-message.is-error { color: #b32d2e; }
+.twshop-returns-status {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--theme-palette-color-1, #2271b1) 12%, transparent);
+    color: var(--theme-palette-color-1, #2271b1);
+}
+.twshop-returns-status--rejected,
+.twshop-returns-status--cancelled { background: rgba(0, 0, 0, .06); color: inherit; opacity: .75; }
+.twshop-returns-instructions { margin: 16px 0; padding: 14px 16px; border: 2px solid var(--theme-border-color, #e9ebec); }
+.twshop-returns-photos a { margin-right: 10px; }
+.twshop-returns-order-block { margin-top: 30px; }

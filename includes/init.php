@@ -29,9 +29,11 @@ function twshop_core_init_registration() {
     // 有沒有掛（掛在模組開關底下，見下方）。這裡若也看開關，會在「開了又關」的情境下
     // 讓已經被搜尋引擎收錄或加入書籤的網址結構跟著開關忽有忽無，沒有必要。
     add_rewrite_endpoint( 'my-wallet', EP_ROOT | EP_PAGES );
+    // returns（退換貨，v25.8.152 新增）同 my-wallet：無條件註冊，不看模組開關
+    add_rewrite_endpoint( 'returns', EP_ROOT | EP_PAGES );
 }
 
-add_filter( 'woocommerce_get_query_vars', function($vars) { $vars['my-coupons'] = 'my-coupons'; $vars['my-membership'] = 'my-membership'; $vars['my-wallet'] = 'my-wallet'; return $vars; }, 0 );
+add_filter( 'woocommerce_get_query_vars', function($vars) { $vars['my-coupons'] = 'my-coupons'; $vars['my-membership'] = 'my-membership'; $vars['my-wallet'] = 'my-wallet'; $vars['returns'] = 'returns'; return $vars; }, 0 );
 register_activation_hook( TWSHOP_PLUGIN_FILE, 'twshop_flush_rewrite_rules_on_activation' );
 function twshop_flush_rewrite_rules_on_activation() { twshop_core_init_registration(); flush_rewrite_rules(); }
 
@@ -50,6 +52,16 @@ function twshop_wallet_maybe_flush_rewrite_rules() {
     }
 }
 add_action( 'admin_init', 'twshop_wallet_maybe_flush_rewrite_rules' );
+
+// returns endpoint 同樣是既有站台更新後 rewrite rules 快取裡沒有的新 endpoint，比照上面 my-wallet
+// 的一次性旗標，更新後下一次後台請求自動補 flush（見 CLAUDE.md「退換貨模組」）。
+function twshop_returns_maybe_flush_rewrite_rules() {
+    if ( ! get_option( 'twshop_returns_endpoint_flushed' ) ) {
+        flush_rewrite_rules();
+        update_option( 'twshop_returns_endpoint_flushed', '1' );
+    }
+}
+add_action( 'admin_init', 'twshop_returns_maybe_flush_rewrite_rules' );
 
 add_action( 'plugins_loaded', 'twshop_membership_init' );
 add_action( 'admin_notices', 'twshop_woocommerce_missing_notice' );
@@ -185,6 +197,8 @@ function twshop_membership_init() {
     // ── 會員分級 ──────────────────────────────────────────────────────────
     if ( twshop_module_enabled( 'member_tiers' ) ) {
         add_action( 'woocommerce_order_status_completed', 'twshop_trigger_on_order', 10, 1 );
+        // 退款後扣掉已退款金額並重算等級（v25.8.152）；priority 20 排在點數/儲值金退款 callback（15）之後
+        add_action( 'woocommerce_order_refunded', 'twshop_refresh_tier_after_refund', 20, 1 );
         add_action( 'wc_membership_daily_downgrade_check', 'twshop_run_daily_check' );
         add_action( 'twshop_send_birthday_gift_notice', 'twshop_send_birthday_gift_notice_email', 10, 3 );
         add_action( 'woocommerce_account_my-membership_endpoint', 'twshop_my_membership_endpoint_content' );
@@ -370,6 +384,39 @@ function twshop_membership_init() {
             add_action( 'woocommerce_order_status_' . $twshop_wallet_topup_revoke_status, 'twshop_wallet_revoke_topup_order', 15, 1 );
         }
         add_action( 'woocommerce_order_refunded', 'twshop_wallet_handle_topup_item_refund', 15, 2 );
+    }
+
+    // ── 退換貨（v25.8.152，returns-core／-account／-mail.php、admin/page-returns.php）──
+    // 建立 WooCommerce 退款時，點數／儲值金折抵／儲值金商品的連動由上面既有的
+    // woocommerce_order_refunded callback（priority 15）處理，這裡不重寫。
+    // 退換貨併在「訂單強化」模組底下（order_checkout_enhancements），沒有獨立開關
+    if ( twshop_module_enabled( 'order_checkout_enhancements' ) ) {
+        add_action( 'woocommerce_account_returns_endpoint', 'twshop_returns_endpoint_content' );
+        add_filter( 'woocommerce_my_account_my_orders_actions', 'twshop_returns_my_orders_actions', 10, 2 );
+        add_action( 'woocommerce_order_details_after_order_table', 'twshop_returns_order_details_block' );
+        add_action( 'wp_enqueue_scripts', 'twshop_returns_enqueue_assets', 20 );
+        add_action( 'wp_ajax_twshop_returns_submit', 'twshop_returns_ajax_submit' );
+        add_action( 'wp_ajax_twshop_returns_cancel', 'twshop_returns_ajax_cancel' );
+        add_action( 'wp_ajax_twshop_returns_ship', 'twshop_returns_ajax_ship' );
+        add_action( 'admin_post_twshop_return_photo', 'twshop_returns_serve_photo' );
+        add_action( 'wp_ajax_twshop_returns_admin', 'twshop_returns_ajax_admin' );
+        add_action( 'add_meta_boxes_shop_order', 'twshop_returns_register_order_metabox' );
+        add_action( 'add_meta_boxes_woocommerce_page_wc-orders', 'twshop_returns_register_order_metabox' );
+        add_action( 'woocommerce_product_options_general_product_data', 'twshop_returns_product_field' );
+        // 訂單列表：「退換貨」欄位與篩選（HPOS 與傳統文章式訂單列表各一組）
+        add_filter( 'manage_shop_order_posts_columns', 'twshop_returns_order_list_columns', 20 );
+        add_filter( 'manage_woocommerce_page_wc-orders_columns', 'twshop_returns_order_list_columns', 20 );
+        add_action( 'manage_shop_order_posts_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
+        add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
+        add_action( 'woocommerce_order_list_table_restrict_manage_orders', 'twshop_returns_render_orders_filter' );
+        add_filter( 'woocommerce_order_list_table_prepare_items_query_args', 'twshop_returns_filter_hpos_args' );
+        add_action( 'restrict_manage_posts', 'twshop_returns_legacy_filter_dropdown' );
+        add_action( 'pre_get_posts', 'twshop_returns_filter_legacy_query' );
+        // WooCommerce → 設定 → 「退換貨」頁籤
+        add_filter( 'woocommerce_settings_tabs_array', 'twshop_returns_wc_settings_tab', 50 );
+        add_action( 'woocommerce_settings_returns', 'twshop_returns_wc_settings_output' );
+        add_action( 'woocommerce_update_options_returns', 'twshop_returns_wc_settings_save' );
+        add_action( 'woocommerce_process_product_meta', 'twshop_returns_save_product_field' );
     }
 
     // ── 結帳與訂單管理強化（台灣地址、超商取貨、訂單物流資訊、訂單管理後台強化，

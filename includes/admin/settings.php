@@ -203,6 +203,7 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_product_image_alt_variation', 'sanitize_text_field' );
 
     // 儲值金 ▸ 設定
+    // 退換貨的設定在 WooCommerce → 設定 → 「退換貨」頁籤（用 WooCommerce 原生設定 API 儲存），見 admin/page-returns.php
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_term_name', 'sanitize_text_field' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_tier_spend_full_amount', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_wallet_settings_group', 'wc_wallet_earn_points', 'twshop_sanitize_yes_no' );

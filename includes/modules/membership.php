@@ -188,7 +188,10 @@ function twshop_get_order_total_for_tier_spend( $order ) {
         $total += (float) $order->get_meta( '_twshop_wallet_applied' );
     }
     $total -= twshop_get_order_wallet_product_total( $order );
-    return $total;
+    // 已退款的金額不算消費（v25.8.152 起；原本部分退款完全不扣）。退款當下由
+    // twshop_refresh_tier_after_refund() 清快取並重算。
+    $total -= (float) $order->get_total_refunded();
+    return max( 0, $total );
 }
 
 function twshop_get_user_spent_since( $user_id, $since_date = null, $flush_cache = false ) {
@@ -422,7 +425,7 @@ function twshop_recalculate_user_tier( $user_id ) {
  * 會員中心頁籤預設順序（未曾在後台儲存過排序設定時使用，與升級前的固定順序一致）
  */
 function twshop_get_default_account_tab_order() {
-    return array( 'my-membership', 'my-coupons', 'my-wallet', 'orders', 'edit-account', 'edit-address', 'dashboard', 'downloads' );
+    return array( 'my-membership', 'my-coupons', 'my-wallet', 'orders', 'returns', 'edit-account', 'edit-address', 'dashboard', 'downloads' );
 }
 
 /**
@@ -449,6 +452,10 @@ function twshop_add_own_account_tabs( $items ) {
     }
     if ( twshop_module_enabled( 'wallet' ) ) {
         $items['my-wallet'] = twshop_wallet_term();
+    }
+    // 退換貨併在「訂單強化」模組底下；後台把申請類型（退貨／換貨）全部關掉時，會員中心不顯示這個頁籤
+    if ( twshop_module_enabled( 'order_checkout_enhancements' ) && twshop_returns_allowed_types() ) {
+        $items['returns'] = '退換貨';
     }
     return twshop_apply_account_tab_name_overrides( $items );
 }

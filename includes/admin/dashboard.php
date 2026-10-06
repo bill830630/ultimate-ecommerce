@@ -25,8 +25,7 @@ function twshop_get_dashboard_stats() {
         'points'          => 'coins',
         'order_checkout_enhancements' => 'clipboard-list',
     );
-    // order_checkout_enhancements 沒有對應選單頁（純 hook 開關，無可調整設定，見
-    // twshop_register_menus() 的說明），卡片維持唯讀、不可點擊。
+    // order_checkout_enhancements 沒有自己的選單頁；v25.8.152 起退換貨的設定在 WooCommerce → 設定 → 「退換貨」，卡片連到那裡。
     $module_urls = array(
         'member_tiers'    => twshop_admin_url( 'member-tiers' ),
         'discount_rules'  => twshop_admin_url( 'discount-rules' ),
@@ -35,6 +34,7 @@ function twshop_get_dashboard_stats() {
         // v25.8.81 補上原本缺漏的一項——選單收攏前這裡漏了 wallet，儀表板的儲值中心
         // 卡片因此一直是唯讀、點不進去，這次順手修正。
         'wallet'          => twshop_admin_url( 'wallet' ),
+        'order_checkout_enhancements' => admin_url( 'admin.php?page=wc-settings&tab=returns' ),
     );
     $enabled_count = 0;
     foreach ( $modules as $mod_key => $info ) {

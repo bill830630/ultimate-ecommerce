@@ -297,6 +297,17 @@ function twshop_get_option_defaults() {
         'wc_wallet_topup_email_enabled' => 'yes',
         'wc_wallet_topup_email_subject' => '儲值成功通知',
         'wc_shopee_sync_enabled'        => 'no',
+        // 退換貨模組（v25.8.152）
+        'wc_returns_allow_return'       => 'yes',
+        'wc_returns_allow_exchange'     => 'yes',
+        'wc_returns_window_days'        => '7',
+        'wc_returns_reasons'            => "商品瑕疵或損壞\n收到錯誤的商品\n與商品描述不符\n尺寸或規格不合\n不喜歡或不需要了\n其他",
+        'wc_returns_photos_required'    => 'no',
+        'wc_returns_max_photos'         => '3',
+        'wc_returns_instructions'       => '',
+        'wc_returns_notify_customer'    => 'yes',
+        'wc_returns_notify_admin'       => 'yes',
+        'wc_returns_admin_email'        => '',
     );
     return $defaults;
 }
@@ -502,7 +513,7 @@ function twshop_get_module_definitions() {
         'wallet'          => array( 'label' => '儲值中心', 'desc' => '線上自助儲值、購物折抵、會員中心餘額與交易紀錄' ),
         'order_checkout_enhancements' => array(
             'label' => '訂單強化',
-            'desc'  => '台灣地址下拉選單、超商取貨、物流資訊、自訂訂單狀態',
+            'desc'  => '台灣地址下拉選單、超商取貨、物流資訊、自訂訂單狀態、退換貨申請與審核',
         ),
         // 蝦皮串接（原 shopee_sync 模組）v25.8.65 起移出模組開關系統，改成「系統設定 ▸
         // 蝦皮串接」頁籤裡的獨立開關 wc_shopee_sync_enabled，見 twshop_shopee_sync_enabled()

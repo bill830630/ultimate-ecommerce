@@ -61,6 +61,18 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
     $shipping_methods = $r['shipping_methods'] ?? array();
     if ( ! is_array( $shipping_methods ) ) $shipping_methods = array();
     $shipping_method_options = twshop_get_shipping_method_options();
+    $payment_methods = twshop_get_rule_payment_methods( $r );
+    $pdp_products   = array_map( 'strval', is_array( $r['pdp_addon_products'] ?? null ) ? $r['pdp_addon_products'] : array() );
+    $pdp_price_type = ( $r['pdp_addon_price_type'] ?? 'fixed' ) === 'percent' ? 'percent' : 'fixed';
+    // 已啟用的付款方式；規則已選但目前被停用的一併列出，避免開卡片時勾選悄悄消失、存檔又把它洗掉
+    $payment_method_options = array();
+    if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
+        foreach ( WC()->payment_gateways()->payment_gateways() as $gateway_id => $gateway ) {
+            if ( 'yes' === $gateway->enabled || in_array( (string) $gateway_id, $payment_methods, true ) ) {
+                $payment_method_options[ $gateway_id ] = wp_strip_all_tags( $gateway->get_title() ) ?: $gateway_id;
+            }
+        }
+    }
 
     // 限制條件：類型 (單一商品/商品分類/商品標籤) + 該類型底下的複選項目
     $cond_type = $r['condition_type'] ?? '';
@@ -139,6 +151,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                             <option value="tiered_cart" data-group="cart" <?php selected($type, 'tiered_cart'); ?>>階梯式折扣 (多門檻)</option>
                             <option value="free_gift" data-group="gift" <?php selected($type, 'free_gift'); ?>>滿額/條件贈品 (自動加入購物車)</option>
                             <option value="addon_product" data-group="gift" <?php selected($type, 'addon_product'); ?>>加購商品 (特價購買)</option>
+                            <option value="product_addon" data-group="gift" <?php selected($type, 'product_addon'); ?>>商品頁加購 (商品頁勾選一起買)</option>
                             <option value="buy_x_get_y" data-group="gift" <?php selected($type, 'buy_x_get_y'); ?>>買N送N (最便宜M件免費)</option>
                         </select>
                     </div>
@@ -155,6 +168,18 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                         // 失敗時完全沒有任何錯誤訊息浮現，管理員很難發現。addon_product 型別雖然不是主動
                         // 加入購物車，但同一個欄位語意是「指定商品」，一併排除避免混淆。
                         echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable', 'wallet_credit' ) ); ?>
+                    </div>
+                    <?php // 商品頁加購：哪些商品頁會出現，由下方「2. 適用範圍」決定（必填）；這裡選的是可以加購的商品。 ?>
+                    <div class="twshop-rule-field is-wide rule-pdpaddon-wrap" style="display:none;">
+                        <label class="twshop-rule-label">可加購的商品 <small>可複選，顧客在適用範圍內的商品頁勾選後一起加入購物車</small></label>
+                        <?php echo twshop_render_product_search_field( 'pdp_addon_products', $pdp_products, true, '搜尋要讓顧客加購的商品…', array( 'variable', 'wallet_credit' ) ); ?>
+                    </div>
+                    <div class="twshop-rule-field rule-pdpaddon-wrap" style="display:none;">
+                        <label class="twshop-rule-label">加購價算法</label>
+                        <select name="pdp_addon_price_type" class="twshop-pdp-price-type">
+                            <option value="fixed" <?php selected( $pdp_price_type, 'fixed' ); ?>>固定加購價 ($)</option>
+                            <option value="percent" <?php selected( $pdp_price_type, 'percent' ); ?>>依原價打折 (%)</option>
+                        </select>
                     </div>
                     <div class="twshop-rule-field rule-freegift-wrap" style="display:none;">
                         <label class="twshop-rule-label">原價購買</label>
@@ -243,6 +268,19 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                             <label><input type="radio" name="logic" value="or" <?php checked($logic, 'or'); ?>> 符合其中一個即可</label>
                         </div>
                     </div>
+                    <?php // 付款方式限制：只有購物車層的整單折扣／階梯折扣／免運有這個欄位（discount-rules.js 的 PAYMENT_TYPES），
+                    // 沒有 rule-scope-toggle class——階梯式折扣隱藏的是商品範圍/小計相關欄位，這個欄位它也要能用。 ?>
+                    <div class="twshop-rule-field is-full rule-payment-wrap" style="display:none;">
+                        <label class="twshop-rule-label">指定付款方式 <small>都不勾 = 不限；顧客在結帳頁選了勾選的付款方式才套用（獨立條件，一定要符合）</small></label>
+                        <div class="twshop-rule-checklist">
+                            <?php if ( empty( $payment_method_options ) ) : ?>
+                                <span class="twshop-rule-hint">尚未啟用任何付款方式（請先至 WooCommerce → 設定 → 付款 啟用）</span>
+                            <?php else : foreach ( $payment_method_options as $pm_id => $pm_label ) : ?>
+                                <label title="<?php echo esc_attr( $pm_id ); ?>"><input type="checkbox" name="payment_methods[]" value="<?php echo esc_attr( $pm_id ); ?>" <?php checked( in_array( (string) $pm_id, $payment_methods, true ) ); ?> /> <?php echo esc_html( $pm_label ); ?></label>
+                            <?php endforeach; endif; ?>
+                        </div>
+                        <p class="twshop-rule-hint">購物車頁面還沒選付款方式，這條規則要到結帳頁選好付款方式後才會生效。</p>
+                    </div>
                 </div>
             </section>
 
@@ -321,6 +359,13 @@ function twshop_ajax_save_rule() {
     $shipping_methods = array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['shipping_methods'] ?? array() ) ) );
     $shipping_methods = array_values( array_filter( $shipping_methods ) );
 
+    $payment_methods = twshop_sanitize_payment_gateway_ids( wp_unslash( (array) ( $_POST['payment_methods'] ?? array() ) ) );
+
+    // 商品頁加購的欄位只對 product_addon 保留，其他型別一律清空（隱藏欄位仍會被送出）
+    $is_pdp_addon   = 'product_addon' === sanitize_text_field( wp_unslash( $_POST['type'] ?? '' ) );
+    $pdp_products   = $is_pdp_addon ? array_values( array_unique( array_filter( array_map( 'absint', (array) ( $_POST['pdp_addon_products'] ?? array() ) ) ) ) ) : array();
+    $pdp_price_type = ( $is_pdp_addon && 'percent' === ( $_POST['pdp_addon_price_type'] ?? '' ) ) ? 'percent' : 'fixed';
+
     // 階梯式訂單折扣（tiered_cart）：三個平行陣列（同 index 對應同一組門檻）組回結構化陣列。
     $tiers_min = (array) ( $_POST['tiers_min'] ?? array() );
     $tiers_type = (array) ( $_POST['tiers_type'] ?? array() );
@@ -347,8 +392,12 @@ function twshop_ajax_save_rule() {
         'logic'             => sanitize_text_field( wp_unslash( $_POST['logic'] ?? '' ) ),
         'condition_type'    => $condition_type,
         'condition_values'  => $condition_values,
-        'min_amount'        => floatval( wp_unslash( $_POST['min_amount'] ?? 0 ) ),
-        'min_qty'           => absint( wp_unslash( $_POST['min_qty'] ?? 0 ) ),
+        'payment_methods'   => $payment_methods,
+        'pdp_addon_products'   => $pdp_products,
+        'pdp_addon_price_type' => $pdp_price_type,
+        // 商品頁加購只看「適用範圍」（哪些商品頁顯示），不用小計/件數門檻（後台已隱藏這兩欄）
+        'min_amount'        => $is_pdp_addon ? 0 : floatval( wp_unslash( $_POST['min_amount'] ?? 0 ) ),
+        'min_qty'           => $is_pdp_addon ? 0 : absint( wp_unslash( $_POST['min_qty'] ?? 0 ) ),
         'usage_limit'       => absint( wp_unslash( $_POST['usage_limit'] ?? 0 ) ),
         'user_limit'        => absint( wp_unslash( $_POST['user_limit'] ?? 0 ) ),
         'start_time'        => sanitize_text_field( wp_unslash( $_POST['start_time'] ?? '' ) ),
@@ -386,6 +435,34 @@ function twshop_ajax_save_rule() {
     }
     if ( 'addon_product' === $new_rule['type'] && $value < 0 ) {
         wp_send_json_error( array( 'msg' => '加購價不能小於 0。' ) );
+    }
+
+    // 付款方式限制只支援購物車層的整單折扣／階梯折扣／免運（商品層價格有快取、贈品/加購/買N送N
+    // 與付款方式無關），其他型別帶了付款方式一律拒絕，不靜默丟掉。
+    if ( ! empty( $new_rule['payment_methods'] ) && ! in_array( $new_rule['type'], twshop_discount_rule_payment_types(), true ) ) {
+        wp_send_json_error( array( 'msg' => '「指定付款方式」只能用在整單打折、整單折抵、階梯式折扣與免運費規則。' ) );
+    }
+
+    // 商品頁加購：適用範圍（顯示在哪些商品頁）與可加購商品都必填；加購品只收簡單商品、不收儲值金商品
+    // （儲值金商品打折加購等於低價買到完整面額，見 v25.8.79 的同類限制）。
+    if ( $is_pdp_addon ) {
+        if ( empty( $new_rule['condition_type'] ) || empty( $new_rule['condition_values'] ) ) {
+            wp_send_json_error( array( 'msg' => '「商品頁加購」必須在「適用範圍」選擇要顯示加購選項的商品／分類／標籤／品牌（不然每個商品頁都會出現）。' ) );
+        }
+        if ( empty( $new_rule['pdp_addon_products'] ) ) {
+            wp_send_json_error( array( 'msg' => '請至少選擇一個可加購的商品。' ) );
+        }
+        foreach ( $new_rule['pdp_addon_products'] as $addon_id ) {
+            $addon = wc_get_product( $addon_id );
+            if ( ! $addon || ! $addon->is_type( 'simple' ) || twshop_is_wallet_credit_product( $addon ) ) {
+                wp_send_json_error( array( 'msg' => '可加購的商品只能選擇簡單商品（不含可變商品與儲值金商品）。' ) );
+            }
+        }
+        if ( 'percent' === $new_rule['pdp_addon_price_type'] ? ( $value <= 0 || $value >= 100 ) : $value < 0 ) {
+            wp_send_json_error( array( 'msg' => 'percent' === $new_rule['pdp_addon_price_type']
+                ? '加購「依原價打折」的數值必須大於 0、小於 100（例如 90 代表打 9 折）。'
+                : '加購價不能小於 0。' ) );
+        }
     }
 
     // 買N送N：限制條件範圍必填（決定哪些商品的購買數量算進 N），且 M 必須小於 N。

@@ -432,6 +432,9 @@ function twshop_global_frontend_js() {
         // （#order_review ul#shipping_method 只存在於結帳頁），搬移邏輯永遠找不到東西可搬，
         // 留下的只有這個沒有內容、卻仍顯示標籤文字的空區塊。
         'isCheckout'      => ( function_exists( 'is_checkout' ) && is_checkout() ),
+        // paymentRules：有沒有折扣規則限定付款方式。有才在結帳頁綁「切換付款方式就重算」，
+        // 見 twshop-frontend.js；折扣規則模組關閉時規則本身不會生效，也就不需要綁。
+        'paymentRules'    => twshop_module_enabled( 'discount_rules' ) && twshop_any_rule_uses_payment_method(),
         // cvsMethods 只有在上面那個總開關開著時才有意義；關閉時保留回傳空陣列當第二層防線
         // （即使未來有其他程式碼忘記檢查 checkoutFieldCustomization 直接讀這個值，也不會誤判）。
         'cvsMethods'      => twshop_module_enabled( 'order_checkout_enhancements' ) ? twshop_get_cvs_method_strings() : array(),

@@ -62,7 +62,7 @@ function twshop_get_dashboard_stats() {
     // 加購品數量：折扣規則裡 type === 'addon_product' 且未停用的筆數。
     $addon_count = 0;
     foreach ( twshop_get_rules() as $r ) {
-        if ( 'addon_product' === ( $r['type'] ?? '' ) && 'no' !== ( $r['enabled'] ?? 'yes' ) ) $addon_count++;
+        if ( in_array( $r['type'] ?? '', array( 'addon_product', 'product_addon' ), true ) && 'no' !== ( $r['enabled'] ?? 'yes' ) ) $addon_count++;
     }
 
     // 會員等級分佈：count_users() 是 WP 核心函式，一次查詢回傳各角色人數，比逐一等級各自

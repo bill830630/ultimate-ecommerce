@@ -346,6 +346,16 @@
         }
     }
 
+    // 折扣規則限定付款方式時（twshopData.paymentRules），顧客切換付款方式後要重算結帳金額：
+    // WooCommerce 核心切換付款方式只會觸發 payment_method_selected 事件、不會重算
+    // （update_order_review 才會把選到的付款方式寫進 session 並重算費用），沒有這段，
+    // 折扣要等顧客改別的欄位才會跟著更新。沒有規則限定付款方式的站台完全不綁，不多打請求。
+    if (twshopData.isCheckout && twshopData.paymentRules) {
+        $(document.body).on('payment_method_selected', function () {
+            $(document.body).trigger('update_checkout');
+        });
+    }
+
     // 自訂登入／註冊按鈕文字：改由 twshop_login_register_btn_text_inline_js()（twshop.php）
     // 在 wp_footer 印一段獨立、不依賴 jQuery 的 sitewide 小段 JS 處理，這裡不再重複套用。
     // 原因見 CLAUDE.md「前端 JS」章節「登入／註冊按鈕文字為什麼用 JS 覆蓋」段落——

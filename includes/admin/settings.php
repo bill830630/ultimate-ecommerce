@@ -44,6 +44,12 @@ function twshop_sanitize_discount_rules_settings( $input ) {
         $shipping_methods = array_map( 'sanitize_text_field', is_array( $rule['shipping_methods'] ?? null ) ? $rule['shipping_methods'] : array() );
         $shipping_methods = array_values( array_filter( $shipping_methods ) );
 
+        // 付款方式限制只有購物車層的整單折扣／階梯折扣／免運有意義，其餘型別一律丟掉
+        $rule_type       = sanitize_text_field( $rule['type'] ?? '' );
+        $payment_methods = in_array( $rule_type, twshop_discount_rule_payment_types(), true )
+            ? twshop_sanitize_payment_gateway_ids( $rule['payment_methods'] ?? array() )
+            : array();
+
         $tiers = array();
         foreach ( (array) ( $rule['tiers'] ?? array() ) as $tier ) {
             if ( ! is_array( $tier ) ) continue;
@@ -67,6 +73,9 @@ function twshop_sanitize_discount_rules_settings( $input ) {
             'logic'             => sanitize_text_field( $rule['logic'] ?? '' ),
             'condition_type'    => $condition_type,
             'condition_values'  => $condition_values,
+            'payment_methods'   => $payment_methods,
+            'pdp_addon_products'   => array_values( array_unique( array_filter( array_map( 'absint', is_array( $rule['pdp_addon_products'] ?? null ) ? $rule['pdp_addon_products'] : array() ) ) ) ),
+            'pdp_addon_price_type' => ( $rule['pdp_addon_price_type'] ?? '' ) === 'percent' ? 'percent' : 'fixed',
             'min_amount'        => floatval( $rule['min_amount'] ?? 0 ),
             'min_qty'           => absint( $rule['min_qty'] ?? 0 ),
             'usage_limit'       => absint( $rule['usage_limit'] ?? 0 ),
@@ -82,6 +91,18 @@ function twshop_sanitize_discount_rules_settings( $input ) {
     }
 
     return $sanitized;
+}
+
+/**
+ * 折扣規則限定的付款方式：跟已註冊的 gateway id 取交集（不限已啟用，避免暫時停用的金流被存檔時
+ * 悄悄清掉管理員的選擇；真實不存在的 id 永遠對不上任何付款方式，丟棄才正確）。
+ * 刻意不用 sanitize_key()——它會轉小寫，大小寫混用的 gateway id 會因此對不上。
+ */
+function twshop_sanitize_payment_gateway_ids( $input ) {
+    if ( ! is_array( $input ) || ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) return array();
+    $registered = array_map( 'strval', array_keys( WC()->payment_gateways()->payment_gateways() ) );
+    $input      = array_map( 'sanitize_text_field', array_map( 'strval', $input ) );
+    return array_values( array_intersect( $input, $registered ) );
 }
 
 function twshop_register_settings() {

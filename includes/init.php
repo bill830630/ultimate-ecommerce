@@ -251,6 +251,19 @@ function twshop_membership_init() {
         add_action( 'woocommerce_before_calculate_totals', 'twshop_auto_manage_gifts_and_addons', 10, 1 );
         add_filter( 'woocommerce_add_cart_item_data', 'twshop_mark_addon_cart_item', 10, 3 );
         add_filter( 'woocommerce_cart_item_quantity', 'twshop_lock_addon_item_quantity', 10, 3 );
+        add_action( 'woocommerce_before_add_to_cart_button', 'twshop_render_pdp_addons', 15 );
+        add_action( 'woocommerce_add_to_cart', 'twshop_add_pdp_addons_to_cart', 10, 6 );
+        // 商品頁加購品跟主商品合併呈現（購物車／結帳／迷你購物車），見 twshop_hide_merged_pdp_addon_rows()
+        add_filter( 'woocommerce_cart_item_visible', 'twshop_hide_merged_pdp_addon_rows', 10, 3 );
+        add_filter( 'woocommerce_checkout_cart_item_visible', 'twshop_hide_merged_pdp_addon_rows', 10, 3 );
+        add_filter( 'woocommerce_widget_cart_item_visible', 'twshop_hide_merged_pdp_addon_rows', 10, 3 );
+        add_action( 'woocommerce_after_cart_item_name', 'twshop_cart_page_pdp_addon_lines', 10, 2 );
+        add_filter( 'woocommerce_cart_item_name', 'twshop_checkout_pdp_addon_lines', 30, 3 );
+        add_filter( 'woocommerce_widget_cart_item_quantity', 'twshop_mini_cart_pdp_addon_lines', 10, 3 );
+        add_filter( 'woocommerce_cart_item_subtotal', 'twshop_merge_pdp_addon_subtotal', 20, 3 );
+        add_action( 'woocommerce_cart_item_removed', 'twshop_remove_pdp_addons_with_parent', 10, 2 );
+        add_action( 'woocommerce_before_mini_cart', function () { twshop_in_mini_cart( true ); } );
+        add_action( 'woocommerce_after_mini_cart', function () { twshop_in_mini_cart( false ); } );
         add_action( 'woocommerce_before_cart_table', 'twshop_classic_cart_progress_top' );
         add_action( 'woocommerce_before_cart_totals', 'twshop_classic_cart_progress', 5 );
     }

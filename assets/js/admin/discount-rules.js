@@ -9,6 +9,8 @@ jQuery(document).ready(function($) {
     var $container = $('#discount-repeater-container');
     var STACKABLE_TYPES = ['percent', 'fixed_product', 'cart_percent', 'cart_discount', 'tiered_cart'];
     var PRODUCT_LEVEL_TYPES = ['percent', 'fixed_product'];
+    // 可以限定付款方式的型別（跟 PHP twshop_discount_rule_payment_types() 同一份清單）
+    var PAYMENT_TYPES = ['cart_percent', 'cart_discount', 'tiered_cart', 'free_shipping'];
 
     // 初始化（含 selectWoo／條件類型的程式觸發 change）期間不算使用者修改
     var dirtyTrackingOn = false;
@@ -77,6 +79,10 @@ jQuery(document).ready(function($) {
             renderHint($hint, { text: '整筆訂單減去這個金額', warn: false });
         } else if (type === 'addon_product') {
             renderHint($hint, { text: '符合條件時，顧客可用這個價格加購 1 件', warn: false });
+        } else if (type === 'product_addon') {
+            renderHint($hint, $card.find('.twshop-pdp-price-type').val() === 'percent'
+                ? percentHint(raw)
+                : { text: '顧客在商品頁勾選加購時，每件加購品用這個價格（不論原價多少）', warn: false });
         } else {
             renderHint($hint, null);
         }
@@ -91,12 +97,14 @@ jQuery(document).ready(function($) {
         cart_percent: '顧客實付比例 (%)',
         fixed_product: '每件折抵金額 ($)',
         cart_discount: '整筆訂單折抵金額 ($)',
-        addon_product: '加購特價金額 ($)'
+        addon_product: '加購特價金額 ($)',
+        product_addon: '加購特價金額 ($)'
     };
     var CONDITION_HINTS = {
         product: '只有符合範圍的商品會打折；有填小計滿額時，購物車小計也要達標。',
         cart: '購物車裡有符合範圍的商品（且小計達標）時，這條規則才成立。',
-        buy_x_get_y: '必填：選擇哪些商品的購買數量算進 N。'
+        buy_x_get_y: '必填：選擇哪些商品的購買數量算進 N。',
+        product_addon: '必填：選擇哪些商品的商品頁會出現加購選項（可選商品／分類／標籤／品牌）。'
     };
 
     // ── 規則分類（兩層選單：先選分類，篩出「折扣與贈品類型」的選項） ──────────
@@ -126,11 +134,21 @@ jQuery(document).ready(function($) {
 
         $valueWrap.toggle(!!VALUE_LABELS[type]);
         if (VALUE_LABELS[type]) $valueWrap.find('.rule-value-label').text(VALUE_LABELS[type]);
+        // 商品頁加購的數值欄名稱跟著「加購價算法」變
+        if (type === 'product_addon' && $card.find('.twshop-pdp-price-type').val() === 'percent') {
+            $valueWrap.find('.rule-value-label').text('加購品實付比例 (%)');
+        }
+        $card.find('.rule-pdpaddon-wrap').toggle(type === 'product_addon');
         $card.find('.rule-gift-wrap').toggle(type === 'free_gift' || type === 'addon_product');
         $card.find('.rule-freegift-wrap').toggle(type === 'free_gift');
         $card.find('.rule-shipping-methods-wrap').toggle(type === 'free_shipping');
         $card.find('.rule-bxgy-wrap').toggle(type === 'buy_x_get_y');
         $card.find('.rule-tiers-wrap').toggle(type === 'tiered_cart');
+        // 付款方式限制：不支援的型別除了隱藏，也要把勾選清掉——隱藏的 checkbox 仍會被 serialize 送出，
+        // 後端會因為「不支援的型別帶了付款方式」拒絕儲存，使用者卻看不到是哪個欄位造成的。
+        var supportsPayment = PAYMENT_TYPES.indexOf(type) !== -1;
+        $card.find('.rule-payment-wrap').toggle(supportsPayment);
+        if (!supportsPayment) $card.find('input[name="payment_methods[]"]').prop('checked', false);
         $card.find('.rule-stack-wrap').toggle(STACKABLE_TYPES.indexOf(type) !== -1);
         // 階梯式折扣的門檻寫在每一階裡，商品適用範圍/小計滿額對它沒有意義；但「套用對象」
         // （會員等級）任何類型都要能設定，所以只隱藏範圍相關欄位（.rule-scope-toggle），
@@ -140,9 +158,12 @@ jQuery(document).ready(function($) {
         // 重新顯示時，商品/分類/標籤三選一的欄位要交回「適用範圍」下拉選單目前的值決定
         // 顯示哪一個——上面那行 .toggle() 對所有 .condition-values-wrap 一視同仁地顯示，
         // 還原不出「同時只顯示一種」的規則，靠這行 change 事件重新收斂回正確狀態。
+        // 商品頁加購只用「適用範圍」決定在哪些商品頁出現，小計／件數門檻沒有意義：隱藏並清空
+        // （隱藏欄位仍會被送出，不清空的話舊值會悄悄留著；後端也會強制歸零）
+        if (type === 'product_addon') $card.find('.rule-min-amount-wrap, .rule-min-qty-wrap').hide().find('input').val('');
         if (showScope) $card.find('.twshop-condition-type').trigger('change');
 
-        var hintKey = type === 'buy_x_get_y' ? 'buy_x_get_y' : (PRODUCT_LEVEL_TYPES.indexOf(type) !== -1 ? 'product' : 'cart');
+        var hintKey = type === 'buy_x_get_y' ? 'buy_x_get_y' : type === 'product_addon' ? 'product_addon' : (PRODUCT_LEVEL_TYPES.indexOf(type) !== -1 ? 'product' : 'cart');
         $card.find('.rule-condition-hint').text(CONDITION_HINTS[hintKey]);
 
         updateValueHint($card);
@@ -192,6 +213,10 @@ jQuery(document).ready(function($) {
         if (scopeType === 'tag') scope = joinNames(selectedTexts($card.find('select[name="condition_values_tag[]"]')));
         if (scopeType === 'brand') scope = joinNames(selectedTexts($card.find('select[name="condition_values_brand[]"]')));
         var gift = selectedTexts($card.find('select[name="gift_product_id"]'))[0] || '';
+        var payNames = $card.find('input[name="payment_methods[]"]:checked').map(function() {
+            return $.trim($(this).parent().text());
+        }).get().filter(Boolean);
+        var pay = PAYMENT_TYPES.indexOf(type) !== -1 ? joinNames(payNames) : '';
         var $role = $card.find('select[name="role"]');
         var role = $role.val() !== 'all' ? $.trim($role.find('option:selected').text()) : '';
         var zhe = zheText(value);
@@ -205,6 +230,11 @@ jQuery(document).ready(function($) {
             case 'cart_discount': core = '全單折' + (amount ? amount + '元' : '抵'); break;
             case 'free_shipping': core = '免運'; break;
             case 'free_gift':     core = gift ? '送「' + gift + '」' : '贈品'; break;
+            case 'product_addon':
+                var pdpNames = joinNames(selectedTexts($card.find('select[name="pdp_addon_products[]"]')));
+                var pdpPrice = $card.find('.twshop-pdp-price-type').val() === 'percent' ? (zhe ? zhe + '折' : '') : (amount ? amount + '元' : '');
+                core = (scope ? scope + ' ' : '') + '商品頁加購' + (pdpNames ? '「' + pdpNames + '」' : '') + pdpPrice;
+                break;
             case 'addon_product': core = gift ? '加購「' + gift + '」' + (amount ? amount + '元' : '') : '加購優惠'; break;
             case 'buy_x_get_y':
                 var n = $card.find('input[name="buy_qty"]').val(), m = $card.find('input[name="free_qty"]').val();
@@ -222,6 +252,7 @@ jQuery(document).ready(function($) {
         if (role) parts.push('【' + role + '】');
         // 購物車層規則的範圍語意是「購物車含有」（商品層與買N送N 已經寫在 core 裡）
         if (scope && ['cart_percent', 'cart_discount', 'free_shipping', 'free_gift', 'addon_product'].indexOf(type) !== -1) parts.push('含' + scope);
+        if (pay) parts.push('用' + pay);
         if (min > 0 && type !== 'tiered_cart') parts.push('滿' + fmtNum(min));
         if (minQty > 0 && type !== 'tiered_cart') parts.push('滿' + minQty + '件');
         parts.push(core);
@@ -274,7 +305,7 @@ jQuery(document).ready(function($) {
     }
 
     $container.on('change', '.twshop-rule-type-group', function() { filterTypeOptions($(this).closest('.twshop-rule-form')); });
-    $container.on('change', '.twshop-rule-type', function() { applyTypeLayout($(this).closest('.twshop-rule-form')); });
+    $container.on('change', '.twshop-rule-type, .twshop-pdp-price-type', function() { applyTypeLayout($(this).closest('.twshop-rule-form')); });
     $container.on('input change', '.twshop-rule-value', function() { updateValueHint($(this).closest('.twshop-rule-form')); });
     $container.on('input change', '.twshop-rule-min-amount, .twshop-rule-min-qty', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });
     $container.on('change', '.twshop-condition-type', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });

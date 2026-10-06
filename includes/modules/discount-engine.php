@@ -12,6 +12,47 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // =========================================================================
 
 /**
+ * 規則限定的付款方式（gateway id 陣列），沒有限定回傳空陣列。
+ * 只有購物車層的整單折扣／階梯折扣／免運會用到（見 twshop_discount_rule_payment_types()）。
+ */
+function twshop_get_rule_payment_methods( $rule ) {
+    $methods = is_array( $rule['payment_methods'] ?? null ) ? $rule['payment_methods'] : array();
+    return array_values( array_filter( array_map( 'strval', $methods ) ) );
+}
+
+/**
+ * 可以限定付款方式的規則型別：只有走 add_fee／運費 filter 的購物車層型別。
+ * 商品層的價格折扣（percent／fixed_product）不行——商品價格有 WooCommerce 價格快取，
+ * 顧客在結帳頁切換付款方式時整頁價格會跟著跳動；贈品／加購／買N送N 也不開放。
+ */
+function twshop_discount_rule_payment_types() {
+    return array( 'cart_percent', 'cart_discount', 'tiered_cart', 'free_shipping' );
+}
+
+/**
+ * 顧客目前選的付款方式 gateway id。結帳 AJAX（update_order_review）與送出結帳（process_checkout）
+ * 在重算購物車之前都會先把選到的付款方式寫進 session，所以只讀 session 即可；
+ * 購物車頁或還沒選過時是空字串，帶付款方式限制的規則在這種情況下一律不成立。
+ */
+function twshop_get_chosen_payment_method() {
+    if ( ! function_exists( 'WC' ) || ! WC()->session ) return '';
+    return (string) WC()->session->get( 'chosen_payment_method', '' );
+}
+
+/**
+ * 目前有沒有任何一條啟用中的規則限定了付款方式（per-request 快取在 twshop_get_rules() 上層；
+ * 規則異動後 twshop_get_rules(true) 刷新時這裡要一併重算，所以不另外 static）。
+ * 用來決定要不要把付款方式納入運費快取 hash、前台要不要在切換付款方式時重算結帳。
+ */
+function twshop_any_rule_uses_payment_method() {
+    foreach ( twshop_get_rules() as $rule ) {
+        if ( ( $rule['enabled'] ?? 'yes' ) === 'no' ) continue;
+        if ( twshop_get_rule_payment_methods( $rule ) ) return true;
+    }
+    return false;
+}
+
+/**
  * 全外掛呼叫頻率最高的函式（price / is_on_sale / fees / shipping / progress 全部經過）。
  * 加 per-request static cache 包一層外殼，實際判斷邏輯在 twshop_is_discount_rule_valid_compute()。
  *
@@ -35,6 +76,10 @@ function twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total = 0, $pr
     if ( intval( $rule['min_qty'] ?? 0 ) > 0 ) {
         list( $q_type, $q_values ) = twshop_get_rule_condition( $rule );
         $cache_key .= '|q' . twshop_count_cart_qty_in_scope( $q_type, $q_values );
+    }
+    // 限定付款方式的規則，結果取決於顧客目前選的付款方式，同一請求內可能先後不同
+    if ( twshop_get_rule_payment_methods( $rule ) ) {
+        $cache_key .= '|pm' . twshop_get_chosen_payment_method();
     }
     if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
 
@@ -131,7 +176,8 @@ function twshop_is_twshop_special_cart_item( $cart_item ) {
     return isset( $cart_item['twshop_gift_rule_id'] )
         || isset( $cart_item['twshop_bxgy_rule_id'] )
         || isset( $cart_item['twshop_points_redeem_product_id'] )
-        || isset( $cart_item['twshop_addon_rule_id'] );
+        || isset( $cart_item['twshop_addon_rule_id'] )
+        || isset( $cart_item['twshop_pdp_rule_id'] );
 }
 
 function twshop_cart_condition_fingerprint() {
@@ -171,7 +217,15 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
     if ( !empty($rule['end_time']) && $now > strtotime($rule['end_time']) ) return false;
     $role = $rule['role'] ?? 'all'; // 早期規則沒有 role 欄位，原本會噴警告且規則永遠不生效
     if ( $role !== 'all' && ! in_array( $role, $user_roles, true ) ) return false;
-    
+
+    // 付款方式限制：獨立於其他範圍條件、一律是「且」的閘門，不受 logic 的 or 影響。
+    // 商品層（$product_id > 0）不支援，直接視為不成立（存檔時已擋，這裡是對舊資料／偽造資料的防線）。
+    $payment_methods = twshop_get_rule_payment_methods( $rule );
+    if ( $payment_methods ) {
+        if ( $product_id > 0 ) return false;
+        if ( ! in_array( twshop_get_chosen_payment_method(), $payment_methods, true ) ) return false;
+    }
+
     // 已移除的「優惠卡券」規則一律不生效（twshop_migrate_removed_rule_coupons() 會把它們停用；這裡是保險）
     if ( 'yes' === ( $rule['is_coupon'] ?? 'no' ) ) return false;
 
@@ -277,10 +331,237 @@ function twshop_mark_addon_cart_item( $cart_item_data, $product_id, $variation_i
 // 加購品與自動贈品的數量欄位改成純文字（v25.8.113 起含贈品）；伺服器端由
 // twshop_auto_manage_gifts_and_addons() 夾回 1 件，這裡只是讓畫面上不能改。
 function twshop_lock_addon_item_quantity( $product_quantity, $cart_item_key, $cart_item ) {
-    if ( isset( $cart_item['twshop_addon_rule_id'] ) || isset( $cart_item['twshop_gift_rule_id'] ) ) {
+    // 商品頁加購品數量由主商品決定（twshop_pdp_addon_target_qty()），顧客不能單獨調整。
+    if ( isset( $cart_item['twshop_addon_rule_id'] ) || isset( $cart_item['twshop_gift_rule_id'] ) || isset( $cart_item['twshop_pdp_rule_id'] ) ) {
         return '<span class="twshop-addon-qty">' . esc_html( $cart_item['quantity'] ) . '</span>';
     }
     return $product_quantity;
+}
+
+/**
+ * 商品頁加購（product_addon）的加購價：固定金額，或「實付比例」（value=90 → 付 90%，同打N折慣例）。
+ * $base 一律用商品的原始儲存價（get_price('edit')），不受其他折扣規則影響。
+ */
+function twshop_pdp_addon_price( $rule, $base ) {
+    $value = floatval( $rule['value'] ?? 0 );
+    if ( 'percent' === ( $rule['pdp_addon_price_type'] ?? 'fixed' ) ) return max( 0.0, round( (float) $base * $value / 100, wc_get_price_decimals() ) );
+    return max( 0.0, $value );
+}
+
+/**
+ * 這個商品頁（父商品）目前該顯示哪些商品頁加購規則：[ [ 'rule' => 規則, 'products' => [ WC_Product, ... ] ], ... ]。
+ * 渲染與加入購物車驗證共用同一份判斷。加購品限簡單商品、非儲值金商品、可購買且有庫存。
+ */
+function twshop_get_pdp_addon_offers( $parent_product_id ) {
+    $offers = array();
+    $user_roles = twshop_current_user_roles();
+    foreach ( twshop_get_rules() as $rule ) {
+        if ( 'product_addon' !== ( $rule['type'] ?? '' ) || empty( $rule['pdp_addon_products'] ) ) continue;
+        if ( ! twshop_is_discount_rule_valid( $rule, $user_roles, 0, (int) $parent_product_id ) ) continue;
+        $products = array();
+        foreach ( (array) $rule['pdp_addon_products'] as $addon_id ) {
+            $addon = wc_get_product( (int) $addon_id );
+            if ( ! $addon || 'publish' !== $addon->get_status() || ! $addon->is_type( 'simple' ) ) continue;
+            if ( twshop_is_wallet_credit_product( $addon ) || ! $addon->is_purchasable() || ! $addon->is_in_stock() ) continue;
+            $products[] = $addon;
+        }
+        if ( $products ) $offers[] = array( 'rule' => $rule, 'products' => $products );
+    }
+    return $offers;
+}
+
+/**
+ * 商品頁加購區塊：輸出在加入購物車按鈕前（在 <form> 內，勾選值才會跟主商品一起送出）。
+ * 版面跟購物車的加購區塊完全相同——共用 twshop_render_product_cards()（真正的 WooCommerce 商品卡片、
+ * 同樣的外框/標題 class），只是沒有按鈕：整張卡片點選（pdp-addons.js），畫面上不顯示的 checkbox 才是送出的欄位，也不是
+ * ajax_add_to_cart（那會把加購品單獨加進購物車，不跟主商品綁定）；勾選值隨主商品表單一起送出。
+ */
+function twshop_render_pdp_addons() {
+    global $product;
+    if ( ! $product instanceof WC_Product || ! twshop_module_enabled( 'discount_rules' ) ) return;
+    if ( twshop_is_wallet_credit_product( $product ) ) return;
+    $offers = twshop_get_pdp_addon_offers( $product->get_id() );
+    if ( ! $offers ) return;
+
+    // 同一個加購品被多條規則列出時，取排序最前面那條（跟購物車加購區塊一致）
+    $choices = array();
+    foreach ( $offers as $offer ) {
+        foreach ( $offer['products'] as $addon ) {
+            if ( isset( $choices[ $addon->get_id() ] ) ) continue;
+            $choices[ $addon->get_id() ] = array(
+                'rule_id' => $offer['rule']['rule_id'],
+                'price'   => twshop_pdp_addon_price( $offer['rule'], (float) $addon->get_price( 'edit' ) ),
+            );
+        }
+    }
+
+    wp_enqueue_style( 'twshop-frontend', TWSHOP_PLUGIN_URL . 'assets/css/twshop-frontend.css', array(), twshop_asset_version( 'assets/css/twshop-frontend.css' ) );
+    twshop_enqueue_asset_script( 'frontend/pdp-addons' ); // 整張卡片點選切換勾選
+    $parent_product = $product; // 商品卡片迴圈會改掉 global $product，結束後要還原給後面的加入購物車按鈕用
+    $btn_add_text = twshop_option( 'wc_addon_btn_add_text' );
+    twshop_render_product_cards(
+        array_keys( $choices ),
+        'twshop-cart-addons twshop-pdp-addons',
+        '<h3 class="twshop-cart-addons-title">' . esc_html( twshop_option( 'wc_addon_section_title' ) ) . '</h3><p class="twshop-pdp-addons-hint">點選商品即可加購，數量同主商品，再點一次取消</p>',
+        function ( $prod ) use ( $choices ) {
+            $regular = wc_get_price_to_display( $prod, array( 'price' => $prod->get_regular_price() ) );
+            $special = wc_get_price_to_display( $prod, array( 'price' => $choices[ $prod->get_id() ]['price'] ) );
+            return wc_format_sale_price( $regular, $special );
+        },
+        function ( $prod ) use ( $choices, $btn_add_text ) {
+            // 畫面上不顯示按鈕／勾選框（整張卡片點選，見 pdp-addons.js）；checkbox 仍是真正送出的欄位，
+            // 用 screen-reader-text 提供名稱，鍵盤與螢幕閱讀器可操作。
+            return sprintf(
+                '<label class="twshop-pdp-addon-check"><input type="checkbox" name="twshop_pdp_addon[]" value="%s" /><span>%s：%s</span></label>',
+                esc_attr( $choices[ $prod->get_id() ]['rule_id'] . ':' . $prod->get_id() ),
+                esc_html( $btn_add_text ),
+                esc_html( $prod->get_name() )
+            );
+        }
+    );
+    $product = $parent_product;
+}
+
+/**
+ * 主商品加入購物車成功後，把商品頁勾選的加購品一起加進來（woocommerce_add_to_cart）。
+ * 每個加購品都重新驗證（規則存在且對這個主商品成立、商品確實在規則清單內），不信任表單送來的值；
+ * 加購行帶 twshop_pdp_rule_id＋twshop_pdp_parent（主商品的購物車 key），數量預設 1 件、上限為主商品數量（顧客可在購物車調整），主商品移除時一併移除。
+ */
+function twshop_add_pdp_addons_to_cart( $cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data ) {
+    static $adding = false;
+    if ( $adding || empty( $_REQUEST['twshop_pdp_addon'] ) || ! is_array( $_REQUEST['twshop_pdp_addon'] ) ) return;
+    if ( isset( $cart_item_data['twshop_pdp_rule_id'] ) || ! WC()->cart ) return;
+
+    $offers = twshop_get_pdp_addon_offers( (int) $product_id );
+    if ( ! $offers ) return;
+    $adding = true;
+    try {
+        foreach ( wp_unslash( $_REQUEST['twshop_pdp_addon'] ) as $choice ) {
+            if ( ! is_string( $choice ) || false === strpos( $choice, ':' ) ) continue;
+            list( $rule_id, $addon_id ) = explode( ':', $choice, 2 );
+            $addon_id = absint( $addon_id );
+            foreach ( $offers as $offer ) {
+                if ( $offer['rule']['rule_id'] !== sanitize_text_field( $rule_id ) ) continue;
+                foreach ( $offer['products'] as $addon ) {
+                    if ( $addon->get_id() !== $addon_id ) continue;
+                    // 數量跟著主商品（主商品那一行目前的總數量），再受加購品自己的可購買上限限制（庫存、「限購一件」）。
+                    // 先加 1 件建立（或合併到既有的）加購行，再明確設成目標數量：直接 add_to_cart() 帶大數量遇到庫存不足會整個失敗，
+                    // 而且主商品再次加入時既有加購行會被疊加成兩倍。之後主商品數量變動由 twshop_auto_manage_gifts_and_addons() 持續同步。
+                    $parent_line = WC()->cart->get_cart_item( $cart_item_key );
+                    $addon_key   = WC()->cart->add_to_cart( $addon_id, 1, 0, array(), array(
+                        'twshop_pdp_rule_id' => $offer['rule']['rule_id'],
+                        'twshop_pdp_parent'  => $cart_item_key,
+                    ) );
+                    if ( $addon_key ) WC()->cart->set_quantity( $addon_key, twshop_pdp_addon_target_qty( (int) ( $parent_line['quantity'] ?? $quantity ), $addon ), false );
+                }
+            }
+        }
+    } finally {
+        $adding = false;
+    }
+}
+
+/**
+ * 商品頁加購品的目標數量＝主商品那一行的數量，再受加購品自己的可購買上限限制
+ * （庫存、「限購一件」；get_max_purchase_quantity() 回傳 -1 代表不限）。
+ */
+function twshop_pdp_addon_target_qty( $parent_qty, $addon_product ) {
+    $qty = max( 1, (int) $parent_qty );
+    $max = $addon_product->get_max_purchase_quantity();
+    return $max > 0 ? min( $qty, $max ) : $qty;
+}
+
+/**
+ * 商品頁加購品在購物車／結帳／迷你購物車跟主商品「合併呈現」（像組合商品）：
+ * 加購品那一行不單獨顯示，改成列在主商品那一列的底下，主商品小計＝兩者合計，只有主商品一個移除鈕。
+ * 加購品行仍是購物車裡真正的一行（價格、數量、庫存、訂單項目都不變），只是畫面上被合併。
+ * 找不到主商品的孤兒加購行維持單獨顯示，避免顧客看不到自己買的東西。
+ */
+function twshop_pdp_addon_children( $parent_key ) {
+    $children = array();
+    if ( ! WC()->cart ) return $children;
+    foreach ( WC()->cart->get_cart() as $key => $item ) {
+        if ( isset( $item['twshop_pdp_rule_id'] ) && ( $item['twshop_pdp_parent'] ?? '' ) === $parent_key ) $children[ $key ] = $item;
+    }
+    return $children;
+}
+
+/**
+ * 購物車一行的顯示金額（依「商品價格顯示含稅/未稅」設定）。用已經計算好的 line_subtotal，不讀商品物件的
+ * get_price()：迷你購物車與結帳 AJAX 這類請求是從 session 載入購物車、沒有重跑
+ * woocommerce_before_calculate_totals，加購價（那個 hook 裡才設的）不在商品物件上，讀 get_price() 會顯示
+ * 加購品的原價，跟購物車頁對不起來。
+ */
+function twshop_cart_line_display_amount( $cart_item ) {
+    $amount = (float) ( $cart_item['line_subtotal'] ?? 0 );
+    if ( WC()->cart && WC()->cart->display_prices_including_tax() ) $amount += (float) ( $cart_item['line_subtotal_tax'] ?? 0 );
+    return $amount;
+}
+
+function twshop_hide_merged_pdp_addon_rows( $visible, $cart_item, $cart_item_key ) {
+    if ( isset( $cart_item['twshop_pdp_rule_id'] ) && WC()->cart && WC()->cart->get_cart_item( $cart_item['twshop_pdp_parent'] ?? '' ) ) return false;
+    return $visible;
+}
+
+/**
+ * 主商品被移除（購物車移除連結、AJAX）時，合併顯示的加購品也要立刻一起移除，不要等下一次重算才清掉——
+ * 否則同一個請求內加購品那一行會因為找不到主商品而變成「孤兒」單獨冒出來。
+ */
+function twshop_remove_pdp_addons_with_parent( $cart_item_key, $cart ) {
+    foreach ( array_keys( twshop_pdp_addon_children( $cart_item_key ) ) as $child_key ) {
+        $cart->remove_cart_item( $child_key );
+    }
+}
+
+/** 主商品底下的加購品清單 HTML（名稱、單價、數量；數量跟著主商品，唯讀）。 */
+function twshop_pdp_addon_lines_html( $children ) {
+    $html = '<div class="twshop-pdp-addon-lines">';
+    foreach ( $children as $key => $item ) {
+        $html .= '<div class="twshop-pdp-addon-line"><span class="twshop-pdp-addon-line-name">＋ ' . esc_html( $item['data']->get_name() ) . '</span> '
+            . '<span class="twshop-pdp-addon-line-price">' . wc_price( twshop_cart_line_display_amount( $item ) / max( 1, (int) $item['quantity'] ) ) . '</span> '
+            . '<span class="twshop-pdp-addon-line-qty">&times; ' . esc_html( $item['quantity'] ) . '</span></div>';
+    }
+    return $html . '</div>';
+}
+
+/** 迷你購物車渲染中旗標：名稱 filter 在那裡的輸出會被包進連結，改由數量那一格附加清單 */
+function twshop_in_mini_cart( $set = null ) {
+    static $in = false;
+    if ( null !== $set ) $in = (bool) $set;
+    return $in;
+}
+
+/** 購物車頁：主商品名稱底下（woocommerce_after_cart_item_name） */
+function twshop_cart_page_pdp_addon_lines( $cart_item, $cart_item_key ) {
+    if ( isset( $cart_item['twshop_pdp_rule_id'] ) ) return;
+    $children = twshop_pdp_addon_children( $cart_item_key );
+    if ( $children ) echo twshop_pdp_addon_lines_html( $children ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+}
+
+/** 結帳頁訂單明細：附加在名稱後面（純文字，這裡的輸出會經 wp_kses_post） */
+function twshop_checkout_pdp_addon_lines( $name, $cart_item, $cart_item_key ) {
+    if ( isset( $cart_item['twshop_pdp_rule_id'] ) || twshop_in_mini_cart() || is_cart() ) return $name;
+    $children = twshop_pdp_addon_children( $cart_item_key );
+    return $children ? $name . twshop_pdp_addon_lines_html( $children ) : $name;
+}
+
+/** 迷你購物車：附加在「數量 × 單價」後面 */
+function twshop_mini_cart_pdp_addon_lines( $html, $cart_item, $cart_item_key ) {
+    if ( isset( $cart_item['twshop_pdp_rule_id'] ) ) return $html;
+    $children = twshop_pdp_addon_children( $cart_item_key );
+    return $children ? $html . twshop_pdp_addon_lines_html( $children ) : $html;
+}
+
+/** 主商品那一列的小計＝主商品＋所有加購品 */
+function twshop_merge_pdp_addon_subtotal( $subtotal, $cart_item, $cart_item_key ) {
+    if ( isset( $cart_item['twshop_pdp_rule_id'] ) ) return $subtotal;
+    $children = twshop_pdp_addon_children( $cart_item_key );
+    if ( ! $children ) return $subtotal;
+    $total = twshop_cart_line_display_amount( $cart_item );
+    foreach ( $children as $child ) {
+        $total += twshop_cart_line_display_amount( $child );
+    }
+    return wc_price( $total );
 }
 
 function twshop_bxgy_index_key( $cart_item ) {
@@ -312,6 +593,14 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
     $valid_gift_rule_ids = wp_list_pluck( $rules, 'rule_id' );
     foreach ( $cart_obj->get_cart() as $cart_item_key => $cart_item ) {
         if ( isset( $cart_item['twshop_gift_rule_id'] ) && ! in_array( $cart_item['twshop_gift_rule_id'], $valid_gift_rule_ids, true ) ) {
+            $gifts_to_remove[] = $cart_item_key;
+        }
+    }
+
+    // 商品頁加購品跟著主商品走：主商品已不在購物車（被移除）就一併移除。規則失效/刪除時不移除，
+    // 以正價留在購物車（顧客自己勾選要買的，不該因為規則過期就憑空消失）。
+    foreach ( $cart_obj->get_cart() as $cart_item_key => $cart_item ) {
+        if ( isset( $cart_item['twshop_pdp_rule_id'] ) && ! $cart_obj->get_cart_item( $cart_item['twshop_pdp_parent'] ?? '' ) ) {
             $gifts_to_remove[] = $cart_item_key;
         }
     }
@@ -446,6 +735,28 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
                 $cart_obj->set_quantity( $cart_item_key, 1, false );
             }
             $cart_item['data']->set_price(0);
+            continue;
+        }
+
+        // 商品頁加購：只有帶標記、主商品仍在購物車、規則對那個主商品仍成立時才給加購價，數量鎖 1。
+        // 價格只設一次（twshop_fixed_price_products() 標記）：比例型是拿目前價格去乘，同一請求內
+        // 重複計算會一路連乘。
+        if ( isset( $cart_item['twshop_pdp_rule_id'] ) ) {
+            $parent    = $cart_obj->get_cart_item( $cart_item['twshop_pdp_parent'] ?? '' );
+            $pdp_rule  = null;
+            foreach ( $rules as $rule ) {
+                if ( $rule['rule_id'] === $cart_item['twshop_pdp_rule_id'] && 'product_addon' === $rule['type'] ) { $pdp_rule = $rule; break; }
+            }
+            if ( $parent && $pdp_rule && in_array( (int) $cart_item['product_id'], array_map( 'intval', (array) ( $pdp_rule['pdp_addon_products'] ?? array() ) ), true )
+                && twshop_is_discount_rule_valid( $pdp_rule, $user_roles, 0, (int) $parent['product_id'] ) ) {
+                // 加購品數量永遠跟著主商品（增減都同步），再受加購品自己的可購買上限限制
+                $pdp_qty = twshop_pdp_addon_target_qty( (int) $parent['quantity'], $cart_item['data'] );
+                if ( (int) $cart_item['quantity'] !== $pdp_qty ) $cart_obj->set_quantity( $cart_item_key, $pdp_qty, false );
+                if ( ! isset( twshop_fixed_price_products()[ $cart_item['data'] ] ) ) {
+                    $cart_item['data']->set_price( twshop_pdp_addon_price( $pdp_rule, (float) $cart_item['data']->get_price( 'edit' ) ) );
+                    twshop_fixed_price_products()[ $cart_item['data'] ] = true;
+                }
+            }
             continue;
         }
 
@@ -896,6 +1207,8 @@ function twshop_get_active_free_shipping_rule() {
  */
 function twshop_add_rules_context_to_shipping_packages( $packages ) {
     $ctx = md5( wp_json_encode( twshop_get_rules() ) ) . '|' . current_time( 'Y-m-d H' );
+    // 有規則限定付款方式時（免運可以限定），顧客切換付款方式後運費要重算
+    if ( twshop_any_rule_uses_payment_method() ) $ctx .= '|pm:' . twshop_get_chosen_payment_method();
     foreach ( $packages as $i => $package ) {
         $packages[ $i ]['twshop_rules_ctx'] = $ctx;
     }
@@ -932,6 +1245,7 @@ function twshop_collect_applied_rule_ids( $cart ) {
         if ( isset( $cart_item['twshop_gift_rule_id'] ) )  { $ids[] = $cart_item['twshop_gift_rule_id']; continue; }
         if ( isset( $cart_item['twshop_bxgy_rule_id'] ) )  { $ids[] = $cart_item['twshop_bxgy_rule_id']; continue; }
         if ( isset( $cart_item['twshop_addon_rule_id'] ) ) { $ids[] = $cart_item['twshop_addon_rule_id']; continue; }
+        if ( isset( $cart_item['twshop_pdp_rule_id'] ) )   { $ids[] = $cart_item['twshop_pdp_rule_id']; continue; }
         if ( isset( $cart_item['twshop_points_redeem_product_id'] ) ) continue;
         $product = $cart_item['data'];
         $base    = $product->get_price( 'edit' );

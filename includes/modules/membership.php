@@ -978,7 +978,7 @@ function twshop_format_rule_discount( $type, $value, $rule = null ) {
         'fixed_product', 'cart_discount' => sprintf( '折抵 %s', wc_price( abs( $value ) ) ),
         'free_shipping'               => '免運費',
         'free_gift'                   => '贈品',
-        'addon_product'               => '加購優惠',
+        'addon_product', 'product_addon' => '加購優惠',
         'buy_x_get_y'                 => $rule
             ? sprintf( '買%d送%d', max( 1, (int) ( $rule['buy_qty'] ?? 0 ) ), max( 1, (int) ( $rule['free_qty'] ?? 0 ) ) )
             : '買N送N優惠',

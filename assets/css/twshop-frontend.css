@@ -879,3 +879,93 @@ table.twshop-tier-table tr > *:last-child  { padding-inline-end:   12px; }
     vertical-align: middle;
     white-space: nowrap;
 }
+
+/* 商品頁加購（折扣規則 product_addon）：商品卡片本身完全是主題的商品卡片（跟商店列表同一個模板、
+   同樣的 ul.products／li.product 結構，不改卡片的內距、邊框、字級），這裡只做「增減」：
+   - 減：商品頁沒有按鈕（整張卡片點選，pdp-addons.js）；
+   - 增：已選取的卡片畫在卡片外圍的主題色外框＋淡色光暈＋勾勾徽章（outline／box-shadow 都在卡片
+     外面，不改變卡片本身的尺寸與內容位置）；
+   - 調：商品頁右側欄比商店列表窄，格線固定兩欄（主題預設四欄在這裡會縮到太小）。
+   外框與標題沿用購物車加購區塊的 .twshop-cart-addons（PHP 端同時帶這兩個 class）。 */
+.twshop-pdp-addons {
+    margin-top: 0;
+}
+.twshop-pdp-addons ul.products {
+    --shop-columns: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* 卡片裡標題、價格…下方的外距：主題規則是 margin-bottom: var(--product-element-spacing, 10px)，自訂器對每個
+       圖層的設定是直接設在元素上（只有跟預設不同才輸出，加購卡片是同一組元素，所以會跟著改）；但商品頁的
+       .entry-summary 把這個變數設成 35px，加購區塊在 summary 裡會繼承到，所以在這裡還原成「未設定」，
+       讓沒被自訂器個別設定的圖層回到主題預設 10px（跟商店列表一致）。
+       卡片之間的間距不在這裡寫：主題的格線是 column-gap: var(--grid-columns-gap, 30px)，自訂器的「卡片間距」
+       設在 [data-products] 上，加購卡片的 ul 同樣有這個屬性，不覆寫就會跟著商店列表的設定（含平板／手機）。 */
+    --product-element-spacing: initial;
+}
+.twshop-pdp-addons-hint {
+    margin: -12px 0 24px;
+    font-size: 13px;
+    opacity: .7;
+}
+.twshop-pdp-addons li.product {
+    cursor: pointer;
+}
+/* 已選取：外框與光暈都在卡片外圍（outline-offset / 擴散陰影），包住整張卡片 */
+.twshop-pdp-addons li.product.is-selected {
+    position: relative;
+    outline: 2px solid var(--theme-palette-color-1, #2271b1);
+    outline-offset: 8px;
+    /* 淡底：box-shadow 只畫在卡片外圍，卡片本身是透明的（露出頁面白底），內外要同色才會是一整塊 */
+    --twshop-pdp-tint: color-mix(in srgb, var(--theme-palette-color-1, #2271b1) 8%, transparent);
+    background-color: var(--twshop-pdp-tint);
+    box-shadow: 0 0 0 8px var(--twshop-pdp-tint);
+}
+.twshop-pdp-addons li.product.is-selected::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: var(--theme-palette-color-1, #2271b1);
+    /* 白色勾勾（內嵌 SVG，不依賴字型） */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+    background-size: 16px 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+/* 勾選框只留給鍵盤與螢幕閱讀器（真正送出的欄位），畫面上不顯示 */
+.twshop-pdp-addon-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+.twshop-pdp-addons li.product:has(input:focus-visible) {
+    outline-color: currentColor;
+}
+
+/* 商品頁加購品合併在主商品那一列底下（購物車／結帳／迷你購物車）。字級、顏色沿用主題（小一號、次要文字色），
+   數量跟著主商品（唯讀文字）。 */
+.twshop-pdp-addon-lines {
+    margin-top: 8px;
+    font-size: .9em;
+}
+.twshop-pdp-addon-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 4px 0;
+}
+.twshop-pdp-addon-line-name { font-weight: 600; }
+/* 購物車頁：加購品清單排在這一格最後面（主題輸出順序是 名稱 → 規格資料 → 單價，
+   加購清單掛在名稱後面，會夾在名稱與規格之間）。用 flex 欄位的 order 調到最後。 */
+.woocommerce-cart-form td.product-name:has(.twshop-pdp-addon-lines) {
+    display: flex;
+    flex-direction: column;
+}
+.woocommerce-cart-form td.product-name .twshop-pdp-addon-lines { order: 10; }

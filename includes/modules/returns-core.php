@@ -604,22 +604,10 @@ function twshop_returns_do_cancel( $id, array $opts = array() ) {
         return new WP_Error( 'order_status', '這張訂單已經不是「處理中」（可能已出貨或已處理），無法取消。請拒絕這筆申請，並請顧客在收到商品後改申請退換貨。' );
     }
 
-    // 先處理綠界物流單：7-ELEVEN C2C 自動取消（取消不了通常代表貨已經寄出，不該先退款）；其他物流單提醒手動處理
-    $ship_note = '';
-    $shipment  = twshop_returns_ecpay_shipment_info( $order );
-    if ( 'supported' === $shipment['state'] ) {
-        if ( ! empty( $opts['skip_shipment'] ) ) {
-            $ship_note = '已略過自動取消物流單（管理員表示已在綠界後台處理）。';
-        } else {
-            $cancelled = twshop_returns_ecpay_cancel_shipment( $order, $shipment );
-            if ( 'ok' !== $cancelled['status'] ) {
-                return new WP_Error( 'shipment', sprintf( '綠界物流單取消失敗（%s），沒有核准這筆申請。請先到綠界後台確認物流單狀態；若已在後台處理好，勾選「我已在綠界後台處理物流單」後再核准。', $cancelled['message'] ) );
-            }
-            $ship_note = $cancelled['message'];
-        }
-    } elseif ( 'unsupported' === $shipment['state'] ) {
-        $ship_note = sprintf( '⚠️ 這張訂單有綠界物流單（%s，無法自動取消），請到綠界後台取消物流單。', $shipment['reason'] );
-    }
+    // 綠界物流單一律由管理員到綠界後台取消（各家超商、宅配的取消方式不同，不做自動取消，也不讓不同物流行為不一致）
+    $ship_note = '' !== (string) $order->get_meta( '_wooecpay_logistic_AllPayLogisticsID' )
+        ? '⚠️ 這張訂單已建立綠界物流單，請到綠界後台取消物流單。'
+        : '';
 
     $dec       = wc_get_price_decimals();
     $remaining = round( (float) $order->get_remaining_refund_amount(), $dec );

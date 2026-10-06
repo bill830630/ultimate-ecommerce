@@ -67,14 +67,9 @@ function twshop_returns_render_request_panel( array $row, $order ) {
 function twshop_returns_render_actions( array $row, $order ) {
     $status = $row['status'];
     if ( 'pending' === $status && 'cancel' === $row['type'] ) :
-        $shipment = function_exists( 'twshop_returns_ecpay_shipment_info' ) ? twshop_returns_ecpay_shipment_info( $order ) : array( 'state' => 'none' ); ?>
+        $has_shipment = $order instanceof WC_Order && '' !== (string) $order->get_meta( '_wooecpay_logistic_AllPayLogisticsID' ); ?>
         <p><strong>顧客申請取消整張訂單（尚未出貨）。</strong>核准後會自動取消訂單並全額退款，綠界信用卡訂單會同時向綠界退刷。</p>
-        <?php if ( 'supported' === $shipment['state'] ) : ?>
-            <p><strong>這張訂單已建立綠界 7-ELEVEN 物流單</strong>（<?php echo esc_html( $shipment['logistics_id'] ); ?>），核准時會先自動取消物流單；取消失敗就不會核准。</p>
-            <p><label><input type="checkbox" class="twshop-sw" data-field="skip_shipment" value="1"> 我已在綠界後台處理物流單（略過自動取消）</label></p>
-        <?php elseif ( 'unsupported' === $shipment['state'] ) : ?>
-            <p class="twshop-text-danger"><strong>注意：</strong>這張訂單已建立綠界物流單（<?php echo esc_html( $shipment['reason'] ); ?>，無法自動取消）。核准取消後，請到綠界後台取消物流單。</p>
-        <?php endif; ?>
+        <?php if ( $has_shipment ) : ?><p class="twshop-text-danger"><strong>注意：</strong>這張訂單已建立綠界物流單。核准取消後，請到綠界後台取消物流單。</p><?php endif; ?>
         <p class="twshop-text-muted">核准時會重新確認訂單仍是「處理中」；若已經出貨，請改為拒絕。</p>
         <p><label><input type="checkbox" class="twshop-sw" data-field="restock" value="1" checked> 退回庫存</label></p>
         <p><button type="button" class="button button-primary twshop-returns-op" data-op="cancel_approve">核准取消並退款</button></p>
@@ -133,10 +128,7 @@ function twshop_returns_ajax_admin() {
             $res = twshop_returns_transition( $id, 'rejected', array( 'reject_reason' => $reason ), '已拒絕。' );
             break;
         case 'cancel_approve':
-            $res = twshop_returns_do_cancel( $id, array(
-                'restock'       => ! empty( $_POST['restock'] ) && '0' !== $_POST['restock'],
-                'skip_shipment' => ! empty( $_POST['skip_shipment'] ) && '0' !== $_POST['skip_shipment'],
-            ) );
+            $res = twshop_returns_do_cancel( $id, array( 'restock' => ! empty( $_POST['restock'] ) && '0' !== $_POST['restock'] ) );
             break;
         case 'receive':
             $res = twshop_returns_transition( $id, 'received', array(), '已收到退貨。' );

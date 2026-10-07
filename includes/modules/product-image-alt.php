@@ -13,6 +13,12 @@
 
 /** 產生單張商品圖的 alt；$kind：main／gallery／variation。 */
 function twshop_build_product_image_alt( $product, $kind, $n = 1 ) {
+    $template_options = array(
+        'main'      => 'wc_product_image_alt_main',
+        'gallery'   => 'wc_product_image_alt_gallery',
+        'variation' => 'wc_product_image_alt_variation',
+    );
+    if ( ! $product instanceof WC_Product || ! isset( $template_options[ $kind ] ) ) return '';
     $parent = $product->is_type( 'variation' ) ? wc_get_product( $product->get_parent_id() ) : $product;
     if ( ! $parent ) return '';
 
@@ -21,15 +27,10 @@ function twshop_build_product_image_alt( $product, $kind, $n = 1 ) {
         $attributes = str_replace( ', ', ' ', wc_get_formatted_variation( $product, true, false, false ) );
     }
 
-    $templates = array(
-        'main'      => twshop_option( 'wc_product_image_alt_main' ),
-        'gallery'   => twshop_option( 'wc_product_image_alt_gallery' ),
-        'variation' => twshop_option( 'wc_product_image_alt_variation' ),
-    );
     $alt = str_replace(
         array( '{name}', '{n}', '{attributes}' ),
         array( $parent->get_name(), (string) $n, $attributes ),
-        $templates[ $kind ]
+        twshop_option( $template_options[ $kind ] )
     );
     return trim( wp_strip_all_tags( preg_replace( '/\s+/', ' ', $alt ) ) );
 }

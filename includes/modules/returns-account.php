@@ -50,7 +50,7 @@ function twshop_returns_endpoint_content( $value = '' ) {
 }
 
 function twshop_returns_render_list( $user_id ) {
-    $result = twshop_returns_query( array( 'user_id' => $user_id, 'limit' => 50 ) );
+    $result = twshop_returns_query( array( 'user_id' => $user_id, 'limit' => 50, 'count_total' => false ) );
     if ( ! $result['rows'] ) {
         echo '<p>目前沒有退換貨申請。需要退換貨時，請到「訂單」找到要申請的訂單，點選「申請退換貨」。</p>';
         echo '<p><a class="button" href="' . esc_url( wc_get_endpoint_url( 'orders', '', wc_get_page_permalink( 'myaccount' ) ) ) . '">前往我的訂單</a></p>';
@@ -80,15 +80,16 @@ function twshop_returns_render_list( $user_id ) {
  * 這位會員一筆申請都沒有時不加欄位，訂單列表維持原樣。每個請求只查一次（依使用者）。
  */
 function twshop_returns_orders_rows_by_order() {
-    static $map = null;
-    if ( null === $map ) {
-        $map = array();
-        if ( is_user_logged_in() ) {
-            $result = twshop_returns_query( array( 'user_id' => get_current_user_id(), 'limit' => 200 ) );
-            foreach ( $result['rows'] as $row ) $map[ (int) $row['order_id'] ][] = $row;
-        }
+    static $maps = array();
+    $user_id = get_current_user_id();
+    if ( ! $user_id ) return array();
+    // 同一請求若切換會員身分，不可沿用上一位會員的申請資料。
+    if ( ! isset( $maps[ $user_id ] ) ) {
+        $maps[ $user_id ] = array();
+        $result = twshop_returns_query( array( 'user_id' => $user_id, 'limit' => 200, 'count_total' => false ) );
+        foreach ( $result['rows'] as $row ) $maps[ $user_id ][ (int) $row['order_id'] ][] = $row;
     }
-    return $map;
+    return $maps[ $user_id ];
 }
 
 function twshop_returns_orders_column( $columns ) {

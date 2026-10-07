@@ -175,7 +175,8 @@ function twshop_returns_for_order( $order_id ) {
 }
 
 /**
- * 查詢列表。$args：user_id、order_id、status、type、limit、offset。回傳 [ 'rows' => [], 'total' => int ]。
+ * 查詢列表。$args：user_id、order_id、status、type、limit、offset、count_total。
+ * count_total 預設 true；不需分頁總數時傳 false，省略 COUNT 查詢，total 回傳 null。
  */
 function twshop_returns_query( $args = array() ) {
     global $wpdb;
@@ -194,7 +195,10 @@ function twshop_returns_query( $args = array() ) {
 
     $count_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where_sql}";
     $list_sql  = "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d";
-    $total = (int) ( $vals ? $wpdb->get_var( $wpdb->prepare( $count_sql, $vals ) ) : $wpdb->get_var( $count_sql ) );
+    $total = null;
+    if ( $args['count_total'] ?? true ) {
+        $total = (int) ( $vals ? $wpdb->get_var( $wpdb->prepare( $count_sql, $vals ) ) : $wpdb->get_var( $count_sql ) );
+    }
     $rows  = $wpdb->get_results( $wpdb->prepare( $list_sql, array_merge( $vals, array( $limit, $offset ) ) ), ARRAY_A );
     return array( 'rows' => array_map( 'twshop_returns_decode_row', (array) $rows ), 'total' => $total );
 }

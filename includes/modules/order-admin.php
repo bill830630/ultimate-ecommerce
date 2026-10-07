@@ -228,6 +228,7 @@ function twshop_order_bulk_admin_notice() {
  * 2067=超商取件成功(B2C) 3022=超商取件成功(C2C) 3308/3309=郵局已送達 3003=黑貓宅急便配達完成
  */
 function twshop_maybe_auto_complete_order_from_logistic_note( $note_id, $order ) {
+    if ( ! twshop_order_feature_enabled( 'auto_status' ) ) return;
     if ( ! $order instanceof WC_Order ) {
         return;
     }

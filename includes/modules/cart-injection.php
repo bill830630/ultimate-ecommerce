@@ -415,7 +415,7 @@ function twshop_global_frontend_js() {
         // （見 assets/js/twshop-frontend.js「CVS Shipping」區塊）。關閉時 PHP 端對應的 5 個
         // hook（台灣地址 2 個、超商取貨 3 個）也都沒有掛載，前端這段邏輯若還是照跑，會出現
         // 「畫面上把地址欄位藏起來/搬動選單，但伺服器其實不理會這些客製化規則」的不一致狀況。
-        'checkoutFieldCustomization' => twshop_module_enabled( 'order_checkout_enhancements' ),
+        'checkoutFieldCustomization' => twshop_order_feature_enabled( 'address' ),
         // needsShipping：頁面載入當下購物車是否需要運送（WC_Cart::needs_shipping()，全部
         // 品項皆為虛擬商品——例如只買儲值金商品——時為 false）。twshopInitShippingPlaceholder()
         // 用它決定要不要插入「運送方式」placeholder 區塊：不需要運送時 WooCommerce 核心
@@ -437,11 +437,11 @@ function twshop_global_frontend_js() {
         'paymentRules'    => twshop_module_enabled( 'discount_rules' ) && twshop_any_rule_uses_payment_method(),
         // cvsMethods 只有在上面那個總開關開著時才有意義；關閉時保留回傳空陣列當第二層防線
         // （即使未來有其他程式碼忘記檢查 checkoutFieldCustomization 直接讀這個值，也不會誤判）。
-        'cvsMethods'      => twshop_module_enabled( 'order_checkout_enhancements' ) ? twshop_get_cvs_method_strings() : array(),
+        'cvsMethods'      => twshop_order_feature_enabled( 'address' ) ? twshop_get_cvs_method_strings() : array(),
         // addressLinkageMethods：勾了「台灣地址下拉選單連動」的運送方式清單，寫法跟
         // cvsMethods 對稱，供 twshop-tw-postcode.js 的 twshopToggleCityFieldType() 判斷
         // 使用者當下選的運送方式要不要把「鄉鎮市區」欄位換成下拉選單。
-        'addressLinkageMethods' => twshop_module_enabled( 'order_checkout_enhancements' ) ? twshop_get_address_linkage_method_strings() : array(),
+        'addressLinkageMethods' => twshop_order_feature_enabled( 'address' ) ? twshop_get_address_linkage_method_strings() : array(),
         'couponTitles'    => $needs_coupon_titles ? twshop_get_visual_coupon_titles_map() : array(),
         'couponNoun'      => twshop_option( 'wc_general_coupon_noun' ),
         'couponBtnRemoveText' => twshop_option( 'wc_coupon_btn_remove_text' ),
@@ -453,7 +453,7 @@ function twshop_global_frontend_js() {
     // 有載入 twshop-frontend.js（例如純粹因為購物車頁的優惠券/加購/點數區塊而載入）也不需要
     // 這份資料，額外拆成獨立檔案（而非塞進 twshop-frontend.js）就是為了讓這種情況不用多載入這份資料。
     if (
-        twshop_module_enabled( 'order_checkout_enhancements' )
+        twshop_order_feature_enabled( 'address' )
         && ( ( function_exists( 'is_checkout' ) && is_checkout() ) || ( function_exists( 'is_account_page' ) && is_account_page() ) )
     ) {
         wp_enqueue_script(

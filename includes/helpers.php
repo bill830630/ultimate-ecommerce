@@ -521,3 +521,10 @@ function twshop_get_module_definitions() {
         // （shopee-api.php）與 CLAUDE.md「蝦皮串接模組」一節。
     );
 }
+
+/** 訂單子功能沿用舊行為：未設定時開啟，仍需主模組與有效授權。 */
+function twshop_order_feature_enabled( $feature ) {
+    $features = array( 'address', 'columns', 'admin_logistics', 'customer_logistics', 'auto_status', 'returns' );
+    return in_array( $feature, $features, true ) && twshop_license_is_active() && twshop_module_enabled( 'order_checkout_enhancements' )
+        && 'yes' === get_option( 'twshop_order_' . $feature . '_enabled', 'yes' );
+}

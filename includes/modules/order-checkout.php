@@ -542,10 +542,18 @@ function twshop_fill_taiwan_postcode_on_save_address( $user_id, $address_type, $
 // =========================================================================
 
 // 在每個 WooCommerce 運送方式的設定頁加入超商勾選框
+/** 使用完整註冊清單，避免 WC 已載入某運送區域時漏掉其他方式的設定欄位。 */
+function twshop_registered_shipping_method_ids() {
+    if ( ! function_exists( 'WC' ) || ! WC()->shipping() ) return array();
+    $ids = array_keys( WC()->shipping()->get_shipping_method_class_names() );
+    foreach ( WC()->shipping()->get_shipping_methods() as $method ) $ids[] = $method->id;
+    return array_values( array_unique( array_filter( $ids, 'is_string' ) ) );
+}
+
 function twshop_register_cvs_field_for_shipping() {
     if ( ! function_exists( 'WC' ) || ! WC()->shipping() ) return;
-    foreach ( WC()->shipping()->get_shipping_methods() as $method ) {
-        add_filter( "woocommerce_shipping_instance_form_fields_{$method->id}", 'twshop_add_cvs_instance_field' );
+    foreach ( twshop_registered_shipping_method_ids() as $id ) {
+        add_filter( "woocommerce_shipping_instance_form_fields_{$id}", 'twshop_add_cvs_instance_field' );
     }
 }
 

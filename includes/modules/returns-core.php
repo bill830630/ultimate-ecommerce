@@ -268,6 +268,7 @@ function twshop_returns_order_eligibility( $order, $user_id = 0, $exclude_return
     $fail = function ( $msg ) { return array( 'ok' => false, 'message' => $msg, 'items' => array() ); };
 
     if ( ! $order instanceof WC_Order ) return $fail( '找不到這張訂單。' );
+    if ( ! twshop_order_feature_enabled( 'returns' ) ) return $fail( '目前未開放新的申請，既有申請仍可查看與處理。' );
     if ( $user_id && (int) $order->get_customer_id() !== (int) $user_id ) return $fail( '找不到這張訂單。' );
     if ( ! twshop_returns_allowed_types() ) return $fail( '目前未開放退換貨申請。' );
     if ( ! in_array( $order->get_status(), twshop_returns_allowed_order_statuses(), true ) ) return $fail( '這張訂單目前的狀態無法申請退換貨。' );
@@ -315,6 +316,7 @@ function twshop_returns_cancel_eligibility( $order, $user_id = 0 ) {
     $fail = function ( $msg ) { return array( 'ok' => false, 'message' => $msg, 'items' => array() ); };
 
     if ( ! $order instanceof WC_Order ) return $fail( '找不到這張訂單。' );
+    if ( ! twshop_order_feature_enabled( 'returns' ) ) return $fail( '目前未開放新的申請，既有申請仍可查看與處理。' );
     if ( $user_id && (int) $order->get_customer_id() !== (int) $user_id ) return $fail( '找不到這張訂單。' );
     if ( ! twshop_returns_cancel_enabled() ) return $fail( '目前未開放申請取消訂單。' );
     if ( 'processing' !== $order->get_status() ) return $fail( '這張訂單目前的狀態無法申請取消（已出貨的訂單請在收到商品後申請退換貨）。' );

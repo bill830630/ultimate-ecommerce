@@ -100,8 +100,14 @@ function twshop_membership_init() {
     add_action( 'wp_dashboard_setup', 'twshop_register_dashboard_widget' );
     add_action( 'admin_enqueue_scripts', 'twshop_admin_external_scripts' );
     add_action( 'admin_init', 'twshop_register_settings' );
+    twshop_order_wc_settings_init();
 
     if ( ! twshop_license_is_active() ) return;
+
+    add_action( 'admin_init', 'twshop_register_cvs_field_for_shipping' );
+    add_filter( 'wc_order_statuses', 'twshop_add_custom_order_statuses' );
+    add_filter( 'woocommerce_reports_order_statuses', 'twshop_add_custom_report_statuses' );
+    add_filter( 'woocommerce_order_is_paid_statuses', 'twshop_add_custom_paid_statuses' );
 
     // 已發出的推薦獎勵在模組停用後仍須處理退款／取消，維持帳本一致。
     twshop_referrals_init_reversals();
@@ -395,44 +401,39 @@ function twshop_membership_init() {
     // ── 退換貨（v25.8.152，returns-core／-account／-mail.php、admin/page-returns.php）──
     // 建立 WooCommerce 退款時，點數／儲值金折抵／儲值金商品的連動由上面既有的
     // woocommerce_order_refunded callback（priority 15）處理，這裡不重寫。
-    // 退換貨併在「訂單強化」模組底下（order_checkout_enhancements），沒有獨立開關
-    if ( twshop_module_enabled( 'order_checkout_enhancements' ) ) {
-        add_action( 'woocommerce_account_returns_endpoint', 'twshop_returns_endpoint_content' );
-        add_filter( 'woocommerce_my_account_my_orders_actions', 'twshop_returns_my_orders_actions', 10, 2 );
-        add_filter( 'woocommerce_my_account_my_orders_columns', 'twshop_returns_orders_column' );
-        add_action( 'woocommerce_my_account_my_orders_column_twshop-returns', 'twshop_returns_orders_column_content' );
-        add_filter( 'woocommerce_account_menu_item_classes', 'twshop_returns_menu_highlight_orders', 10, 2 );
-        add_action( 'woocommerce_order_details_after_order_table', 'twshop_returns_order_details_block' );
-        add_action( 'wp_enqueue_scripts', 'twshop_returns_enqueue_assets', 20 );
-        add_action( 'wp_ajax_twshop_returns_submit', 'twshop_returns_ajax_submit' );
-        add_action( 'wp_ajax_twshop_returns_cancel', 'twshop_returns_ajax_cancel' );
-        add_action( 'wp_ajax_twshop_returns_ship', 'twshop_returns_ajax_ship' );
-        add_action( 'admin_post_twshop_return_photo', 'twshop_returns_serve_photo' );
-        add_action( 'wp_ajax_twshop_returns_admin', 'twshop_returns_ajax_admin' );
-        add_action( 'add_meta_boxes_shop_order', 'twshop_returns_register_order_metabox' );
-        add_action( 'add_meta_boxes_woocommerce_page_wc-orders', 'twshop_returns_register_order_metabox' );
-        add_action( 'woocommerce_product_options_general_product_data', 'twshop_returns_product_field' );
-        // 訂單列表：「退換貨」欄位與篩選（HPOS 與傳統文章式訂單列表各一組）
-        add_filter( 'manage_shop_order_posts_columns', 'twshop_returns_order_list_columns', 20 );
-        add_filter( 'manage_woocommerce_page_wc-orders_columns', 'twshop_returns_order_list_columns', 20 );
-        add_action( 'manage_shop_order_posts_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
-        add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
-        add_action( 'woocommerce_order_list_table_restrict_manage_orders', 'twshop_returns_render_orders_filter' );
-        add_filter( 'woocommerce_order_list_table_prepare_items_query_args', 'twshop_returns_filter_hpos_args' );
-        add_action( 'restrict_manage_posts', 'twshop_returns_legacy_filter_dropdown' );
-        add_action( 'pre_get_posts', 'twshop_returns_filter_legacy_query' );
-        // WooCommerce → 設定 → 「退換貨」頁籤
-        add_filter( 'woocommerce_settings_tabs_array', 'twshop_returns_wc_settings_tab', 50 );
-        add_action( 'woocommerce_settings_returns', 'twshop_returns_wc_settings_output' );
-        add_action( 'woocommerce_update_options_returns', 'twshop_returns_wc_settings_save' );
-        add_action( 'woocommerce_process_product_meta', 'twshop_returns_save_product_field' );
-    }
+    // 退換貨入口常駐；主開關與接受新申請開關僅限制新增，不阻斷既有申請處理。
+    add_action( 'woocommerce_account_returns_endpoint', 'twshop_returns_endpoint_content' );
+    add_filter( 'woocommerce_my_account_my_orders_actions', 'twshop_returns_my_orders_actions', 10, 2 );
+    add_filter( 'woocommerce_my_account_my_orders_columns', 'twshop_returns_orders_column' );
+    add_action( 'woocommerce_my_account_my_orders_column_twshop-returns', 'twshop_returns_orders_column_content' );
+    add_filter( 'woocommerce_account_menu_item_classes', 'twshop_returns_menu_highlight_orders', 10, 2 );
+    add_action( 'woocommerce_order_details_after_order_table', 'twshop_returns_order_details_block' );
+    add_action( 'wp_enqueue_scripts', 'twshop_returns_enqueue_assets', 20 );
+    add_action( 'wp_ajax_twshop_returns_submit', 'twshop_returns_ajax_submit' );
+    add_action( 'wp_ajax_twshop_returns_cancel', 'twshop_returns_ajax_cancel' );
+    add_action( 'wp_ajax_twshop_returns_ship', 'twshop_returns_ajax_ship' );
+    add_action( 'admin_post_twshop_return_photo', 'twshop_returns_serve_photo' );
+    add_action( 'wp_ajax_twshop_returns_admin', 'twshop_returns_ajax_admin' );
+    add_action( 'add_meta_boxes_shop_order', 'twshop_returns_register_order_metabox' );
+    add_action( 'add_meta_boxes_woocommerce_page_wc-orders', 'twshop_returns_register_order_metabox' );
+    add_action( 'woocommerce_product_options_general_product_data', 'twshop_returns_product_field' );
+    // 訂單列表：「退換貨」欄位與篩選（HPOS 與傳統文章式訂單列表各一組）
+    add_filter( 'manage_shop_order_posts_columns', 'twshop_returns_order_list_columns', 20 );
+    add_filter( 'manage_woocommerce_page_wc-orders_columns', 'twshop_returns_order_list_columns', 20 );
+    add_action( 'manage_shop_order_posts_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
+    add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'twshop_returns_order_list_column_content', 20, 2 );
+    add_action( 'woocommerce_order_list_table_restrict_manage_orders', 'twshop_returns_render_orders_filter' );
+    add_filter( 'woocommerce_order_list_table_prepare_items_query_args', 'twshop_returns_filter_hpos_args' );
+    add_action( 'restrict_manage_posts', 'twshop_returns_legacy_filter_dropdown' );
+    add_action( 'pre_get_posts', 'twshop_returns_filter_legacy_query' );
+    // WooCommerce → 設定 → 「退換貨」頁籤
+    add_filter( 'woocommerce_settings_tabs_array', 'twshop_returns_wc_settings_tab', 50 );
+    add_action( 'woocommerce_settings_returns', 'twshop_returns_wc_settings_output' );
+    add_action( 'woocommerce_update_options_returns', 'twshop_returns_wc_settings_save' );
+    add_action( 'woocommerce_process_product_meta', 'twshop_returns_save_product_field' );
 
-    // ── 結帳與訂單管理強化（台灣地址、超商取貨、訂單物流資訊、訂單管理後台強化，
-    //    v25.5.83 統一併入單一模組開關 order_checkout_enhancements。原本這裡是
-    //    結帳頁欄位客製化／metabox 各自獨立開關＋訂單物流資訊／訂單管理後台強化
-    //    始終啟用，四種狀態並存，改成單一模組開關統一控制，簡化設定介面）────
-    if ( twshop_module_enabled( 'order_checkout_enhancements' ) ) {
+    // ── 結帳與訂單強化：原生 WooCommerce 設定各自控制子功能；未設定時維持舊行為。
+    if ( twshop_order_feature_enabled( 'address' ) ) {
         // 台灣地址（縣市／鄉鎮市區皆改成下拉選單，不接受自由輸入）
         add_filter( 'woocommerce_states', 'twshop_add_taiwan_states' );
         add_filter( 'woocommerce_get_country_locale', 'twshop_taiwan_address_locale' );
@@ -457,32 +458,32 @@ function twshop_membership_init() {
         add_filter( 'woocommerce_shipping_fields', 'twshop_hide_single_country_field' );
 
         // 超商取貨
-        add_action( 'admin_init', 'twshop_register_cvs_field_for_shipping' );
         add_filter( 'woocommerce_checkout_fields', 'twshop_cvs_address_optional' );
         add_action( 'woocommerce_after_checkout_validation', 'twshop_cvs_remove_address_errors', 10, 2 );
+    }
 
-        // 訂單物流資訊
+    if ( twshop_order_feature_enabled( 'customer_logistics' ) ) {
         add_action( 'woocommerce_order_details_after_order_table', 'twshop_render_order_logistics_info' );
-        add_filter( 'woocommerce_shop_order_search_fields', 'twshop_add_logistics_search_fields' );
-        add_filter( 'woocommerce_order_table_search_query_meta_keys', 'twshop_add_logistics_search_fields' );
+    }
+    // 搜尋與批次操作維持可用，方便處理既有訂單。
+    add_filter( 'woocommerce_shop_order_search_fields', 'twshop_add_logistics_search_fields' );
+    add_filter( 'woocommerce_order_table_search_query_meta_keys', 'twshop_add_logistics_search_fields' );
+    if ( twshop_order_feature_enabled( 'admin_logistics' ) ) {
         add_action( 'add_meta_boxes_shop_order', 'twshop_register_order_logistics_metabox' );
         add_action( 'add_meta_boxes_woocommerce_page_wc-orders', 'twshop_register_order_logistics_metabox' );
-
-        // 訂單管理後台強化
-        add_filter( 'wc_order_statuses', 'twshop_add_custom_order_statuses' );
-        add_filter( 'woocommerce_reports_order_statuses', 'twshop_add_custom_report_statuses' );
-        add_filter( 'woocommerce_order_is_paid_statuses', 'twshop_add_custom_paid_statuses' );
-
+    }
+    if ( twshop_order_feature_enabled( 'columns' ) ) {
         add_filter( 'manage_shop_order_posts_columns', 'twshop_order_list_columns', 11 );
         add_filter( 'manage_woocommerce_page_wc-orders_columns', 'twshop_order_list_columns', 11 );
         add_action( 'manage_shop_order_posts_custom_column', 'twshop_order_list_column_content', 11, 2 );
         add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'twshop_order_list_column_content', 11, 2 );
-
-        add_filter( 'bulk_actions-edit-shop_order', 'twshop_order_bulk_actions', 99 );
-        add_filter( 'bulk_actions-woocommerce_page_wc-orders', 'twshop_order_bulk_actions', 99 );
-        add_filter( 'handle_bulk_actions-edit-shop_order', 'twshop_handle_order_bulk_status_update', 10, 3 );
-        add_filter( 'handle_bulk_actions-woocommerce_page_wc-orders', 'twshop_handle_order_bulk_status_update', 10, 3 );
-        add_action( 'admin_notices', 'twshop_order_bulk_admin_notice' );
+    }
+    add_filter( 'bulk_actions-edit-shop_order', 'twshop_order_bulk_actions', 99 );
+    add_filter( 'bulk_actions-woocommerce_page_wc-orders', 'twshop_order_bulk_actions', 99 );
+    add_filter( 'handle_bulk_actions-edit-shop_order', 'twshop_handle_order_bulk_status_update', 10, 3 );
+    add_filter( 'handle_bulk_actions-woocommerce_page_wc-orders', 'twshop_handle_order_bulk_status_update', 10, 3 );
+    add_action( 'admin_notices', 'twshop_order_bulk_admin_notice' );
+    if ( twshop_order_feature_enabled( 'auto_status' ) ) {
         add_action( 'woocommerce_order_note_added', 'twshop_maybe_auto_complete_order_from_logistic_note', 10, 2 );
     }
 

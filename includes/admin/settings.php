@@ -193,8 +193,6 @@ function twshop_register_settings() {
     register_setting( 'wc_system_general_group', 'wc_classic_cart_show_wallet', 'twshop_sanitize_yes_no' );
     register_setting( 'wc_system_general_group', 'wc_progress_height', 'twshop_sanitize_progress_height' );
     register_setting( 'wc_system_general_group', 'wc_progress_radius', 'twshop_sanitize_progress_radius' );
-    register_setting( 'wc_system_general_group', 'wc_shipping_method_titles', 'twshop_sanitize_method_titles' );
-    register_setting( 'wc_system_general_group', 'wc_payment_method_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_product_tab_titles', 'twshop_sanitize_method_titles' );
     register_setting( 'wc_system_general_group', 'wc_product_tabs_settings', 'twshop_sanitize_product_tabs_settings' );
     register_setting( 'wc_system_general_group', 'wc_product_image_alt_enabled', 'twshop_sanitize_yes_no' );

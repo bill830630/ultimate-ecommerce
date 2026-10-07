@@ -258,6 +258,7 @@ function twshop_returns_wc_settings_fields() {
 
     return array(
         array( 'title' => '退換貨', 'type' => 'title', 'id' => 'twshop_returns_section', 'desc' => '顧客在「我的帳號」自助申請退貨或換貨，申請會出現在訂單列表的「退換貨」欄位，並在訂單編輯頁處理。' ),
+        array( 'title' => '接受新申請', 'id' => 'twshop_order_returns_enabled', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '接受新的退貨、換貨與取消訂單申請；停用後既有申請仍可查看與處理（訂單強化主開關也須開啟）' ),
         array( 'title' => '開放退貨', 'id' => 'wc_returns_allow_return', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客申請退貨' ),
         array( 'title' => '開放取消訂單', 'id' => 'wc_returns_allow_cancel', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客對「處理中」（已付款、還沒出貨）的訂單申請取消，經審核後自動取消並全額退款（綠界信用卡同時退刷）' ),
         array( 'title' => '開放換貨', 'id' => 'wc_returns_allow_exchange', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '允許顧客申請換貨（只收申請與審核，出貨由客服人工處理）' ),
@@ -280,6 +281,8 @@ function twshop_returns_wc_settings_output() {
 }
 
 function twshop_returns_wc_settings_save() {
+    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( '權限不足。' );
+    check_admin_referer( 'woocommerce-settings' );
     woocommerce_update_options( twshop_returns_wc_settings_fields() );
     // WooCommerce 通用儲存只做 wc_clean；多選欄位另外依各自的白名單過濾
     update_option( 'wc_returns_allowed_statuses', twshop_sanitize_order_status_array( get_option( 'wc_returns_allowed_statuses', array() ) ) );

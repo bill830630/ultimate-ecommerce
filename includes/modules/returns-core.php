@@ -733,6 +733,5 @@ function twshop_refresh_tier_after_refund( $order_id ) {
     $user_id = (int) $order->get_customer_id();
     if ( ! $user_id ) return;
     twshop_clear_user_spent_cache( $user_id );
-    twshop_flush_user_spent_cache();
     twshop_recalculate_user_tier( $user_id );
 }

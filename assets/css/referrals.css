@@ -1,0 +1,32 @@
+/* 僅作用於推薦連結的操作回饋，避免影響其他會員中心按鈕。 */
+.twshop-referral-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--theme-border-color, currentColor);
+}
+#twshop-copy-referral-url {
+    min-width: 160px;
+    transition: background-color .15s ease, color .15s ease;
+}
+#twshop-referral-copy-status {
+    display: block;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+#twshop-referral-copy-status:empty {
+    display: none;
+}
+/* 成功與錯誤皆沿用主題主色；結果由文字、勾選符號與重試按鈕區分。 */
+#twshop-referral-copy-status[data-copy-state] {
+    background: transparent;
+    background: color-mix(in srgb, var(--theme-palette-color-1, currentColor) 8%, transparent);
+    border: 1px solid var(--theme-palette-color-1, currentColor);
+    border-inline-start-width: 4px;
+    color: var(--theme-text-color, inherit);
+}
+@media (prefers-reduced-motion: reduce) {
+    #twshop-copy-referral-url { transition: none; }
+}

@@ -190,8 +190,24 @@ function twshop_get_order_total_for_tier_spend( $order ) {
     $total -= twshop_get_order_wallet_product_total( $order );
     // 已退款的金額不算消費（v25.8.152 起；原本部分退款完全不扣）。退款當下由
     // twshop_refresh_tier_after_refund() 清快取並重算。
-    $total -= (float) $order->get_total_refunded();
+    // 儲值商品原價已排除；其退款不能再扣一般商品消費額。
+    $wallet_refunded = 0.0;
+    foreach ( $order->get_items() as $item_id => $item ) {
+        if ( ! twshop_is_wallet_credit_product( $item->get_product() ) ) continue;
+        $wallet_refunded += abs( (float) $order->get_total_refunded_for_item( $item_id ) );
+        $taxes = $item->get_taxes();
+        foreach ( array_keys( $taxes['total'] ?? array() ) as $tax_id ) {
+            $wallet_refunded += abs( (float) $order->get_tax_refunded_for_item( $item_id, $tax_id ) );
+        }
+    }
+    $total -= max( 0, (float) $order->get_total_refunded() - $wallet_refunded );
     return max( 0, $total );
+}
+
+/** 已完成訂單離開 completed 時立即更新會員消費額與等級。 */
+function twshop_refresh_tier_after_status_change( $order_id, $from, $to ) {
+    if ( 'completed' !== $from || 'completed' === $to ) return;
+    twshop_refresh_tier_after_refund( $order_id );
 }
 
 function twshop_get_user_spent_since( $user_id, $since_date = null, $flush_cache = false ) {
@@ -205,12 +221,7 @@ function twshop_get_user_spent_since( $user_id, $since_date = null, $flush_cache
     $cache_key = $user_id . '_' . ( $since_date ?: 'all' );
     if ( isset( $cache[ $cache_key ] ) ) return $cache[ $cache_key ];
 
-    // 跨請求短期快取（1 小時）：同一位會員短時間內重複查看「我的會員權益」頁會重複觸發
-    // 這支查詢，1 小時的 TTL 足以消掉同一次瀏覽 session 內的重複查詢，同時短到不會實質
-    // 影響每日排程（twshop_run_daily_check）的判斷新鮮度——退款/取消訂單目前沒有
-    // 任何 hook 會主動清這個快取，這個 TTL 讓排程每天執行時幾乎必定重新查詢，維持原本
-    // 「每天都看得到最新退款狀態」的行為，不會因為快取而延遲太久。訂單完成時
-    // （twshop_trigger_on_order()）會主動清快取，確保升級判斷永遠拿到當下最新的消費總額。
+    // 跨請求快取 1 小時；訂單完成、離開 completed 及退款時主動清除，避免等級延遲更新。
     $transient_key = 'twshop_spent_' . $cache_key;
     $cached = get_transient( $transient_key );
     if ( false !== $cached ) {
@@ -238,10 +249,12 @@ function twshop_get_user_spent_since( $user_id, $since_date = null, $flush_cache
 
 /**
  * 清除 twshop_get_user_spent_since() 對某會員的快取（all-time 與目前起算日兩種 key）。
- * 在會員的消費總額實際發生變化的時間點（目前只有訂單完成一處）呼叫，確保升級判斷
+ * 在訂單完成、離開 completed 或退款時呼叫，確保升級判斷
  * 永遠拿到當下最新資料，不受上面 1 小時 TTL 快取影響。
  */
 function twshop_clear_user_spent_cache( $user_id ) {
+    // 同一請求可能先查詢消費額、再完成訂單；只清 transient 仍會讀到舊 static 快取。
+    twshop_flush_user_spent_cache();
     delete_transient( 'twshop_spent_' . $user_id . '_all' );
     $anchor_date = get_user_meta( $user_id, 'twshop_tier_anchor_date', true );
     if ( $anchor_date ) {
@@ -250,13 +263,9 @@ function twshop_clear_user_spent_cache( $user_id ) {
 }
 
 /**
- * 清空 twshop_get_user_spent_since() 的 per-request static cache（整個請求內、所有會員）。
- * 跟上面的 twshop_clear_user_spent_cache( $user_id ) 用途不同、不要混淆：
- * 那支清的是「某一位會員」的跨請求 transient 快取（訂單完成時呼叫，確保升級判斷拿到最新資料）；
- * 這支清的是「目前這次請求內、目前已經算過的所有會員」的記憶體 static array，
- * 沒有上限、正常請求不會有問題，但 twshop_run_daily_check() 這種單次請求內要
- * 遍歷大量會員的 cron 場景，static cache 會隨會員數線性成長佔用記憶體，因此該函式在
- * 每批（batch）處理完之後呼叫一次即可，兩者互不影響、互不取代。
+ * 清空目前請求內所有會員的消費額 static 快取；不刪除跨請求 transient。
+ * twshop_clear_user_spent_cache() 會先呼叫本函式，再刪除指定會員的 transient。
+ * 每日排程亦在批次結束時呼叫，避免大量會員的快取持續佔用記憶體。
  */
 function twshop_flush_user_spent_cache() {
     twshop_get_user_spent_since( 0, null, true );
@@ -444,7 +453,8 @@ function twshop_get_all_registered_account_tabs() {
  * 加入本外掛自己的會員中心頁籤（依模組開關）並套用後台自訂名稱。
  */
 function twshop_add_own_account_tabs( $items ) {
-    if ( twshop_module_enabled( 'member_tiers' ) ) {
+    unset( $items['my-referrals'] ); // 推薦功能已合併會員權益，舊排序設定不再產生獨立頁籤。
+    if ( twshop_module_enabled( 'member_tiers' ) || twshop_referrals_enabled() ) {
         $items['my-membership'] = twshop_option( 'wc_membership_tab_name' );
     }
     if ( twshop_module_enabled( 'visual_coupons' ) ) {

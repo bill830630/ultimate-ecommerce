@@ -45,6 +45,7 @@ function twshop_admin_render_page() {
  * 紅利點數：對應 points 模組。v25.8.25 起改成 5 個真正的頁籤（比照下方
  * twshop_system_section() 的既有模式），不再是單一頁面/單一 <form>——
  * 內容函式拆分與 settings group 拆分見 includes/admin/page-points.php／settings.php。
+ * v25.8.159 加入「推薦碼」子頁籤，與推薦功能一同受 points 模組開關控制。
  * v25.8.81 起改名為 twshop_points_section()：不再自己呼叫 twshop_render_admin_page()
  * 包外框（外框只在最外層的 twshop_admin_render_page() 呼叫一次），組內部頁籤網址時
  * 額外帶 section=points，避免點頁籤連結時弄丟「目前在紅利點數這個功能區塊」的資訊。
@@ -56,6 +57,7 @@ function twshop_points_section() {
         'award'    => '發放與退還時機',
         'redeem'   => '點數兌換商品',
         'import'   => '匯入點數資料',
+        'referrals' => '推薦碼',
     );
     $current = twshop_get_current_admin_tab( $tabs );
     twshop_render_admin_tabs( $tabs, $current, 'wc-general-settings', array( 'section' => 'points' ) );
@@ -64,6 +66,7 @@ function twshop_points_section() {
     elseif ( 'award' === $current ) twshop_points_award_tab();
     elseif ( 'redeem' === $current ) twshop_points_redeem_tab();
     elseif ( 'import' === $current ) twshop_points_import_tab();
+    elseif ( 'referrals' === $current ) twshop_referrals_settings_tab();
 }
 
 /**

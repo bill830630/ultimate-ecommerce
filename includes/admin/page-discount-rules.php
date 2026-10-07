@@ -184,7 +184,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                     <div class="twshop-rule-field rule-freegift-wrap" style="display:none;">
                         <label class="twshop-rule-label">原價購買</label>
                         <label><input type="checkbox" class="twshop-sw" name="gift_allow_purchase" value="yes" <?php checked( $r['gift_allow_purchase'] ?? 'no', 'yes' ); ?> /> 贈品商品也可以讓顧客用原價單買</label>
-                        <p class="description">不勾選時，這件商品只能由規則自動送出，商品頁不顯示加入購物車。勾選後顧客買的那一件是正價，跟贈送的那一件分開計算。</p>
+                        <p class="description">未勾選時只能作為贈品，商品頁不顯示加入購物車。勾選後可正價購買，購買與贈送數量分開計算。</p>
                     </div>
                     <div class="twshop-rule-field rule-bxgy-wrap" style="display:none;">
                         <label class="twshop-rule-label">買滿件數 (N)</label>

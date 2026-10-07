@@ -309,21 +309,23 @@ function twshop_wallet_settings_tab() {
                         <th scope="row">儲值金名稱</th>
                         <td>
                             <input type="text" name="wc_wallet_term_name" value="<?php echo esc_attr( get_option( 'wc_wallet_term_name', '' ) ); ?>" class="regular-text" placeholder="儲值金" />
-                            <p class="description">設定前台顯示的儲值金名稱（購物車折抵區塊、會員中心頁籤、結帳提示等）；留空則使用「儲值金」。</p>
+                            <p class="description">設定前台顯示名稱；留空使用「儲值金」。</p>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">用儲值金折抵時，等級消費額計算方式</th>
                         <td>
                             <label><input type="checkbox" class="twshop-sw" name="wc_wallet_tier_spend_full_amount" value="yes" <?php checked( $full_amount, 'yes' ); ?>> 計入商品全額（折抵掉的部分仍算進等級消費額）</label>
-                            <p class="description">預設勾選：儲值金是顧客先前已經付過的真錢，折抵消費時仍視同全額消費計算會員等級門檻。取消勾選則只計入實際透過其他金流付款的部分（跟點數折抵的既有計算方式一致）。線上儲值訂單本身（不論金額大小）一律不計入消費額與紅利點數，不受這個設定影響。</p>
+                            <p class="description">預設勾選；取消後僅計入其他金流實付金額。線上儲值訂單本身不計入等級消費額或紅利點數。</p>
+                            <details class="twshop-help"><summary>詳細說明</summary><p>儲值金是顧客已付款的餘額，勾選時使用餘額消費仍按商品全額累積等級消費額；取消時的計算方式與點數折抵相同。</p></details>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">用儲值金折抵的金額是否累積紅利點數</th>
                         <td>
                             <label><input type="checkbox" class="twshop-sw" name="wc_wallet_earn_points" value="yes" <?php checked( $earn_points, 'yes' ); ?>> 累積點數（儲值金折抵的部分也算進消費回饋點數）</label>
-                            <p class="description">預設不勾選：只有實際透過其他金流付款的部分會累積點數。購買儲值金商品本身一律不給點數，不受這個設定影響——勾選後點數是在「花掉儲值金消費時」才給，同一筆錢不會被算兩次。</p>
+                            <p class="description">預設不勾選，僅其他金流實付金額累積點數。購買儲值金商品本身一律不給點數。</p>
+                            <details class="twshop-help"><summary>詳細說明</summary><p>勾選後，使用儲值金購物時，折抵的金額也會累積消費回饋點數；儲值入帳時不給點數，避免同一筆錢重複累積。</p></details>
                         </td>
                     </tr>
                 </table>
@@ -344,13 +346,13 @@ function twshop_wallet_settings_tab() {
                             <?php
                             echo twshop_render_restriction_field( 'wc_wallet_restrict_type', 'wc_wallet_restrict_values', $restrict_type, $restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到儲值金折抵區塊。選擇「無限制」則全館皆可使用。</p>
+                            <p class="description">購物車需包含任一符合所選條件的商品，才能使用儲值金折抵；「無限制」為全館適用。</p>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">禁止用儲值金購買儲值金商品</th>
                         <td>
-                            <p class="description">購物車內只要有任一件儲值金商品，儲值金折抵區塊就會整個不可用——這條規則恆常生效，不是可關閉的選項，避免顧客用既有餘額折抵儲值金商品，等於不花真錢就無中生有出更多餘額（尤其面額高於售價的促銷型儲值金商品風險更高）。</p>
+                            <p class="description">購物車含儲值金商品時，整筆訂單禁止使用儲值金折抵。此規則固定生效，避免使用既有餘額購買新的儲值金。</p>
                         </td>
                     </tr>
                 </table>
@@ -377,7 +379,8 @@ function twshop_wallet_settings_tab() {
                     <?php endforeach; ?>
                 </table>
                 <?php endif; ?>
-                <p class="description">購物車內含儲值金商品時，結帳頁只會顯示這裡勾選的付款方式。留空＝不限制（所有已啟用付款方式皆可用）。這是為了避免貨到付款/銀行轉帳這類延遲收款的金流，在真正收到現金前訂單就先被轉成處理中/已完成而入帳。</p>
+                <p class="description">含儲值金商品的訂單僅可使用勾選的付款方式；全部不勾選表示允許所有已啟用方式。</p>
+                <details class="twshop-help"><summary>詳細說明</summary><p>使用貨到付款或銀行轉帳等延遲收款方式時，應確認收款後再更新訂單狀態，避免尚未收到款項便將儲值金入帳。</p></details>
             </div>
         </div>
 
@@ -397,7 +400,7 @@ function twshop_wallet_settings_tab() {
                         <th scope="row">內容</th>
                         <td>
                             <textarea name="wc_wallet_topup_email_body" rows="6" class="regular-text" style="width:100%; max-width:500px;"><?php echo esc_textarea( $email_body ); ?></textarea>
-                            <p class="description">可用 <code>{name}</code>／<code>{amount}</code>（本次儲值金額）／<code>{balance}</code>（目前總餘額）／<code>{order_id}</code>。</p>
+                            <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{name}</code>／<code>{amount}</code>（本次儲值金額）／<code>{balance}</code>（目前總餘額）／<code>{order_id}</code>。</p></details>
                         </td>
                     </tr>
                 </table>

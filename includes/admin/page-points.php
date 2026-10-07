@@ -243,7 +243,7 @@ function twshop_points_rules_tab() {
                             <?php
                             echo twshop_render_restriction_field( 'wc_points_earn_restrict_type', 'wc_points_earn_restrict_values', $earn_restrict_type, $earn_restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，訂單中只有屬於所選項目的商品金額，才會列入點數計算基準；其餘商品消費不會產生點數。選擇「無限制」則依訂單總額計算點數（維持原有行為）。</p>
+                            <p class="description">只有符合所選條件的商品金額會累積點數；選擇「無限制」則依訂單總額計算。</p>
                         </td>
                     </tr>
                     <tr>
@@ -264,7 +264,7 @@ function twshop_points_rules_tab() {
                             <?php
                             echo twshop_render_restriction_field( 'wc_points_redeem_restrict_type', 'wc_points_redeem_restrict_values', $redeem_restrict_type, $redeem_restrict_values );
                             ?>
-                            <p class="description">先選擇要限制的類型（商品分類、商品標籤或商品品牌），再從清單中複選項目。設定後，購物車內必須包含其中任一所選項目的商品，才能在結帳時看到點數折抵區塊。選擇「無限制」則全館皆可使用。</p>
+                            <p class="description">購物車需包含任一符合所選條件的商品，才能使用點數折抵；「無限制」為全館適用。</p>
                         </td>
                     </tr>
                     <tr>
@@ -289,7 +289,7 @@ function twshop_points_rules_tab() {
                         <th scope="row">到期提醒信件內容</th>
                         <td>
                             <textarea name="wc_points_expiry_notify_body" rows="4" class="regular-text"><?php echo esc_html( $p_notify_body ); ?></textarea>
-                            <p class="description">可用 <code>{name}</code>／<code>{amount}</code>／<code>{term}</code>／<code>{date}</code> 代表會員姓名/到期點數/點數名稱/到期日。</p>
+                            <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{name}</code>／<code>{amount}</code>／<code>{term}</code>／<code>{date}</code> 代表會員姓名/到期點數/點數名稱/到期日。</p></details>
                         </td>
                     </tr>
                 </table>
@@ -327,7 +327,7 @@ function twshop_points_award_tab() {
                                     <?php echo esc_html( $status_label ); ?>
                                 </label>
                             <?php endforeach; ?>
-                            <p class="description">訂單進入以上任一勾選狀態時，發放該筆訂單的消費回饋點數（預設僅「已完成」）。同一張訂單只會發放一次，即使之後在多個勾選狀態間轉換也不會重複發放。</p>
+                            <p class="description">進入任一勾選狀態即發放消費回饋點數，每筆訂單只發一次。預設為「已完成」。</p>
                         </td>
                     </tr>
                     <tr>
@@ -340,7 +340,7 @@ function twshop_points_award_tab() {
                                     <?php echo esc_html( $status_label ); ?>
                                 </label>
                             <?php endforeach; ?>
-                            <p class="description">訂單進入以上任一勾選狀態時，退還該訂單當初折抵扣除的點數，並追回已發放的消費回饋點數（預設「已取消」「已退款」「付款失敗」）。同一張訂單只會各自退還/追回一次。</p>
+                            <p class="description">進入任一勾選狀態即退還折抵點數、追回消費回饋點數，每項只執行一次。預設為「已取消」「已退款」「付款失敗」。</p>
                         </td>
                     </tr>
                 </table>

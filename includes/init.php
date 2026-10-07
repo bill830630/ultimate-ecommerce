@@ -31,9 +31,10 @@ function twshop_core_init_registration() {
     add_rewrite_endpoint( 'my-wallet', EP_ROOT | EP_PAGES );
     // returns（退換貨，v25.8.152 新增）同 my-wallet：無條件註冊，不看模組開關
     add_rewrite_endpoint( 'returns', EP_ROOT | EP_PAGES );
+    add_rewrite_endpoint( 'my-referrals', EP_ROOT | EP_PAGES );
 }
 
-add_filter( 'woocommerce_get_query_vars', function($vars) { $vars['my-coupons'] = 'my-coupons'; $vars['my-membership'] = 'my-membership'; $vars['my-wallet'] = 'my-wallet'; $vars['returns'] = 'returns'; return $vars; }, 0 );
+add_filter( 'woocommerce_get_query_vars', function($vars) { $vars['my-coupons'] = 'my-coupons'; $vars['my-membership'] = 'my-membership'; $vars['my-wallet'] = 'my-wallet'; $vars['returns'] = 'returns'; $vars['my-referrals'] = 'my-referrals'; return $vars; }, 0 );
 register_activation_hook( TWSHOP_PLUGIN_FILE, 'twshop_flush_rewrite_rules_on_activation' );
 function twshop_flush_rewrite_rules_on_activation() { twshop_core_init_registration(); flush_rewrite_rules(); }
 
@@ -101,6 +102,21 @@ function twshop_membership_init() {
     add_action( 'admin_init', 'twshop_register_settings' );
 
     if ( ! twshop_license_is_active() ) return;
+
+    // 已發出的推薦獎勵在模組停用後仍須處理退款／取消，維持帳本一致。
+    twshop_referrals_init_reversals();
+
+    // 停用模組只能阻止新折抵／入帳，既有訂單仍須退還與追回；callback 依既有 meta／帳本處理。
+    foreach ( twshop_get_points_revoke_statuses() as $status ) {
+        add_action( 'woocommerce_order_status_' . $status, 'twshop_refund_points_on_order_cancel', 15, 1 );
+    }
+    add_action( 'woocommerce_order_refunded', 'twshop_handle_order_refund_points', 15, 2 );
+    foreach ( array( 'cancelled', 'refunded', 'failed' ) as $status ) {
+        add_action( 'woocommerce_order_status_' . $status, 'twshop_refund_wallet_on_order_cancel', 15, 1 );
+        add_action( 'woocommerce_order_status_' . $status, 'twshop_wallet_revoke_topup_order', 15, 1 );
+    }
+    add_action( 'woocommerce_order_refunded', 'twshop_handle_order_refund_wallet', 15, 2 );
+    add_action( 'woocommerce_order_refunded', 'twshop_wallet_handle_topup_item_refund', 15, 2 );
 
     // 自架更新通道，見 includes/class-twshop-updater.php。只在後台／排程／WP-CLI 註冊：
     // 前台訪客不需要更新檢查，而排除清單在 transient 過期時會同步打 GitHub API（最長 8 秒），
@@ -197,6 +213,7 @@ function twshop_membership_init() {
     // ── 會員分級 ──────────────────────────────────────────────────────────
     if ( twshop_module_enabled( 'member_tiers' ) ) {
         add_action( 'woocommerce_order_status_completed', 'twshop_trigger_on_order', 10, 1 );
+        add_action( 'woocommerce_order_status_changed', 'twshop_refresh_tier_after_status_change', 20, 3 );
         // 退款後扣掉已退款金額並重算等級（v25.8.152）；priority 20 排在點數/儲值金退款 callback（15）之後
         add_action( 'woocommerce_order_refunded', 'twshop_refresh_tier_after_refund', 20, 1 );
         add_action( 'wc_membership_daily_downgrade_check', 'twshop_run_daily_check' );
@@ -284,18 +301,16 @@ function twshop_membership_init() {
 
     // ── 紅利點數 ──────────────────────────────────────────────────────────
     if ( twshop_module_enabled( 'points' ) ) {
+        twshop_referrals_init();
         foreach ( twshop_get_points_award_statuses() as $twshop_award_status ) {
             add_action( 'woocommerce_order_status_' . $twshop_award_status, 'twshop_award_points_on_order_complete', 15, 1 );
         }
-        foreach ( twshop_get_points_revoke_statuses() as $twshop_revoke_status ) {
-            add_action( 'woocommerce_order_status_' . $twshop_revoke_status, 'twshop_refund_points_on_order_cancel', 15, 1 );
-        }
-        add_action( 'woocommerce_order_refunded', 'twshop_handle_order_refund_points', 15, 2 );
         add_action( 'wp_ajax_twshop_apply_points', 'twshop_ajax_apply_points' );
         add_action( 'wp_ajax_nopriv_twshop_apply_points', 'twshop_ajax_apply_points' );
         add_action( 'woocommerce_cart_calculate_fees', 'twshop_apply_points_discount_fee', 25, 1 );
         add_action( 'woocommerce_checkout_create_order', 'twshop_store_points_cash_applied_on_order', 10, 1 );
         add_action( 'woocommerce_checkout_order_processed', 'twshop_deduct_points_on_checkout', 15, 3 );
+        add_action( 'woocommerce_before_pay_action', 'twshop_charge_points_on_order_pay', 5, 1 );
         add_action( 'woocommerce_cart_emptied', 'twshop_clear_applied_points_on_cart_emptied' );
         // 點數兌換商品
         add_action( 'wp_ajax_twshop_redeem_points_product', 'twshop_ajax_redeem_points_product' );
@@ -359,14 +374,6 @@ function twshop_membership_init() {
         add_action( 'woocommerce_single_product_summary', 'twshop_render_wallet_credit_login_required_notice', 26 );
         add_action( 'woocommerce_after_checkout_validation', 'twshop_validate_wallet_credit_guest_checkout', 10, 2 );
 
-        // 取消/已退款/付款失敗：全額退回尚未退回的部分。刻意寫死這三個狀態，不像點數
-        // 模組那樣走可設定的 wc_points_revoke_statuses——儲值金第一版還沒有自己的
-        // 「發放與退還時機」設定頁，之後若要開放自訂再比照點數模組的既有寫法改成迴圈。
-        foreach ( array( 'cancelled', 'refunded', 'failed' ) as $twshop_wallet_revoke_status ) {
-            add_action( 'woocommerce_order_status_' . $twshop_wallet_revoke_status, 'twshop_refund_wallet_on_order_cancel', 15, 1 );
-        }
-        add_action( 'woocommerce_order_refunded', 'twshop_handle_order_refund_wallet', 15, 2 );
-
         // 訂單編輯頁 metabox（HPOS／legacy 兩種畫面，比照 twshop_register_order_logistics_metabox() 的既有寫法）
         add_action( 'add_meta_boxes_shop_order', 'twshop_register_order_wallet_metabox' );
         add_action( 'add_meta_boxes_woocommerce_page_wc-orders', 'twshop_register_order_wallet_metabox' );
@@ -383,10 +390,6 @@ function twshop_membership_init() {
         // 訂單轉「已完成」時補入帳；callback 依訂單項目 meta 冪等，已入帳過的不會重複（v25.8.107）。
         // 刻意不掛 processing：貨到付款下單當下就是 processing，錢還沒收到。
         add_action( 'woocommerce_order_status_completed', 'twshop_wallet_credit_on_payment_complete', 10, 1 );
-        foreach ( array( 'cancelled', 'refunded', 'failed' ) as $twshop_wallet_topup_revoke_status ) {
-            add_action( 'woocommerce_order_status_' . $twshop_wallet_topup_revoke_status, 'twshop_wallet_revoke_topup_order', 15, 1 );
-        }
-        add_action( 'woocommerce_order_refunded', 'twshop_wallet_handle_topup_item_refund', 15, 2 );
     }
 
     // ── 退換貨（v25.8.152，returns-core／-account／-mail.php、admin/page-returns.php）──

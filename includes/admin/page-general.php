@@ -99,14 +99,14 @@ function twshop_system_general_tab() {
                             <th scope="row">登入按鈕文字</th>
                             <td>
                                 <input type="text" name="wc_login_btn_text" value="<?php echo esc_attr( $login_btn_text ); ?>" class="regular-text" placeholder="登入" />
-                                <p class="description">會員中心「我的帳號」頁面登入表單的送出按鈕文字，留空則沿用預設「登入」。</p>
+                                <p class="description">留空使用「登入」。</p>
                             </td>
                         </tr>
                         <tr>
                             <th scope="row">註冊按鈕文字</th>
                             <td>
                                 <input type="text" name="wc_register_btn_text" value="<?php echo esc_attr( $register_btn_text ); ?>" class="regular-text" placeholder="註冊" />
-                                <p class="description">會員中心「我的帳號」頁面註冊表單的送出按鈕文字，留空則沿用預設「註冊」。</p>
+                                <p class="description">留空使用「註冊」。</p>
                             </td>
                         </tr>
                     </table>
@@ -130,7 +130,8 @@ function twshop_system_general_tab() {
                             <th scope="row">徽章文字</th>
                             <td>
                                 <input type="text" name="wc_badge_text_template" value="<?php echo esc_attr( $badge_text_template ); ?>" class="regular-text" placeholder="-{percent}%" />
-                                <p class="description">可用 <code>{percent}</code> 代表折扣百分比數字（例如商品打 8 折會顯示 20），留空則使用預設「-{percent}%」。僅適用於單一售價的商品，可變商品（多規格浮動區間價）仍沿用主題原生的特價角標。</p>
+                                <p class="description">留空使用「-{percent}%」。僅適用單一售價商品；可變商品沿用主題角標。</p>
+                                <details class="twshop-help"><summary>詳細說明</summary><p><code>{percent}</code> 代表折扣百分比，例如打 8 折時為 20。</p></details>
                             </td>
                         </tr>
                     </table>

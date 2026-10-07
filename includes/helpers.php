@@ -510,7 +510,7 @@ function twshop_get_module_definitions() {
         'member_tiers'    => array( 'label' => '會員分級', 'desc' => '會員等級升降、生日禮、升等禮' ),
         'discount_rules'  => array( 'label' => '折扣規則', 'desc' => '動態折扣、免運、自動贈品、加購品' ),
         'visual_coupons'  => array( 'label' => '優惠卡券', 'desc' => '卡片式優惠券、會員優惠券頁面' ),
-        'points'          => array( 'label' => '紅利點數', 'desc' => '消費累點、點數折抵、異動紀錄' ),
+        'points'          => array( 'label' => '紅利點數', 'desc' => '消費累點、點數折抵、推薦碼與推薦獎勵、異動紀錄' ),
         'wallet'          => array( 'label' => '儲值中心', 'desc' => '線上自助儲值、購物折抵、會員中心餘額與交易紀錄' ),
         'order_checkout_enhancements' => array(
             'label' => '訂單強化',
@@ -521,4 +521,3 @@ function twshop_get_module_definitions() {
         // （shopee-api.php）與 CLAUDE.md「蝦皮串接模組」一節。
     );
 }
-

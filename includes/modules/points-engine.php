@@ -11,29 +11,112 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // 5. 點數核心引擎與管理員後台管理
 // =========================================================================
 
+/** 點數所有寫入共用交易；會員主鍵存在即能鎖定，沒有 usermeta 的新會員也適用。 */
+function twshop_points_transaction( array $user_ids, callable $operation ) {
+    global $wpdb;
+    $ids = array_values( array_unique( array_filter( array_map( 'absint', $user_ids ) ) ) );
+    sort( $ids, SORT_NUMERIC );
+    if ( ! $ids ) throw new RuntimeException( '缺少點數會員。' );
+    if ( ! empty( $GLOBALS['twshop_points_transaction_context'] ) ) {
+        $context = $GLOBALS['twshop_points_transaction_context'];
+        if ( array_diff( $ids, $context['users'] ) ) {
+            $GLOBALS['twshop_points_transaction_context']['failed'] = true;
+            throw new RuntimeException( '點數交易不可在內層追加會員鎖。' );
+        }
+        try {
+            return $operation(); // 加入既有交易；內層不 BEGIN／COMMIT。
+        } catch ( Throwable $error ) {
+            $GLOBALS['twshop_points_transaction_context']['failed'] = true;
+            throw $error;
+        }
+    }
+    static $supported = null;
+    if ( null === $supported ) {
+        $tables = array( $wpdb->users, $wpdb->usermeta );
+        if ( \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ) {
+            $tables[] = $wpdb->prefix . 'wc_orders';
+            $tables[] = $wpdb->prefix . 'wc_orders_meta';
+        } else {
+            $tables[] = $wpdb->posts;
+            $tables[] = $wpdb->postmeta;
+        }
+        $placeholders = implode( ',', array_fill( 0, count( $tables ), '%s' ) );
+        $engines = $wpdb->get_col( $wpdb->prepare( "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ($placeholders)", $tables ) );
+        $supported = count( $engines ) === count( $tables ) && count( array_filter( $engines, fn( $engine ) => 'INNODB' === strtoupper( $engine ) ) ) === count( $tables );
+    }
+    if ( ! $supported ) throw new RuntimeException( '點數帳務需要 InnoDB 會員與訂單資料表。' );
+    if ( false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( '無法開始點數交易。' );
+    $GLOBALS['twshop_points_transaction_context'] = array( 'users' => $ids, 'orders' => array(), 'failed' => false );
+    try {
+        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+        $locked = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->users} WHERE ID IN ($placeholders) ORDER BY ID FOR UPDATE", $ids ) );
+        if ( count( $locked ) !== count( $ids ) || $wpdb->last_error ) throw new RuntimeException( '無法鎖定點數會員。' );
+        foreach ( $ids as $id ) wp_cache_delete( $id, 'user_meta' );
+        $result = $operation();
+        if ( $GLOBALS['twshop_points_transaction_context']['failed'] ) throw new RuntimeException( '點數內層交易已失敗。' );
+        if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( '點數交易提交失敗。' );
+        return $result;
+    } catch ( Throwable $error ) {
+        $wpdb->query( 'ROLLBACK' );
+        throw $error;
+    } finally {
+        $orders = $GLOBALS['twshop_points_transaction_context']['orders'];
+        unset( $GLOBALS['twshop_points_transaction_context'] );
+        foreach ( $ids as $id ) wp_cache_delete( $id, 'user_meta' );
+        foreach ( $orders as $order ) $order->read_meta_data( true );
+    }
+}
+
+/** 驗證實際持久化值，避免 update_user_meta() 失敗卻繼續提交。 */
+function twshop_points_write_meta( $user_id, $key, $value ) {
+    if ( ! in_array( (int) $user_id, $GLOBALS['twshop_points_transaction_context']['users'] ?? array(), true ) ) throw new RuntimeException( '點數寫入必須先鎖定會員。' );
+    update_user_meta( $user_id, $key, $value );
+    wp_cache_delete( $user_id, 'user_meta' );
+    if ( get_user_meta( $user_id, $key, true ) != $value ) throw new RuntimeException( '點數資料寫入失敗：' . $key );
+}
+
+function twshop_points_locked_order( $order_id, $user_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order || (int) $order->get_customer_id() !== (int) $user_id ) throw new RuntimeException( '點數訂單會員不一致。' );
+    $order->read_meta_data( true );
+    $GLOBALS['twshop_points_transaction_context']['orders'][$order_id] = $order;
+    return $order;
+}
+
+function twshop_points_save_order_meta( $order, array $expected ) {
+    $order->save_meta_data();
+    $order->read_meta_data( true );
+    foreach ( $expected as $key => $value ) {
+        if ( $order->get_meta( $key ) != $value ) throw new RuntimeException( '點數訂單旗標寫入失敗：' . $key );
+    }
+}
+
 // 共用的點數寫入與記錄函式
 function twshop_add_points_log( $user_id, $amount, $reason, $custom_expire = null ) {
-    if ( $amount == 0 ) return;
-    $current_points = (int) get_user_meta( $user_id, 'twshop_reward_points', true );
-    $new_points = max( 0, $current_points + $amount );
-    update_user_meta( $user_id, 'twshop_reward_points', $new_points );
+    $amount = (int) $amount;
+    if ( 0 === $amount ) return;
+    return twshop_points_transaction( array( $user_id ), function () use ( $user_id, $amount, $reason, $custom_expire ) {
+        $current_points = (int) get_user_meta( $user_id, 'twshop_reward_points', true );
+        $new_points = max( 0, $current_points + $amount );
+        twshop_points_write_meta( $user_id, 'twshop_reward_points', $new_points );
 
-    $batch_expire = twshop_points_batches_apply_delta( $user_id, $amount, $custom_expire );
+        $batch_expire = twshop_points_batches_apply_delta( $user_id, $amount, $custom_expire );
 
-    $history = get_user_meta( $user_id, 'twshop_points_history', true );
-    if ( ! is_array( $history ) ) $history = array();
+        $history = get_user_meta( $user_id, 'twshop_points_history', true );
+        if ( ! is_array( $history ) ) $history = array();
 
-    array_unshift( $history, array(
-        'time'    => current_time('mysql'),
-        'amount'  => $amount,
-        'reason'  => $reason,
-        'balance' => $new_points,
-        // 入帳當下批次的到期日（由 twshop_points_batches_apply_delta 算出，含 custom_expire）；未啟用到期規則或扣除類紀錄一律為空字串
-        'expire'  => ( $amount > 0 && $batch_expire ) ? $batch_expire : '',
-    ));
+        array_unshift( $history, array(
+            'time'    => current_time('mysql'),
+            'amount'  => $amount,
+            'reason'  => $reason,
+            'balance' => $new_points,
+            // 入帳當下批次的到期日（由 twshop_points_batches_apply_delta 算出，含 custom_expire）；未啟用到期規則或扣除類紀錄一律為空字串
+            'expire'  => ( $amount > 0 && $batch_expire ) ? $batch_expire : '',
+        ));
 
-    $history = array_slice( $history, 0, 100 ); // 保留最新 100 筆紀錄
-    update_user_meta( $user_id, 'twshop_points_history', $history );
+        $history = array_slice( $history, 0, 100 ); // 保留最新 100 筆紀錄
+        twshop_points_write_meta( $user_id, 'twshop_points_history', $history );
+    } );
 }
 
 /**
@@ -147,27 +230,28 @@ function twshop_get_points_batches( $user_id ) {
  * @return string|null 新入帳批次的到期日（$amount > 0 時），其餘情況（扣除、或未啟用到期規則）回傳 null
  */
 function twshop_points_batches_apply_delta( $user_id, $amount, $custom_expire = null ) {
-    $expiry_days = (int) get_option( 'wc_points_expiry_days', 0 );
-    if ( $expiry_days <= 0 ) return null;
+    return twshop_points_transaction( array( $user_id ), function () use ( $user_id, $amount, $custom_expire ) {
+        $expiry_days = (int) get_option( 'wc_points_expiry_days', 0 );
+        if ( $expiry_days <= 0 ) return null;
 
-    $batches = twshop_get_points_batches( $user_id );
-    $expire  = null;
+        $batches = twshop_get_points_batches( $user_id );
+        $expire  = null;
 
-    if ( $amount > 0 ) {
-        $today  = wp_date( 'Y-m-d' );
-        $expire = $custom_expire ? $custom_expire : date( 'Y-m-d', strtotime( $today . " +{$expiry_days} days" ) );
-        $batches[] = array(
-            'amount'   => $amount,
-            'earned'   => $today,
-            'expire'   => $expire,
-            'notified' => false,
-        );
-    } else {
-        $remaining = abs( $amount );
-        usort( $batches, function( $a, $b ) {
-            if ( $a['expire'] === '' ) return 1;
-            if ( $b['expire'] === '' ) return -1;
-            return strcmp( $a['expire'], $b['expire'] );
+        if ( $amount > 0 ) {
+            $today  = wp_date( 'Y-m-d' );
+            $expire = $custom_expire ? $custom_expire : date( 'Y-m-d', strtotime( $today . " +{$expiry_days} days" ) );
+            $batches[] = array(
+                'amount'   => $amount,
+                'earned'   => $today,
+                'expire'   => $expire,
+                'notified' => false,
+            );
+        } else {
+            $remaining = abs( $amount );
+            usort( $batches, function( $a, $b ) {
+                if ( $a['expire'] === '' ) return 1;
+                if ( $b['expire'] === '' ) return -1;
+                return strcmp( $a['expire'], $b['expire'] );
         } );
         foreach ( $batches as &$batch ) {
             if ( $remaining <= 0 ) break;
@@ -179,8 +263,9 @@ function twshop_points_batches_apply_delta( $user_id, $amount, $custom_expire = 
         $batches = array_values( array_filter( $batches, function( $b ) { return $b['amount'] > 0; } ) );
     }
 
-    update_user_meta( $user_id, 'twshop_points_batches', $batches );
+    twshop_points_write_meta( $user_id, 'twshop_points_batches', $batches );
     return $expire;
+    } );
 }
 
 /**
@@ -232,45 +317,50 @@ function twshop_points_daily_expiry_check() {
         ) );
 
         foreach ( $user_ids as $user_id ) {
-            $batches = twshop_get_points_batches( $user_id );
-            if ( empty( $batches ) ) continue;
+            $notifications = twshop_points_transaction( array( $user_id ), function () use ( $user_id, $today, $notify_until, $notify_days, $notify_subj, $notify_body_tpl, $pt ) {
+                $notifications = array();
+                $batches = twshop_get_points_batches( $user_id );
+                if ( empty( $batches ) ) return array();
 
-            $expired_total = 0;
-            // 同一位會員的 WP_User 物件在多筆批次都需要通知時只查一次即可（get_userdata()
-            // 內部本身有 object cache，但仍是一次不必要的函式呼叫＋DB 往返成本，這裡改成
-            // 移出巢狀迴圈、每位會員最多查一次，且只在真的需要寄信時才查，不需要通知的會員
-            // 完全不會呼叫 get_userdata()）。
-            $user = null;
+                $expired_total = 0;
+                // 同一位會員的 WP_User 物件在多筆批次都需要通知時只查一次即可（get_userdata()
+                // 內部本身有 object cache，但仍是一次不必要的函式呼叫＋DB 往返成本，這裡改成
+                // 移出巢狀迴圈、每位會員最多查一次，且只在真的需要寄信時才查，不需要通知的會員
+                // 完全不會呼叫 get_userdata()）。
+                $user = null;
 
-            foreach ( $batches as &$batch ) {
-                if ( $batch['amount'] <= 0 || $batch['expire'] === '' ) continue;
+                foreach ( $batches as &$batch ) {
+                    if ( $batch['amount'] <= 0 || $batch['expire'] === '' ) continue;
 
-                if ( $batch['expire'] <= $today ) {
-                    $expired_total += $batch['amount'];
-                } elseif ( $notify_days > 0 && empty( $batch['notified'] ) && $batch['expire'] <= $notify_until ) {
-                    if ( null === $user ) {
-                        $user = get_userdata( $user_id );
+                    if ( $batch['expire'] <= $today ) {
+                        $expired_total += $batch['amount'];
+                    } elseif ( $notify_days > 0 && empty( $batch['notified'] ) && $batch['expire'] <= $notify_until ) {
+                        if ( null === $user ) {
+                            $user = get_userdata( $user_id );
+                        }
+                        if ( $user && $user->user_email ) {
+                            $message = str_replace(
+                                array( '{name}', '{amount}', '{term}', '{date}' ),
+                                array( $user->display_name, $batch['amount'], $pt, $batch['expire'] ),
+                                $notify_body_tpl
+                            );
+                            // 排入佇列而非在這個迴圈裡同步呼叫 wp_mail()（阻塞性網路呼叫），
+                            // 避免會員/到期批次多時拖慢這支每日 cron 的總執行時間。
+                            $notifications[] = array( $user->user_email, $notify_subj, $message );
+                        }
+                        $batch['notified'] = true;
                     }
-                    if ( $user && $user->user_email ) {
-                        $message = str_replace(
-                            array( '{name}', '{amount}', '{term}', '{date}' ),
-                            array( $user->display_name, $batch['amount'], $pt, $batch['expire'] ),
-                            $notify_body_tpl
-                        );
-                        // 排入佇列而非在這個迴圈裡同步呼叫 wp_mail()（阻塞性網路呼叫），
-                        // 避免會員/到期批次多時拖慢這支每日 cron 的總執行時間。
-                        wp_schedule_single_event( time(), 'twshop_send_points_expiry_notice', array( $user->user_email, $notify_subj, $message ) );
-                    }
-                    $batch['notified'] = true;
                 }
-            }
-            unset( $batch );
+                unset( $batch );
 
-            update_user_meta( $user_id, 'twshop_points_batches', $batches );
+                twshop_points_write_meta( $user_id, 'twshop_points_batches', $batches );
 
-            if ( $expired_total > 0 ) {
-                twshop_add_points_log( $user_id, -$expired_total, '點數到期' );
-            }
+                if ( $expired_total > 0 ) {
+                    twshop_add_points_log( $user_id, -$expired_total, '點數到期' );
+                }
+                return $notifications;
+            } );
+            foreach ( $notifications as $notification ) wp_schedule_single_event( time(), 'twshop_send_points_expiry_notice', $notification );
         }
         $paged++;
     } while ( count( $user_ids ) === $batch_size );
@@ -538,24 +628,27 @@ function twshop_award_points_on_order_complete( $order_id ) {
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    if ( $order->get_meta( '_twshop_points_awarded' ) ) return;
-    $order->update_meta_data( '_twshop_points_awarded', 'yes' );
-    $order->save();
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $user_id ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        if ( $order->get_meta( '_twshop_points_awarded' ) ) return;
+        $order->update_meta_data( '_twshop_points_awarded', 'yes' );
+        twshop_points_save_order_meta( $order, array( '_twshop_points_awarded' => 'yes' ) );
 
-    $lines = array();
-    foreach ( $order->get_items() as $item ) {
-        $product = $item->get_product();
-        if ( $product ) $lines[] = array( 'product' => $product, 'total' => $item->get_total() + $item->get_total_tax() );
-    }
-    $final_points = twshop_calculate_earn_points(
-        $lines, $order->get_total() - $order->get_shipping_total() - $order->get_shipping_tax(), get_userdata( $user_id ),
-        (float) $order->get_meta( '_twshop_wallet_applied' )
-    );
-    if ( $final_points <= 0 ) return;
+        $lines = array();
+        foreach ( $order->get_items() as $item ) {
+            $product = $item->get_product();
+            if ( $product ) $lines[] = array( 'product' => $product, 'total' => $item->get_total() + $item->get_total_tax() );
+        }
+        $final_points = twshop_calculate_earn_points(
+            $lines, $order->get_total() - $order->get_shipping_total() - $order->get_shipping_tax(), get_userdata( $user_id ),
+            (float) $order->get_meta( '_twshop_wallet_applied' )
+        );
+        if ( $final_points <= 0 ) return;
 
-    $order->update_meta_data( '_twshop_points_awarded_amount', $final_points );
-    $order->save();
-    twshop_add_points_log( $user_id, $final_points, '訂單 #' . $order_id . ' 消費回饋' );
+        $order->update_meta_data( '_twshop_points_awarded_amount', $final_points );
+        twshop_points_save_order_meta( $order, array( '_twshop_points_awarded_amount' => $final_points ) );
+        twshop_add_points_log( $user_id, $final_points, '訂單 #' . $order_id . ' 消費回饋' );
+    } );
 }
 
 function twshop_points_cart_restriction() {
@@ -1323,6 +1416,21 @@ function twshop_clear_applied_points_on_cart_emptied() {
     if ( WC()->session ) WC()->session->__unset( 'twshop_applied_points' );
 }
 
+/** 訂單中點數兌換商品的成本合計，不含現金折抵點數。 */
+function twshop_get_order_redeem_product_points( $order ) {
+    $total = 0;
+    foreach ( $order->get_items() as $item ) {
+        $total += max( 0, (int) $item->get_meta( '_twshop_points_redeem_cost' ) );
+    }
+    return $total;
+}
+
+/** 付款失敗曾退點後，訂單付款頁需補扣；餘額不足時在呼叫金流前中止。 */
+function twshop_charge_points_on_order_pay( $order ) {
+    if ( ! $order instanceof WC_Order || ! $order->get_customer_id() ) return;
+    twshop_deduct_points_on_checkout( $order->get_id(), array(), $order );
+}
+
 /**
  * 結帳扣點，**冪等**：付款失敗/從金流返回後重新送出，WooCommerce 會重用同一張 pending/failed 訂單並
  * 再次觸發這個 hook。這裡以「這張訂單目前應扣總點數」對照「已淨扣點數」（已扣 − 已退還），只記差額；
@@ -1336,33 +1444,34 @@ function twshop_deduct_points_on_checkout( $order_id, $posted_data, $order ) {
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    $cash_points = (int) $order->get_meta( '_twshop_points_cash_applied' );
-    $redeem_points_total = 0;
-    foreach ( $order->get_items() as $item ) {
-        $redeem_points_total += (int) $item->get_meta( '_twshop_points_redeem_cost' );
-    }
-    $target = $cash_points + $redeem_points_total;
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $posted_data, $order, $user_id ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        $cash_points = max( 0, (int) $order->get_meta( '_twshop_points_cash_applied' ) );
+        $redeem_points_total = twshop_get_order_redeem_product_points( $order );
+        $target = $cash_points + $redeem_points_total;
 
-    $recorded = (int) $order->get_meta( '_twshop_points_redeemed' );
-    $refunded = $order->get_meta( '_twshop_points_redeemed_refunded' )
-        ? $recorded
-        : min( $recorded, (int) $order->get_meta( '_twshop_points_redeemed_refunded_amount' ) );
-    $net_deducted = $recorded - $refunded;
+        $recorded = (int) $order->get_meta( '_twshop_points_redeemed' );
+        $refunded = $order->get_meta( '_twshop_points_redeemed_refunded' )
+            ? $recorded
+            : min( $recorded, (int) $order->get_meta( '_twshop_points_redeemed_refunded_amount' ) );
+        $net_deducted = $recorded - $refunded;
 
-    if ( $target <= 0 && $recorded <= 0 ) return;
+        if ( $target <= 0 && $recorded <= 0 ) return;
 
-    $delta = $target - $net_deducted;
-    if ( 0 !== $delta ) {
-        $label = $delta > 0
-            ? ( '訂單 #' . $order_id . ' ' . twshop_points_term() . ( $redeem_points_total > 0 ? '折抵/兌換商品' : '折抵' ) )
-            : ( '訂單 #' . $order_id . ' 重新結帳，' . twshop_points_term() . '差額退還' );
-        twshop_add_points_log( $user_id, -$delta, $label );
-    }
+        $delta = $target - $net_deducted;
+        if ( $delta > (int) get_user_meta( $user_id, 'twshop_reward_points', true ) ) throw new Exception( twshop_points_term() . '餘額不足，請重新結帳。' );
+        if ( 0 !== $delta ) {
+            $label = $delta > 0
+                ? ( '訂單 #' . $order_id . ' ' . twshop_points_term() . ( $redeem_points_total > 0 ? '折抵/兌換商品' : '折抵' ) )
+                : ( '訂單 #' . $order_id . ' 重新結帳，' . twshop_points_term() . '差額退還' );
+            twshop_add_points_log( $user_id, -$delta, $label );
+        }
 
-    $order->update_meta_data( '_twshop_points_redeemed', $target );
-    $order->delete_meta_data( '_twshop_points_redeemed_refunded' );
-    $order->delete_meta_data( '_twshop_points_redeemed_refunded_amount' );
-    $order->save();
+        $order->update_meta_data( '_twshop_points_redeemed', $target );
+        $order->delete_meta_data( '_twshop_points_redeemed_refunded' );
+        $order->delete_meta_data( '_twshop_points_redeemed_refunded_amount' );
+        twshop_points_save_order_meta( $order, array( '_twshop_points_redeemed' => $target, '_twshop_points_redeemed_refunded' => '', '_twshop_points_redeemed_refunded_amount' => '' ) );
+    } );
 }
 
 /**
@@ -1379,41 +1488,48 @@ function twshop_refund_points_on_order_cancel( $order_id ) {
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    // 只處理「尚未被部分退款處理過」的差額：先前 twshop_handle_order_refund_points() 已按比例
-    // 退還/追回的部分記在 *_amount 進度 meta，這裡若直接用全額會重複退還（v25.8.34 修正）。
-    twshop_complete_points_reversal(
-        $order_id, $user_id,
-        '_twshop_points_redeemed', '_twshop_points_redeemed_refunded_amount', '_twshop_points_redeemed_refunded',
-        1, '訂單 #' . $order_id . ' 取消/退款，' . twshop_points_term() . '折抵退還'
-    );
-    twshop_complete_points_reversal(
-        $order_id, $user_id,
-        '_twshop_points_awarded_amount', '_twshop_points_awarded_revoked_amount', '_twshop_points_awarded_revoked',
-        -1, '訂單 #' . $order_id . ' 取消/退款，追回消費回饋' . twshop_points_term()
-    );
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $user_id ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        // 只處理「尚未被部分退款處理過」的差額：先前 twshop_handle_order_refund_points() 已按比例
+        // 退還/追回的部分記在 *_amount 進度 meta，這裡若直接用全額會重複退還（v25.8.34 修正）。
+        twshop_complete_points_reversal(
+            $order_id, $user_id,
+            '_twshop_points_redeemed', '_twshop_points_redeemed_refunded_amount', '_twshop_points_redeemed_refunded',
+            1, '訂單 #' . $order_id . ' 取消/退款，' . twshop_points_term() . '折抵退還'
+        );
+        twshop_complete_points_reversal(
+            $order_id, $user_id,
+            '_twshop_points_awarded_amount', '_twshop_points_awarded_revoked_amount', '_twshop_points_awarded_revoked',
+            -1, '訂單 #' . $order_id . ' 取消/退款，追回消費回饋' . twshop_points_term()
+        );
+    } );
 }
 
 function twshop_complete_points_reversal( $order_id, $user_id, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason ) {
-    $order = wc_get_order( $order_id );
-    if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
+    if ( ! $user_id ) return;
 
-    $base = (int) $order->get_meta( $base_meta );
-    if ( $base <= 0 ) return;
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $user_id, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
 
-    $already = (int) $order->get_meta( $progress_meta );
-    $delta   = $base - $already;
+        $base = (int) $order->get_meta( $base_meta );
+        if ( $base <= 0 ) return;
 
-    $order->update_meta_data( $done_flag_meta, 'yes' );
-    $order->update_meta_data( $progress_meta, $base );
-    $order->save();
-    if ( $delta > 0 ) {
-        twshop_add_points_log( $user_id, $sign * $delta, $reason );
-    }
+        $already = (int) $order->get_meta( $progress_meta );
+        $delta   = $base - $already;
+
+        $order->update_meta_data( $done_flag_meta, 'yes' );
+        $order->update_meta_data( $progress_meta, $base );
+        twshop_points_save_order_meta( $order, array( $done_flag_meta => 'yes', $progress_meta => $base ) );
+        if ( $delta > 0 ) {
+            twshop_add_points_log( $user_id, $sign * $delta, $reason );
+        }
+    } );
 }
 
 /**
  * WooCommerce 部分退款（後台訂單頁按「退款」但不一定改變訂單狀態）時，
- * 依「本次退款金額 / 訂單原始總額」的比例，按比例退還折抵點數／追回已發放回饋點數。
+ * 依「累計退款金額 / 訂單原始總額」的比例，按比例退還折抵點數／追回已發放回饋點數。
  * 掛在 `woocommerce_order_refunded`，每建立一筆退款（不論部分或全額）都會觸發一次；
  * 用 `_twshop_points_redeemed_refunded_amount`/`_twshop_points_awarded_revoked_amount`
  * 記錄「累計已處理」的點數，多次部分退款時只補上與上次相比新增的差額，不會重複退還/追回。
@@ -1427,28 +1543,31 @@ function twshop_handle_order_refund_points( $order_id, $refund_id ) {
     $user_id = $order->get_customer_id();
     if ( ! $user_id ) return;
 
-    $refund = wc_get_order( $refund_id );
-    if ( ! $refund ) return;
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $refund_id, $user_id ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        $refund = wc_get_order( $refund_id );
+        if ( ! $refund ) return;
 
-    // WC_Order_Refund::get_total() 存的是負數（代表退款金額），取絕對值還原成正數的退款金額
-    $refunded_amount = abs( (float) $refund->get_total() );
-    if ( $refunded_amount <= 0 ) return;
+        // 進度 meta 是累計目標，比例也必須使用整張訂單的累計退款，避免第二筆退款漏處理。
+        $refunded_amount = abs( (float) $order->get_total_refunded() );
+        if ( $refunded_amount <= 0 ) return;
 
-    $order_total = (float) $order->get_total();
-    if ( $order_total <= 0 ) return;
+        $order_total = (float) $order->get_total();
+        if ( $order_total <= 0 ) return;
 
-    $proportion = min( 1, $refunded_amount / $order_total );
+        $proportion = min( 1, $refunded_amount / $order_total );
 
-    twshop_apply_proportional_points_reversal(
-        $order_id, $user_id, $proportion,
-        '_twshop_points_redeemed', '_twshop_points_redeemed_refunded_amount', '_twshop_points_redeemed_refunded',
-        1, twshop_points_term() . '折抵退還'
-    );
-    twshop_apply_proportional_points_reversal(
-        $order_id, $user_id, $proportion,
-        '_twshop_points_awarded_amount', '_twshop_points_awarded_revoked_amount', '_twshop_points_awarded_revoked',
-        -1, '追回消費回饋' . twshop_points_term()
-    );
+        twshop_apply_proportional_points_reversal(
+            $order_id, $user_id, $proportion,
+            '_twshop_points_redeemed', '_twshop_points_redeemed_refunded_amount', '_twshop_points_redeemed_refunded',
+            1, twshop_points_term() . '折抵退還'
+        );
+        twshop_apply_proportional_points_reversal(
+            $order_id, $user_id, $proportion,
+            '_twshop_points_awarded_amount', '_twshop_points_awarded_revoked_amount', '_twshop_points_awarded_revoked',
+            -1, '追回消費回饋' . twshop_points_term()
+        );
+    } );
 }
 
 /**
@@ -1458,24 +1577,28 @@ function twshop_handle_order_refund_points( $order_id, $refund_id ) {
  * @param int    $sign           1 = 加回會員點數（折抵退還），-1 = 扣回會員點數（追回回饋）
  */
 function twshop_apply_proportional_points_reversal( $order_id, $user_id, $proportion, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason_label ) {
-    $order = wc_get_order( $order_id );
-    if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
+    if ( ! $user_id ) return;
 
-    $base = (int) $order->get_meta( $base_meta );
-    if ( $base <= 0 ) return;
+    return twshop_points_transaction( array( $user_id ), function () use ( $order_id, $user_id, $proportion, $base_meta, $progress_meta, $done_flag_meta, $sign, $reason_label ) {
+        $order = twshop_points_locked_order( $order_id, $user_id );
+        if ( ! $order || $order->get_meta( $done_flag_meta ) ) return;
 
-    $already = (int) $order->get_meta( $progress_meta );
-    $target  = (int) floor( $base * $proportion );
-    $delta   = $target - $already;
-    if ( $delta <= 0 ) return;
+        $base = (int) $order->get_meta( $base_meta );
+        if ( $base <= 0 ) return;
 
-    $order->update_meta_data( $progress_meta, $already + $delta );
-    if ( $target >= $base ) {
-        $order->update_meta_data( $done_flag_meta, 'yes' );
-    }
-    $order->save();
+        $already = (int) $order->get_meta( $progress_meta );
+        $target  = (int) floor( $base * $proportion );
+        $delta   = $target - $already;
+        if ( $delta <= 0 ) return;
 
-    twshop_add_points_log( $user_id, $sign * $delta, '訂單 #' . $order_id . ' 部分退款（' . round( $proportion * 100 ) . '%），' . $reason_label );
+        $order->update_meta_data( $progress_meta, $already + $delta );
+        if ( $target >= $base ) {
+            $order->update_meta_data( $done_flag_meta, 'yes' );
+        }
+        twshop_points_save_order_meta( $order, array( $progress_meta => $target, $done_flag_meta => $target >= $base ? 'yes' : '' ) );
+
+        twshop_add_points_log( $user_id, $sign * $delta, '訂單 #' . $order_id . ' 部分退款（累計 ' . round( $proportion * 100 ) . '%），' . $reason_label );
+    } );
 }
 
 /**
@@ -1538,4 +1661,3 @@ function twshop_display_estimated_points_earn() {
     </tr>
     <?php
 }
-

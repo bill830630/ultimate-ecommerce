@@ -223,13 +223,35 @@
 	color: var(--twshop-color-muted);
 }
 
-/* 設定頁只保留欄位名稱與操作回饋；隱藏頁面／面板副標題及欄位補充說明。 */
-.twshop-admin-wrap .twshop-admin-intro,
-.twshop-admin-wrap .twshop-panel-hint,
-.twshop-admin-wrap .form-table .description,
-.twshop-admin-wrap .twshop-section-title > .twshop-hint {
-	display: none;
+/* 操作提示預設可見；較長的補充內容由原生 details/summary 展開，支援鍵盤操作。 */
+.twshop-admin-wrap .form-table .description {
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--twshop-color-muted);
+	max-width: 65ch;
 }
+.twshop-section-title > .twshop-hint {
+	display: block;
+	margin-top: 6px;
+	line-height: 1.5;
+}
+.twshop-help {
+	margin-top: 8px;
+	max-width: 65ch;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--twshop-color-muted);
+}
+.twshop-help > summary {
+	width: fit-content;
+	color: var(--twshop-color-text);
+	cursor: pointer;
+}
+.twshop-help > summary:focus-visible {
+	outline: 2px solid var(--twshop-color-text);
+	outline-offset: 3px;
+}
+.twshop-help > p { margin: 8px 0 0; }
 
 .twshop-two-col {
 	display: flex;

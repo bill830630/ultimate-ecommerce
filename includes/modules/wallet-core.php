@@ -2,8 +2,8 @@
 /**
  * 儲值金核心：資料表建立與升級、帳本（ledger）唯一寫入入口。
  *
- * 儲值金是真錢，不能像 twshop_add_points_log()（points-engine.php，read-then-write、
- * 完全無鎖、用 max(0,…) 靜默吃掉透支）那樣寫，見 CLAUDE.md「儲值金模組」一節。所有餘額
+ * 儲值金採獨立帳本與會員餘額列；點數亦已改用交易與會員鎖，但資料結構與退還規則不同。
+ * 見 CLAUDE.md「儲值金模組」一節。所有餘額
  * 異動一律經過 twshop_wallet_apply()，用資料庫交易＋SELECT...FOR UPDATE 鎖住該會員的
  * 餘額列，同一會員的並發異動會排隊依序執行、不會互相覆蓋；ref 欄位是冪等鍵（例如
  * `topup:{order_id}`），同一個 ref 重複呼叫只會真正執行一次，之後直接回傳第一次的結果——

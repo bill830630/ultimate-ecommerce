@@ -35,7 +35,7 @@ function twshop_shopee_settings_tab() {
             <form action="options.php" method="post">
                 <?php settings_fields( 'wc_shopee_enable_group' ); ?>
                 <label><input type="checkbox" class="twshop-sw" name="wc_shopee_sync_enabled" value="yes" <?php checked( $enabled, 'yes' ); ?>> 啟用蝦皮串接</label>
-                <p class="description">開啟後才會出現「授權」「商品對應」「同步設定」「同步紀錄」頁籤，並開始背景排程（推送庫存/價格、匯入訂單）。需要先向蝦皮申請 Partner ID / Partner Key 才能實際使用，見下方「授權」頁籤說明。</p>
+                <p class="description">啟用後顯示串接頁籤並啟動庫存、價格與訂單同步排程。須先取得 Partner ID / Partner Key 並完成授權。</p>
                 <?php submit_button( '儲存設定', 'primary', 'submit', false ); ?>
             </form>
         </div>

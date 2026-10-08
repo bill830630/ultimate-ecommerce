@@ -102,9 +102,11 @@
     }
 }
 
-/* 點數異動顏色 (語意色，可由主題覆寫) */
-.twshop-points-earn { color: #2e7d32; font-weight: 700; }
-.twshop-points-use  { color: #c62828; font-weight: 700; }
+/* 點數異動顏色：新增吃主題強調色、扣除吃主題標題色（正負號已表達方向，不再用固定的綠／紅）。
+   非 Blocksy 主題沒有這些變數時退回綠／紅；也可在站台 CSS 覆寫 --twshop-points-earn-color／--twshop-points-use-color */
+.twshop-points-earn { color: var(--twshop-points-earn-color, var(--theme-palette-color-1, #2e7d32)); font-weight: 700; }
+.twshop-points-use  { color: var(--twshop-points-use-color, var(--theme-headings-color, #c62828)); font-weight: 700; }
+.twshop-points-notice--applied { color: var(--theme-palette-color-1, #2271b1); }
 
 /* 點數紀錄滾動容器 */
 .twshop-points-history-wrap {

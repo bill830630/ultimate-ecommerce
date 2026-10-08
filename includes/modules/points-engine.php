@@ -1079,7 +1079,7 @@ function twshop_render_points_redemption_ui() {
             <?php if ( $applied_points > 0 ) :
                 list( $discount, $applied_points ) = twshop_get_points_discount_amount( $applied_points );
             ?>
-                <p class="twshop-points-notice" style="color:#2271b1; margin-top:6px;"><?php echo esc_html( str_replace(
+                <p class="twshop-points-notice twshop-points-notice--applied" style="margin-top:6px;"><?php echo esc_html( str_replace(
                     array( '{amount}', '{term}', '{discount}' ),
                     array( $applied_points, $pt, $discount ),
                     twshop_points_text( 'applied_text' )
@@ -1626,7 +1626,7 @@ function twshop_display_points_used() {
     ?>
     <tr class="twshop-points-used">
         <th><?php echo esc_html( '本次訂單使用' . $pt ); ?></th>
-        <td data-title="<?php echo esc_attr( '本次訂單使用' . $pt ); ?>"><strong>-<?php echo esc_html( $used ); ?> <?php echo esc_html( $pt ); ?></strong></td>
+        <td data-title="<?php echo esc_attr( '本次訂單使用' . $pt ); ?>"><strong class="twshop-points-use">-<?php echo esc_html( $used ); ?> <?php echo esc_html( $pt ); ?></strong></td>
     </tr>
     <?php
 }
@@ -1657,7 +1657,7 @@ function twshop_display_estimated_points_earn() {
     ?>
     <tr class="twshop-estimated-points">
         <th>預估獲得<?php echo esc_html( twshop_points_term() ); ?></th>
-        <td data-title="<?php echo esc_attr( '預估獲得' . twshop_points_term() ); ?>"><strong style="color:#d68a00;">+<?php echo esc_html( $final_points ); ?> <?php echo esc_html( twshop_points_term() ); ?></strong><?php echo $multiplier_note; ?></td>
+        <td data-title="<?php echo esc_attr( '預估獲得' . twshop_points_term() ); ?>"><strong class="twshop-points-earn">+<?php echo esc_html( $final_points ); ?> <?php echo esc_html( twshop_points_term() ); ?></strong><?php echo $multiplier_note; ?></td>
     </tr>
     <?php
 }

@@ -1,6 +1,6 @@
 # 終極電商（Ultimate E-commerce）
 
-WooCommerce 擴充外掛，由 [NiBill](https://nibill-studio.com/) 開發維護。
+WooCommerce 擴充外掛，由 快捷鍵Ctrl+A 開發維護。
 版本資訊見 `ultimate-ecommerce.php`；使用者變更紀錄見 [readme.txt](readme.txt)。
 
 ## 功能

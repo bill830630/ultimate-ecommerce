@@ -85,7 +85,9 @@ function twshop_group_buy_handle_leader_post() {
             $p = wc_get_product( $id );
             return $p && ! $p->is_type( 'variation' ) && ! twshop_is_wallet_credit_product( $p );
         } );
-        $ok = false !== $wpdb->update( $table, array( 'title' => $title, 'intro' => $intro ), array( 'user_id' => $user_id ) );
+        $cover_id = absint( $_POST['cover_id'] ?? 0 );
+        if ( $cover_id && ! wp_attachment_is_image( $cover_id ) ) $cover_id = 0;
+        $ok = false !== $wpdb->update( $table, array( 'title' => $title, 'intro' => $intro, 'cover_id' => $cover_id ?: null ), array( 'user_id' => $user_id ) );
         $ok = $ok && false !== $wpdb->query( $wpdb->prepare(
             "UPDATE {$table} SET rate = " . ( null === $rate ? 'NULL' : '%f' ) . ', tiers = ' . ( null === $tiers_json ? 'NULL' : '%s' ) . ' WHERE user_id = %d',
             array_merge( null === $rate ? array() : array( (float) $rate ), null === $tiers_json ? array() : array( $tiers_json ), array( $user_id ) )
@@ -217,6 +219,19 @@ function twshop_group_buy_leaders_tab() {
     echo '</tbody></table></div></div>';
 }
 
+/** 分享封面圖片：媒體庫選圖，存附件 ID（admin/group-buy-admin.js）。 */
+function twshop_group_buy_cover_field( $cover_id ) {
+    wp_enqueue_media();
+    $preview = $cover_id ? wp_get_attachment_image( $cover_id, 'medium', false, array( 'style' => 'display:block;max-width:300px;height:auto;margin-bottom:8px' ) ) : '';
+    echo '<tr><th scope="row">分享封面圖片</th><td><div class="twshop-gb-cover">';
+    echo '<input type="hidden" name="cover_id" value="' . ( $preview ? (int) $cover_id : '' ) . '">';
+    echo '<div class="twshop-gb-cover-preview">' . $preview . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_attachment_image() 已跳脫。
+    echo '<button type="button" class="button twshop-gb-cover-select">' . ( $preview ? '更換圖片' : '選擇圖片' ) . '</button> ';
+    echo '<button type="button" class="button-link button-link-delete twshop-gb-cover-remove"' . ( $preview ? '' : ' hidden' ) . '>移除</button>';
+    echo '<p class="twshop-hint">團購頁分享到 LINE、Facebook 時預覽卡片顯示的圖片，建議 1200×630 像素。未設定時使用第一個團購商品的主圖，都沒有圖片時使用網站圖示。</p>';
+    echo '</div></td></tr>';
+}
+
 function twshop_group_buy_leader_edit_form( array $leader ) {
     $id = (int) $leader['user_id'];
     $product_ids = twshop_group_buy_leader_product_ids( $id );
@@ -234,6 +249,7 @@ function twshop_group_buy_leader_edit_form( array $leader ) {
     echo '<tr><th scope="row"><label for="twshop-gb-title">團購名稱</label></th><td><input id="twshop-gb-title" class="regular-text" name="title" type="text" value="' . esc_attr( $leader['title'] ) . '">';
     echo '<p class="twshop-hint">顯示在專屬頁標題；留空使用會員顯示名稱。</p></td></tr>';
     echo '<tr><th scope="row"><label for="twshop-gb-intro">簡介</label></th><td><textarea id="twshop-gb-intro" class="large-text" rows="4" name="intro">' . esc_textarea( (string) $leader['intro'] ) . '</textarea></td></tr>';
+    twshop_group_buy_cover_field( (int) ( $leader['cover_id'] ?? 0 ) );
     echo '<tr><th scope="row"><label for="twshop-gb-starts">團購期間</label></th><td><span class="twshop-gb-period-fields">';
     foreach ( array( 'starts_at' => array( 'twshop-gb-starts', '開始', '00:00' ), 'ends_at' => array( 'twshop-gb-ends', '結束', '23:59' ) ) as $field => $meta ) {
         $local = twshop_group_buy_local_input_value( $leader[ $field ] ?? '' );

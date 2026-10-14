@@ -5,7 +5,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TWSHOP_GROUP_BUY_DB_VERSION', '1.5.0' );
+define( 'TWSHOP_GROUP_BUY_DB_VERSION', '1.6.0' );
 
 function twshop_group_buy_tables() {
     global $wpdb;
@@ -29,6 +29,7 @@ function twshop_group_buy_install_tables() {
         slug VARCHAR(40) NULL,
         title VARCHAR(191) NOT NULL DEFAULT '',
         intro TEXT NULL,
+        cover_id BIGINT UNSIGNED NULL,
         rate DECIMAL(5,2) NULL,
         tiers TEXT NULL,
         template_id BIGINT NULL,
@@ -915,9 +916,41 @@ function twshop_group_buy_page_full_title() {
     return twshop_group_buy_leader_title( twshop_group_buy_page_leader() ) . ' ' . $sep . ' ' . get_bloginfo( 'name', 'display' );
 }
 
+/** 團購頁描述：團購簡介；沒填簡介時列出團購商品名稱（分享預覽卡片才有內容）。 */
 function twshop_group_buy_page_description() {
     $leader = twshop_group_buy_page_leader();
-    return $leader ? wp_trim_words( wp_strip_all_tags( strip_shortcodes( (string) ( $leader['intro'] ?? '' ) ) ), 80, '…' ) : '';
+    if ( ! $leader ) return '';
+    $intro = trim( wp_strip_all_tags( strip_shortcodes( (string) ( $leader['intro'] ?? '' ) ) ) );
+    if ( '' !== $intro ) return wp_trim_words( $intro, 80, '…' );
+    $names = array_map( function ( $product ) { return wp_strip_all_tags( $product->get_name() ); }, twshop_group_buy_page_products( $leader ) );
+    return $names ? wp_trim_words( twshop_group_buy_t( '團購商品：' ) . implode( '、', $names ), 80, '…' ) : '';
+}
+
+/**
+ * 分享預覽圖：團購主設定的封面圖 → 第一個有主圖的團購商品 → 網站圖示；都沒有回 null。
+ * 回傳 url、width、height、alt、type（附件才有尺寸與類型）。
+ */
+function twshop_group_buy_share_image( $leader = null ) {
+    $leader = $leader ?? twshop_group_buy_page_leader();
+    if ( ! $leader ) return null;
+    $ids = array( (int) ( $leader['cover_id'] ?? 0 ) );
+    foreach ( twshop_group_buy_page_products( $leader ) as $product ) $ids[] = (int) $product->get_image_id();
+    foreach ( $ids as $id ) {
+        if ( ! $id || ! wp_attachment_is_image( $id ) ) continue;
+        $src = wp_get_attachment_image_src( $id, 'full' );
+        // 社群平台建議 1200 寬；原圖過大時改用 large 尺寸
+        if ( $src && ( $src[1] > 2000 || $src[2] > 2000 ) ) $src = wp_get_attachment_image_src( $id, 'large' ) ?: $src;
+        if ( ! $src ) continue;
+        return array(
+            'url'    => $src[0],
+            'width'  => (int) $src[1],
+            'height' => (int) $src[2],
+            'alt'    => trim( (string) get_post_meta( $id, '_wp_attachment_image_alt', true ) ),
+            'type'   => (string) get_post_mime_type( $id ),
+        );
+    }
+    $icon = get_site_icon_url( 512 );
+    return $icon ? array( 'url' => $icon, 'width' => 512, 'height' => 512, 'alt' => '', 'type' => '' ) : null;
 }
 
 /**
@@ -957,7 +990,69 @@ function twshop_group_buy_seo_robots_string( $robots ) {
     return twshop_group_buy_is_group_page() ? 'noindex, nofollow' : $robots;
 }
 
+/** Rank Math：首頁條件會帶出首頁／預設分享圖，每張都換成團購頁的分享圖（同網址只輸出一次）。 */
+function twshop_group_buy_seo_rank_math_image( $attachment ) {
+    if ( ! twshop_group_buy_is_group_page() ) return $attachment;
+    $image = twshop_group_buy_share_image();
+    return $image ? array_filter( $image ) : $attachment;
+}
+
+/** Yoast：分享圖由 presentation 的 open_graph_images 產生，直接換成團購頁的分享圖；Twitter 交給 og:image。 */
+function twshop_group_buy_seo_yoast_presentation( $presentation, $context = null ) {
+    if ( ! twshop_group_buy_is_group_page() || ! is_object( $presentation ) ) return $presentation;
+    if ( $context && isset( $context->open_graph_enabled ) && false === $context->open_graph_enabled ) return $presentation;
+    $image = twshop_group_buy_share_image();
+    if ( ! $image ) return $presentation;
+    $presentation->open_graph_images = array( array_filter( array( 'url' => $image['url'], 'width' => $image['width'], 'height' => $image['height'], 'type' => $image['type'] ) ) );
+    $presentation->twitter_image = '';
+    return $presentation;
+}
+
+/** 有 SEO 外掛時由外掛輸出 description 與分享標籤（Rank Math、Yoast 由上方濾鏡改成團購頁的值），避免重複。 */
+function twshop_group_buy_has_seo_plugin() {
+    $has = defined( 'RANK_MATH_VERSION' ) || defined( 'WPSEO_VERSION' ) || defined( 'AIOSEO_VERSION' )
+        || defined( 'SEOPRESS_VERSION' ) || defined( 'THE_SEO_FRAMEWORK_VERSION' ) || defined( 'SLIM_SEO_VER' );
+    return (bool) apply_filters( 'twshop_group_buy_has_seo_plugin', $has );
+}
+
+/** 沒有 SEO 外掛時自行輸出團購頁的 description 與 Open Graph／Twitter 分享標籤（LINE、Facebook 預覽卡片）。 */
+function twshop_group_buy_share_meta() {
+    if ( ! twshop_group_buy_is_group_page() || twshop_group_buy_has_seo_plugin() ) return;
+    $leader = twshop_group_buy_page_leader();
+    $title = twshop_group_buy_page_full_title();
+    $description = twshop_group_buy_page_description();
+    $image = twshop_group_buy_share_image( $leader );
+    $tags = array(
+        array( 'name', 'description', $description ),
+        array( 'property', 'og:locale', str_replace( '-', '_', get_bloginfo( 'language' ) ) ),
+        array( 'property', 'og:type', 'website' ),
+        array( 'property', 'og:site_name', get_bloginfo( 'name', 'display' ) ),
+        array( 'property', 'og:title', $title ),
+        array( 'property', 'og:description', $description ),
+        array( 'property', 'og:url', twshop_group_buy_page_url( $leader ) ),
+    );
+    if ( $image ) {
+        $tags[] = array( 'property', 'og:image', $image['url'] );
+        if ( 0 === strpos( $image['url'], 'https://' ) ) $tags[] = array( 'property', 'og:image:secure_url', $image['url'] );
+        $tags[] = array( 'property', 'og:image:width', $image['width'] ? (string) $image['width'] : '' );
+        $tags[] = array( 'property', 'og:image:height', $image['height'] ? (string) $image['height'] : '' );
+        $tags[] = array( 'property', 'og:image:type', $image['type'] );
+        $tags[] = array( 'property', 'og:image:alt', $image['alt'] );
+    }
+    $tags[] = array( 'name', 'twitter:card', $image && $image['width'] > $image['height'] ? 'summary_large_image' : 'summary' );
+    $tags[] = array( 'name', 'twitter:title', $title );
+    $tags[] = array( 'name', 'twitter:description', $description );
+    if ( $image ) $tags[] = array( 'name', 'twitter:image', $image['url'] );
+    echo "\n";
+    foreach ( $tags as $tag ) {
+        if ( '' === (string) $tag[2] ) continue;
+        $value = in_array( $tag[1], array( 'og:url', 'og:image', 'og:image:secure_url', 'twitter:image' ), true ) ? esc_url( $tag[2] ) : esc_attr( html_entity_decode( $tag[2], ENT_QUOTES, 'UTF-8' ) );
+        echo '<meta ' . $tag[0] . '="' . esc_attr( $tag[1] ) . '" content="' . $value . '" />' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 上一行已跳脫。
+    }
+}
+
 function twshop_group_buy_register_seo_filters() {
+    add_action( 'wp_head', 'twshop_group_buy_share_meta', 5 );
     add_filter( 'pre_get_document_title', 'twshop_group_buy_seo_document_title', 9999 );
     // Rank Math
     add_filter( 'rank_math/frontend/title', 'twshop_group_buy_seo_title', 9999 );
@@ -969,6 +1064,8 @@ function twshop_group_buy_register_seo_filters() {
     add_filter( 'rank_math/opengraph/facebook/og_description', 'twshop_group_buy_seo_description', 9999 );
     add_filter( 'rank_math/opengraph/twitter/twitter_title', 'twshop_group_buy_seo_title', 9999 );
     add_filter( 'rank_math/opengraph/twitter/twitter_description', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'rank_math/opengraph/facebook/image_array', 'twshop_group_buy_seo_rank_math_image', 9999 );
+    add_filter( 'rank_math/opengraph/twitter/image_array', 'twshop_group_buy_seo_rank_math_image', 9999 );
     // Yoast SEO
     add_filter( 'wpseo_title', 'twshop_group_buy_seo_title', 9999 );
     add_filter( 'wpseo_opengraph_title', 'twshop_group_buy_seo_title', 9999 );
@@ -980,6 +1077,7 @@ function twshop_group_buy_register_seo_filters() {
     add_filter( 'wpseo_opengraph_url', 'twshop_group_buy_seo_url', 9999 );
     add_filter( 'wpseo_robots_array', 'twshop_group_buy_seo_robots_array', 9999 );
     add_filter( 'wpseo_robots', 'twshop_group_buy_seo_robots_string', 9999 );
+    add_filter( 'wpseo_frontend_presentation', 'twshop_group_buy_seo_yoast_presentation', 9999, 2 );
 }
 
 function twshop_group_buy_page_robots( $robots ) {

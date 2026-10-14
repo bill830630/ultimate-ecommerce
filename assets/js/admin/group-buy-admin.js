@@ -84,6 +84,37 @@ jQuery(document).ready(function($) {
         recalc();
     }
 
+    // 分享封面圖片：開媒體庫選一張圖，存附件 ID
+    $('.twshop-gb-cover').each(function () {
+        var $box = $(this);
+        var $input = $box.find('input[name="cover_id"]');
+        var $preview = $box.find('.twshop-gb-cover-preview');
+        var $select = $box.find('.twshop-gb-cover-select');
+        var $remove = $box.find('.twshop-gb-cover-remove');
+        var frame;
+        $select.on('click', function () {
+            if (!window.wp || !wp.media) return;
+            if (!frame) {
+                frame = wp.media({ title: '選擇分享封面圖片', library: { type: 'image' }, button: { text: '使用這張圖片' }, multiple: false });
+                frame.on('select', function () {
+                    var att = frame.state().get('selection').first().toJSON();
+                    var size = (att.sizes && (att.sizes.medium || att.sizes.full)) || att;
+                    $input.val(att.id);
+                    $preview.empty().append($('<img>', { src: size.url, alt: '' }).css({ display: 'block', maxWidth: '300px', height: 'auto', marginBottom: '8px' }));
+                    $select.text('更換圖片');
+                    $remove.prop('hidden', false);
+                });
+            }
+            frame.open();
+        });
+        $remove.on('click', function () {
+            $input.val('');
+            $preview.empty();
+            $select.text('選擇圖片');
+            $remove.prop('hidden', true);
+        });
+    });
+
     var $rule = $('.twshop-gb-rule');
     if (!$rule.length) return;
     function sync() {

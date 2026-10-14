@@ -534,6 +534,11 @@ function twshop_group_buy_settings_tab() {
         if ( isset( $_POST['twshop_group_buy_template_id'] ) && is_scalar( $_POST['twshop_group_buy_template_id'] ) ) {
             update_option( 'twshop_group_buy_template_id', twshop_group_buy_valid_template( wp_unslash( $_POST['twshop_group_buy_template_id'] ) ), false );
         }
+        foreach ( array( 'twshop_group_buy_term', 'twshop_group_buy_leader_term' ) as $term_option ) {
+            if ( isset( $_POST[ $term_option ] ) && is_scalar( $_POST[ $term_option ] ) ) {
+                update_option( $term_option, twshop_group_buy_sanitize_term( wp_unslash( $_POST[ $term_option ] ) ), false );
+            }
+        }
         twshop_group_buy_admin_notice( '團購設定已儲存。' );
         $old_base = twshop_group_buy_base();
         $base = twshop_group_buy_validate_base( wp_unslash( $_POST['twshop_group_buy_base'] ?? $old_base ) );
@@ -553,6 +558,10 @@ function twshop_group_buy_settings_tab() {
     echo '<tr><th scope="row">全站佣金級距</th><td>';
     twshop_group_buy_tier_rows_field( twshop_group_buy_global_tiers(), 'tier_rate', 'tier_from' );
     echo '<p class="twshop-hint">只填第一級就是固定比例。未個別設定的團購主使用這組規則；規則在下單當下記錄到訂單，之後修改不影響已成立的訂單。</p></td></tr>';
+    echo '<tr><th scope="row"><label for="twshop-gb-term">前台顯示名稱</label></th><td>';
+    echo '<input id="twshop-gb-term" class="small-text" style="width:8em" name="twshop_group_buy_term" type="text" maxlength="10" placeholder="團購" value="' . esc_attr( get_option( 'twshop_group_buy_term', '' ) ) . '">';
+    echo ' <label for="twshop-gb-leader-term">主持人稱呼</label> <input id="twshop-gb-leader-term" class="small-text" style="width:8em" name="twshop_group_buy_leader_term" type="text" maxlength="10" placeholder="' . esc_attr( twshop_group_buy_term() . '主' ) . '" value="' . esc_attr( get_option( 'twshop_group_buy_leader_term', '' ) ) . '">';
+    echo '<p class="twshop-hint">取代顧客與團購主看到的「團購」「團購主」，例如改成「揪團」「揪團主」或「預購」「代購業者」：團購頁、倒數與提示、購物車／結帳、訂單與 Email 上的商品欄位、會員中心專區。留空使用預設；主持人稱呼留空＝名稱加「主」。後台管理畫面維持「團購」。已成立訂單上的欄位名稱不會跟著改。</p></td></tr>';
     echo '<tr><th scope="row"><label for="twshop-gb-base">網址前綴</label></th><td><code>' . esc_html( trailingslashit( home_url() ) ) . '</code>';
     echo '<input id="twshop-gb-base" class="regular-text" name="twshop_group_buy_base" type="text" maxlength="30" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="' . esc_attr( twshop_group_buy_base() ) . '"><code>/自訂網址/</code>';
     echo '<p class="twshop-hint">所有團購主共用，預設 group-buy。修改後舊前綴的連結會失效，不能與網站既有頁面或商品、分類網址相同。</p></td></tr>';

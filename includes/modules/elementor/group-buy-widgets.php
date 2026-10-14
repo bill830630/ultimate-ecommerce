@@ -135,7 +135,7 @@ class TWShop_GB_Widget_Products extends TWShop_GB_Widget_Base {
         $this->add_control( 'empty_text', array(
             'label'   => '沒有商品時顯示',
             'type'    => Controls_Manager::TEXT,
-            'default' => '目前沒有團購商品。',
+            'default' => twshop_group_buy_t( '目前沒有團購商品。' ),
         ) );
         $this->end_controls_section();
 
@@ -165,7 +165,10 @@ class TWShop_GB_Widget_Products extends TWShop_GB_Widget_Base {
         $leader = twshop_group_buy_widget_leader();
         if ( ! $leader ) { $this->missing_leader_notice(); return; }
         $settings = $this->get_settings_for_display();
-        $html = twshop_group_buy_render_products( $leader, (string) ( $settings['empty_text'] ?? '目前沒有團購商品。' ) );
+        // 沒改過的預設文字（含改名前存下的舊預設）跟著目前的自訂稱呼
+        $empty = trim( (string) ( $settings['empty_text'] ?? '' ) );
+        $empty = in_array( $empty, array( '', '目前沒有團購商品。', twshop_group_buy_t( '目前沒有團購商品。' ) ), true ) ? null : $empty;
+        $html = twshop_group_buy_render_products( $leader, $empty );
         if ( 'yes' !== ( $settings['show_desc'] ?? 'yes' ) ) {
             $html = '<div class="twshop-gb--no-desc">' . $html . '</div>';
         }

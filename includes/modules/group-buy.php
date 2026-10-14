@@ -96,6 +96,35 @@ function twshop_group_buy_enabled() {
 }
 
 /** 專屬頁網址前綴（全站統一，預設 group-buy）。 */
+/**
+ * 前台顯示用的「團購」名稱與「團購主」稱呼（團購設定可改，例如「揪團」「揪團主」）。
+ * 只套用在顧客與團購主看得到的文字（團購頁、購物車／結帳、訂單商品欄位、會員中心）；後台管理畫面維持「團購」。
+ * 儲存時已移除 HTML 特殊字元，代換結果可直接放進 HTML 或純文字。
+ */
+function twshop_group_buy_term() {
+    $term = (string) get_option( 'twshop_group_buy_term', '' );
+    return '' !== $term ? $term : '團購';
+}
+
+function twshop_group_buy_leader_term() {
+    $term = (string) get_option( 'twshop_group_buy_leader_term', '' );
+    return '' !== $term ? $term : twshop_group_buy_term() . '主';
+}
+
+/** 把文案裡的「團購主」「團購」換成自訂稱呼（先換長的，避免「團購主」被拆開）。 */
+function twshop_group_buy_t( $text ) {
+    $term = twshop_group_buy_term();
+    $leader = twshop_group_buy_leader_term();
+    if ( '團購' === $term && '團購主' === $leader ) return $text;
+    return strtr( (string) $text, array( '團購主' => $leader, '團購' => $term ) );
+}
+
+/** 儲存前清理自訂稱呼：純文字、去掉 HTML 特殊字元，最多 10 個字。 */
+function twshop_group_buy_sanitize_term( $value ) {
+    $value = trim( str_replace( array( '<', '>', '"', "'", '&' ), '', sanitize_text_field( (string) $value ) ) );
+    return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, 10 ) : substr( $value, 0, 30 );
+}
+
 function twshop_group_buy_base() {
     $base = get_option( 'twshop_group_buy_base', 'group-buy' );
     return is_string( $base ) && preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $base ) ? $base : 'group-buy';
@@ -299,7 +328,7 @@ function twshop_group_buy_leader_rate( array $leader ) {
 function twshop_group_buy_leader_title( array $leader ) {
     if ( '' !== trim( (string) $leader['title'] ) ) return $leader['title'];
     $user = get_userdata( (int) $leader['user_id'] );
-    return $user ? $user->display_name : '團購';
+    return $user ? $user->display_name : twshop_group_buy_term();
 }
 
 function twshop_group_buy_normalize_slug( $value ) {
@@ -666,7 +695,7 @@ function twshop_group_buy_price_html_label( $html, $product ) {
     $applies = $product->is_type( 'variable' )
         ? twshop_group_buy_filter_is_on_sale( false, $product )
         : null !== twshop_group_buy_page_price_for( $product );
-    return $applies ? '<span class="twshop-group-buy-label">團購價</span> ' . $html : $html;
+    return $applies ? '<span class="twshop-group-buy-label">' . esc_html( twshop_group_buy_t( '團購價' ) ) . '</span> ' . $html : $html;
 }
 
 // ── 從專屬頁加入購物車 ───────────────────────────────────────────────────
@@ -724,8 +753,8 @@ function twshop_group_buy_add_to_cart_validation( $passed, $product_id = 0, $qua
     if ( 'open' === $state ) return $passed;
     $period = twshop_group_buy_period( $leader );
     wc_add_notice( 'upcoming' === $state
-        ? '團購尚未開始，將於 ' . twshop_group_buy_format_time( $period['start'] ) . ' 開放購買。'
-        : '團購已於 ' . twshop_group_buy_format_time( $period['end'] ) . ' 結束，無法再以團購價購買。', 'error' );
+        ? twshop_group_buy_t( '團購尚未開始，將於 ' ) . twshop_group_buy_format_time( $period['start'] ) . ' 開放購買。'
+        : twshop_group_buy_t( '團購已於 ' ) . twshop_group_buy_format_time( $period['end'] ) . twshop_group_buy_t( ' 結束，無法再以團購價購買。' ), 'error' );
     return false;
 }
 
@@ -735,7 +764,7 @@ function twshop_group_buy_check_cart_items() {
     if ( ! $expired ) return;
     foreach ( array_unique( array_values( $expired ) ) as $title ) {
         $names = array_keys( array_filter( $expired, fn( $t ) => $t === $title ) );
-        wc_add_notice( sprintf( '「%s」團購已結束，%s 已恢復原價。', $title, implode( '、', $names ) ), 'notice' );
+        wc_add_notice( sprintf( twshop_group_buy_t( '「%s」團購已結束，%s 已恢復原價。' ), $title, implode( '、', $names ) ), 'notice' );
     }
     $expired = array();
 }
@@ -751,7 +780,7 @@ function twshop_group_buy_cart_item_from_session( $cart_item, $values = array(),
 function twshop_group_buy_cart_item_data_display( $item_data, $cart_item ) {
     $info = isset( $cart_item['data'] ) && $cart_item['data'] instanceof WC_Product && twshop_group_buy_cart_items()->offsetExists( $cart_item['data'] )
         ? twshop_group_buy_cart_items()[ $cart_item['data'] ] : null;
-    if ( $info ) $item_data[] = array( 'key' => '團購', 'value' => twshop_group_buy_leader_title( $info['leader'] ) );
+    if ( $info ) $item_data[] = array( 'key' => twshop_group_buy_term(), 'value' => twshop_group_buy_leader_title( $info['leader'] ) );
     return $item_data;
 }
 
@@ -770,7 +799,8 @@ function twshop_group_buy_order_line_item( $item, $cart_item_key, $values, $orde
     $product = $values['data'] ?? null;
     if ( ! $product instanceof WC_Product || ! twshop_group_buy_cart_items()->offsetExists( $product ) ) return;
     $leader = twshop_group_buy_cart_items()[ $product ]['leader'];
-    $item->add_meta_data( '團購', twshop_group_buy_leader_title( $leader ), true );
+    // 顯示用欄位，名稱用下單當下的自訂稱呼（程式只讀 _twshop_gb_* 隱藏欄位）
+    $item->add_meta_data( twshop_group_buy_term(), twshop_group_buy_leader_title( $leader ), true );
     if ( $order instanceof WC_Order && (int) $order->get_customer_id() && (int) $order->get_customer_id() === (int) $leader['user_id'] ) return;
     $item->add_meta_data( '_twshop_gb_leader_id', (int) $leader['user_id'], true );
     // 下單當下的級距快照：之後修改規則不影響這張訂單。_twshop_gb_rate 為第一級比例，供舊資料與顯示相容。
@@ -977,6 +1007,10 @@ function twshop_group_buy_page_assets() {
     if ( ! twshop_group_buy_is_group_page() ) return;
     // 描述收合、圖片輪播一律需要；倒數段落在沒有期間橫幅時自行略過
     wp_enqueue_script( 'twshop-group-buy-page', TWSHOP_PLUGIN_URL . 'assets/js/group-buy-page.js', array( 'jquery' ), filemtime( TWSHOP_PLUGIN_DIR . 'assets/js/group-buy-page.js' ), true );
+    wp_localize_script( 'twshop-group-buy-page', 'twshopGroupBuyPage', array(
+        'ended'   => twshop_group_buy_t( '團購已結束' ),
+        'started' => twshop_group_buy_t( '團購已開始，請重新整理頁面' ),
+    ) );
     wp_enqueue_script( 'wc-add-to-cart-variation' );
     wp_enqueue_script( 'wc-cart-fragments' );
     // 端點網址對所有訪客相同，可以放在可快取的頁面上；nonce 由購物車片段帶入。
@@ -1071,9 +1105,10 @@ function twshop_group_buy_render_notices( $is_post ) {
 }
 
 /** 團購商品格線（內建版型與 Elementor「團購商品」小工具共用）。 */
-function twshop_group_buy_render_products( $leader, $empty_text = '目前沒有團購商品。' ) {
+function twshop_group_buy_render_products( $leader, $empty_text = null ) {
+    $empty_text = null === $empty_text ? twshop_group_buy_t( '目前沒有團購商品。' ) : $empty_text;
     $state = is_array( $leader ) ? twshop_group_buy_period_state( $leader ) : 'open';
-    if ( 'ended' === $state ) return '<p class="twshop-gb__empty">本團購已結束，感謝支持。</p>';
+    if ( 'ended' === $state ) return '<p class="twshop-gb__empty">' . esc_html( twshop_group_buy_t( '本團購已結束，感謝支持。' ) ) . '</p>';
     $products = is_array( $leader ) ? twshop_group_buy_page_products( $leader ) : array();
     if ( ! $products ) return '<p class="twshop-gb__empty">' . esc_html( $empty_text ) . '</p>';
     $previous_post = $GLOBALS['post'] ?? null;
@@ -1090,7 +1125,7 @@ function twshop_group_buy_render_products( $leader, $empty_text = '目前沒有�
         echo '<p class="price">' . wp_kses_post( $product->get_price_html() ) . '</p>';
         if ( $desc ) echo '<div class="twshop-gb__desc">' . $desc . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 已 wp_kses。
         // 尚未開始只預告商品與團購價，不輸出購買表單。
-        if ( 'upcoming' === $state ) echo '<div class="twshop-gb__buy twshop-gb__buy--soon"><p>團購開始後即可購買</p></div>';
+        if ( 'upcoming' === $state ) echo '<div class="twshop-gb__buy twshop-gb__buy--soon"><p>' . esc_html( twshop_group_buy_t( '團購開始後即可購買' ) ) . '</p></div>';
         else echo '<div class="twshop-gb__buy">' . twshop_group_buy_render_add_to_cart( $product ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce 原生樣板。
         echo '</div></article>';
     }
@@ -1129,13 +1164,13 @@ function twshop_group_buy_render_period_notice( array $leader ) {
     if ( ! $period['start'] && ! $period['end'] ) return '';
     $state = twshop_group_buy_period_state( $leader );
     if ( 'upcoming' === $state ) {
-        $text = '團購將於 ' . twshop_group_buy_format_time( $period['start'] ) . ' 開始';
+        $text = twshop_group_buy_t( '團購將於 ' ) . twshop_group_buy_format_time( $period['start'] ) . ' 開始';
         $target = $period['start'];
     } elseif ( 'ended' === $state ) {
-        $text = '團購已於 ' . twshop_group_buy_format_time( $period['end'] ) . ' 結束';
+        $text = twshop_group_buy_t( '團購已於 ' ) . twshop_group_buy_format_time( $period['end'] ) . ' 結束';
         $target = 0;
     } else {
-        $text = $period['end'] ? '團購將於 ' . twshop_group_buy_format_time( $period['end'] ) . ' 結束' : '';
+        $text = $period['end'] ? twshop_group_buy_t( '團購將於 ' ) . twshop_group_buy_format_time( $period['end'] ) . ' 結束' : '';
         $target = $period['end'];
     }
     if ( '' === $text ) return '';
@@ -1550,7 +1585,7 @@ function twshop_group_buy_enqueue_account_script() {
 
 function twshop_group_buy_account_content() {
     $leader = twshop_group_buy_current_user_leader();
-    if ( ! $leader ) { echo '<p>此頁僅供團購主使用。</p>'; return; }
+    if ( ! $leader ) { echo '<p>' . esc_html( twshop_group_buy_t( '此頁僅供團購主使用。' ) ) . '</p>'; return; }
     global $wpdb;
     $t = twshop_group_buy_tables();
     $totals = twshop_group_buy_leader_totals( array( (int) $leader['user_id'] ) )[ (int) $leader['user_id'] ] ?? array( 'total' => 0, 'unsettled' => 0 );
@@ -1560,7 +1595,7 @@ function twshop_group_buy_account_content() {
     $tiers = twshop_group_buy_leader_tiers( $leader );
     $performance = twshop_group_buy_leader_performance( $leader['user_id'] );
     $tier_index = twshop_group_buy_tier_index_at( $performance, $tiers );
-    echo '<p>分享團購專屬頁給團員。團員在專屬頁把商品加入購物車並完成訂單後，依這些團購商品實付金額（不含運費）記錄佣金。</p>';
+    echo '<p>' . esc_html( twshop_group_buy_t( '分享團購專屬頁給團員。團員在專屬頁把商品加入購物車並完成訂單後，依這些團購商品實付金額（不含運費）記錄佣金。' ) ) . '</p>';
     if ( count( $tiers ) > 1 ) {
         echo '<p>佣金依累計業績分段累進：' . esc_html( twshop_group_buy_describe_tiers( $tiers ) ) . '。</p>';
         echo '<p>目前累計業績：<strong>' . wp_kses_post( wc_price( $performance ) ) . '</strong>，適用 <strong>' . esc_html( wc_format_localized_decimal( $tiers[ $tier_index ]['rate'] ) ) . '%</strong>';
@@ -1571,8 +1606,8 @@ function twshop_group_buy_account_content() {
     } else {
         echo '<p>佣金比例：<strong>' . esc_html( wc_format_localized_decimal( $tiers[0]['rate'] ) ) . '%</strong>　累計業績：<strong>' . wp_kses_post( wc_price( $performance ) ) . '</strong></p>';
     }
-    echo '<p><label for="twshop-referral-url">團購專屬頁連結</label><input id="twshop-referral-url" class="input-text" type="text" readonly value="' . esc_attr( $url ) . '"></p>';
-    echo '<p class="twshop-referral-actions"><button type="button" class="button" id="twshop-copy-referral-url">複製團購連結</button> <span id="twshop-referral-copy-status" role="status" aria-live="polite"></span></p>';
+    echo '<p><label for="twshop-referral-url">' . esc_html( twshop_group_buy_t( '團購專屬頁連結' ) ) . '</label><input id="twshop-referral-url" class="input-text" type="text" readonly value="' . esc_attr( $url ) . '"></p>';
+    echo '<p class="twshop-referral-actions"><button type="button" class="button" id="twshop-copy-referral-url">' . esc_html( twshop_group_buy_t( '複製團購連結' ) ) . '</button> <span id="twshop-referral-copy-status" role="status" aria-live="polite"></span></p>';
     echo '<p>未結算佣金：<strong>' . wp_kses_post( wc_price( $totals['unsettled'] ) ) . '</strong>　累計佣金：<strong>' . wp_kses_post( wc_price( $totals['total'] ) ) . '</strong></p>';
     echo '<p>佣金由商店線下匯款結算；取消或退款會依比例扣回，已結算部分於下次結算扣除。</p>';
 
@@ -1582,8 +1617,8 @@ function twshop_group_buy_account_content() {
          FROM {$t['commissions']} WHERE leader_id = %d GROUP BY order_id ORDER BY order_id DESC LIMIT 50",
         (int) $leader['user_id']
     ), ARRAY_A );
-    echo '<h3>最近 50 筆團購訂單</h3>';
-    if ( ! $rows ) { echo '<p>尚無已完成的團購訂單。</p></div>'; return; }
+    echo '<h3>' . esc_html( twshop_group_buy_t( '最近 50 筆團購訂單' ) ) . '</h3>';
+    if ( ! $rows ) { echo '<p>' . esc_html( twshop_group_buy_t( '尚無已完成的團購訂單。' ) ) . '</p></div>'; return; }
     echo '<table class="woocommerce-table shop_table shop_table_responsive"><thead><tr><th>訂單</th><th>完成日期</th><th>計佣金額</th><th>佣金</th><th>狀態</th></tr></thead><tbody>';
     foreach ( $rows as $row ) {
         $order = wc_get_order( (int) $row['order_id'] );

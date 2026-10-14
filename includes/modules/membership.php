@@ -465,7 +465,7 @@ function twshop_add_own_account_tabs( $items ) {
     }
     // 只有啟用中的團購主看得到；後台頁籤管理也列出，方便排序。
     if ( twshop_module_enabled( 'group_buy' ) && ( ( is_admin() && ! wp_doing_ajax() && current_user_can( 'manage_woocommerce' ) ) || twshop_group_buy_current_user_leader() ) ) {
-        $items['my-group-buy'] = '團購主專區';
+        $items['my-group-buy'] = ( function_exists( 'twshop_group_buy_leader_term' ) ? twshop_group_buy_leader_term() : '團購主' ) . '專區';
     }
     return twshop_apply_account_tab_name_overrides( $items );
 }

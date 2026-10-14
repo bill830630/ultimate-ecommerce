@@ -174,7 +174,8 @@
         try { tried = sessionStorage.getItem(key) === '1'; sessionStorage.setItem(key, '1'); } catch (e) { tried = true; }
         if (!tried) { location.reload(); return; }
         var text = box.querySelector('.twshop-gb-period__text');
-        if (text) text.textContent = actualState(now) === 'ended' ? '團購已結束' : '團購已開始，請重新整理頁面';
+        var l10n = window.twshopGroupBuyPage || {};
+        if (text) text.textContent = actualState(now) === 'ended' ? (l10n.ended || '團購已結束') : (l10n.started || '團購已開始，請重新整理頁面');
         if (countdown) { countdown.textContent = ''; parts = null; }
         box.classList.remove('is-urgent');
         document.body.classList.add('twshop-gb-is-stale');

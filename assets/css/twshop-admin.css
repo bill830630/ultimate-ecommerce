@@ -533,3 +533,67 @@ input[type="checkbox"].twshop-sw:checked{ background:#2271b1; }
 input[type="checkbox"].twshop-sw:checked::before{ content:""; transform:translateX(18px); margin:0; width:18px; height:18px; }
 input[type="checkbox"].twshop-sw:focus{ box-shadow:0 0 0 2px #fff, 0 0 0 4px #2271b1; outline:none; }
 input[type="checkbox"].twshop-sw:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* 團購主列表：數字欄靠右不換行、級距逐行列出並標示目前級距、操作鈕同一列。 */
+.twshop-gb-leaders th, .twshop-gb-leaders td { vertical-align: middle; }
+.twshop-gb-leaders th { white-space: nowrap; }
+.twshop-gb-leaders .num { text-align: right; white-space: nowrap; }
+.twshop-gb-leaders td strong { font-size: 14px; }
+.twshop-gb-leaders .twshop-hint { margin-top: 2px; }
+.twshop-gb-leaders .twshop-gb-id { opacity: .7; }
+.twshop-gb-leaders a code { background: none; padding: 0; color: inherit; }
+.twshop-gb-leaders .dashicons-external { font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-left: 2px; }
+.twshop-gb-tier-list { margin: 0; padding: 0; list-style: none; }
+.twshop-badge + .twshop-gb-tier-list { margin-top: 4px; }
+.twshop-gb-tier-list li { margin: 0; white-space: nowrap; color: var(--twshop-color-muted); }
+.twshop-gb-tier-list li.is-current { color: var(--twshop-color-text); }
+.twshop-gb-tier-list li.is-current::after { content: "目前"; margin-left: 6px; font-size: 11px; padding: 0 6px; border-radius: 20px; background: #eafaf1; }
+.twshop-gb-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.twshop-gb-actions form { margin: 0; }
+.twshop-gb-leaders tr.is-inactive td { opacity: .6; }
+.twshop-gb-leaders tr.is-inactive td:last-child { opacity: 1; }
+
+/* 佣金級距編輯器：精簡表格，只列已設定的級距，新增／刪除由按鈕控制。 */
+.twshop-gb-tier-editor { max-width: 460px; }
+.twshop-gb-tier-table { margin: 4px 0 8px; }
+.twshop-gb-tier-table th, .twshop-gb-tier-table td { padding: 6px 10px; vertical-align: middle; }
+.twshop-gb-tier-table thead th { font-weight: 600; }
+.twshop-gb-tier-table tbody tr + tr td { border-top: 1px solid #f0f0f1; }
+.twshop-gb-tier-input { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.twshop-gb-tier-input input { width: 120px; }
+.twshop-gb-tier-input input.twshop-gb-tier-rate { width: 72px; }
+.twshop-gb-tier-start { white-space: nowrap; color: var(--twshop-color-muted); }
+.twshop-gb-tier-remove { width: 1%; text-align: right; white-space: nowrap; }
+.twshop-gb-rule p { margin: 0 0 10px; }
+.twshop-gb-rule-panel input#twshop-gb-rate { margin-left: 6px; }
+.twshop-gb-rule .twshop-gb-rule-panel[data-mode="tiers"] { margin: -4px 0 10px 24px; }
+
+/* 團購主個別折扣：整體折扣欄位與個別商品價格表。 */
+.twshop-gb-discount { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.twshop-gb-discount-value { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.twshop-gb-discount-value input { width: 90px; }
+.twshop-gb-price-table { max-width: 640px; }
+.twshop-gb-price-table th, .twshop-gb-price-table td { padding: 6px 10px; vertical-align: middle; text-align: left; }
+.twshop-gb-price-table th { white-space: nowrap; }
+.twshop-gb-price-table .num { text-align: right; white-space: nowrap; }
+.twshop-gb-price-table tbody tr + tr td { border-top: 1px solid #f0f0f1; }
+.twshop-gb-price-table input { width: 150px; min-height: 30px; }
+.twshop-gb-price-table input::placeholder { color: #a7aaad; }
+.twshop-gb-price-table .twshop-gb-price-parent td { padding-top: 10px; font-weight: 600; background: #f6f7f7; }
+.twshop-gb-price-table .twshop-gb-price-variation td:first-child { padding-left: 24px; }
+.twshop-gb-price-table .twshop-gb-price-result .twshop-hint { font-size: 12px; }
+
+/* 團購頁：欄位多，外層由 960px 放寬到 1400px；容易被擠斷的欄位不換行。 */
+.twshop-admin-wrap:has(.twshop-gb-section) { max-width: 1400px; }
+.twshop-gb-leaders td { padding-top: 12px; padding-bottom: 12px; }
+.twshop-gb-leaders td:first-child { min-width: 200px; }
+.twshop-gb-leaders td:first-child .twshop-hint,
+.twshop-gb-leaders td:nth-child(2),
+.twshop-gb-leaders td:nth-child(4),
+.twshop-gb-leaders .twshop-badge { white-space: nowrap; }
+.twshop-gb-leaders .twshop-gb-actions { flex-wrap: nowrap; }
+.twshop-gb-section .twshop-panel-body { overflow-x: auto; }
+.twshop-gb-period-fields { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.twshop-gb-leaders .twshop-gb-period-hint { margin-top: 4px; font-size: 12px; white-space: nowrap; }
+.twshop-gb-period-fields .twshop-gb-time { width: 70px; text-align: center; }
+.twshop-gb-period-sep { margin: 0 4px; }

@@ -79,7 +79,7 @@
 
 工具位於不提交、不打包的 `.dev-tools/`：
 
-- `module-interactions.php matrix MASK`：MASK 0–63，用記憶體 filter 覆寫開關，獨立程序載入。
+- `module-interactions.php matrix MASK`：MASK 0–127（25.8.163 起含 group_buy），用記憶體 filter 覆寫開關，獨立程序載入。
 - `module-interactions.php financial`：建立專用會員、商品、優惠券與訂單；finally 刪除並清除測試帳本。
 - `points-concurrency-audit.php`：建立專用會員，兩個程序同步入帳；餘額、歷程或批次不一致時回傳非零。
 - `points-atomic-integration.php`：40 項交易與併發檢查，獨立程序與故障注入皆使用測試資料。

@@ -825,6 +825,8 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
     // woocommerce_product_get_price／_variation_get_price 與 twshop_product_is_on_sale()
     // 的共同入口，這裡擋掉同時也讓折扣角標/促銷標記不會誤標儲值金商品。
     if ( twshop_is_wallet_credit_product( $product ) ) return array( 'price' => false, 'rule_ids' => array() );
+    // 團購價即最終單價，不再疊加商品層折扣；放在快取前，同一商品在專屬頁與一般頁的結果不會互相沿用。
+    if ( twshop_group_buy_applies( $product ) ) return array( 'price' => false, 'rule_ids' => array() );
 
     $rules = twshop_get_rules();
     if ( empty($rules) ) return array( 'price' => false, 'rule_ids' => array() );

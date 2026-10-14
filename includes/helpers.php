@@ -512,6 +512,7 @@ function twshop_get_module_definitions() {
         'visual_coupons'  => array( 'label' => '優惠卡券', 'desc' => '卡片式優惠券、會員優惠券頁面' ),
         'points'          => array( 'label' => '紅利點數', 'desc' => '消費累點、點數折抵、推薦碼與推薦獎勵、異動紀錄' ),
         'wallet'          => array( 'label' => '儲值中心', 'desc' => '線上自助儲值、購物折抵、會員中心餘額與交易紀錄' ),
+        'group_buy'       => array( 'label' => '團購', 'desc' => '團購主專屬頁、指定商品團購價、團購佣金紀錄與結算' ),
         'order_checkout_enhancements' => array(
             'label' => '訂單強化',
             'desc'  => '台灣地址下拉選單、超商取貨、物流資訊、自訂訂單狀態、退換貨申請與審核',

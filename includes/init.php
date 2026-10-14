@@ -113,6 +113,8 @@ function twshop_membership_init() {
 
     // 已發出的推薦獎勵在模組停用後仍須處理退款／取消，維持帳本一致。
     twshop_referrals_init_reversals();
+    // 團購佣金同理：模組停用後既有佣金仍隨取消／退款扣回。
+    twshop_group_buy_init_reconcile();
 
     // 停用模組只能阻止新折抵／入帳，既有訂單仍須退還與追回；callback 依既有 meta／帳本處理。
     foreach ( twshop_get_points_revoke_statuses() as $status ) {
@@ -338,6 +340,11 @@ function twshop_membership_init() {
         add_action( 'woocommerce_review_order_after_order_total', 'twshop_display_estimated_points_earn' );
         add_action( 'wc_membership_daily_downgrade_check', 'twshop_points_daily_expiry_check' );
         add_action( 'twshop_send_points_expiry_notice', 'twshop_send_points_expiry_notice_email', 10, 3 );
+    }
+
+    // ── 團購（v25.8.163，group-buy.php、admin/page-group-buy.php）────────────
+    if ( twshop_module_enabled( 'group_buy' ) ) {
+        twshop_group_buy_init();
     }
 
     // ── 儲值金（v25.8.61 第一階段：核心帳本；v25.8.62 第二階段：購物車折抵、結帳扣款、

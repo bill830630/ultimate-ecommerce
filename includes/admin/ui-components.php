@@ -193,6 +193,9 @@ function twshop_get_admin_sections() {
     if ( twshop_module_enabled( 'wallet' ) ) {
         $sections['wallet'] = array( 'label' => '儲值中心', 'render' => 'twshop_wallet_section' );
     }
+    if ( twshop_module_enabled( 'group_buy' ) ) {
+        $sections['group-buy'] = array( 'label' => '團購', 'render' => 'twshop_group_buy_section' );
+    }
     $sections['system'] = array( 'label' => '系統設定', 'render' => 'twshop_system_section' );
     return $sections;
 }

@@ -24,6 +24,7 @@ function twshop_get_dashboard_stats() {
         'visual_coupons'  => 'ticket',
         'points'          => 'coins',
         'order_checkout_enhancements' => 'clipboard-list',
+        'group_buy'       => 'users',
     );
     // 訂單強化卡片導向 WooCommerce 原生設定，物流與退換貨從該處前往。
     $module_urls = array(
@@ -35,6 +36,7 @@ function twshop_get_dashboard_stats() {
         // 卡片因此一直是唯讀、點不進去，這次順手修正。
         'wallet'          => twshop_admin_url( 'wallet' ),
         'order_checkout_enhancements' => admin_url( 'admin.php?page=wc-settings&tab=twshop-orders' ),
+        'group_buy'       => twshop_admin_url( 'group-buy' ),
     );
     $enabled_count = 0;
     foreach ( $modules as $mod_key => $info ) {

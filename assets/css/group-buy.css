@@ -1,0 +1,333 @@
+/*
+ * 團購主專屬頁（templates/group-buy-page.php）版面。只負責排版，
+ * 字體、配色、按鈕與表單樣式沿用主題（Blocksy 變數，其他主題退回中性色）。
+ */
+.twshop-gb {
+    box-sizing: border-box;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 16px 120px;
+}
+
+/* Elementor 範本版型：寬度與留白交給範本的區段／容器設定，只保留底部購物車列的空間 */
+.twshop-gb--elementor {
+    max-width: none;
+    padding: 0 0 100px;
+}
+
+.twshop-gb--elementor > .twshop-gb__notices {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px;
+}
+
+.twshop-gb--no-desc .twshop-gb__desc {
+    display: none;
+}
+
+.twshop-gb__header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.twshop-gb__title {
+    margin: 0 0 12px;
+}
+
+.twshop-gb__intro {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.twshop-gb__notices {
+    margin-bottom: 24px;
+}
+
+.twshop-gb__grid {
+    display: grid;
+    /* 桌機一排四個；依螢幕寬度遞減為三、二、一欄 */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+}
+
+@media (max-width: 1099px) {
+    .twshop-gb__grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 899px) {
+    .twshop-gb__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
+@media (max-width: 599px) {
+    .twshop-gb__grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.twshop-gb__card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--theme-border-color, #e5e5e5);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--theme-palette-color-8, #fff);
+}
+
+.twshop-gb__image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+}
+
+.twshop-gb__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+}
+
+.twshop-gb__name {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.twshop-gb__body .price {
+    margin: 0;
+}
+
+.twshop-gb__desc > :last-child {
+    margin-bottom: 0;
+}
+
+.twshop-gb__buy {
+    margin-top: auto;
+}
+
+.twshop-gb__buy form.cart {
+    margin: 0;
+}
+
+/* 數量與加入購物車按鈕同一排；寬度不夠時整排換行，按鈕文字不斷行 */
+.twshop-gb__buy .ct-cart-actions,
+.twshop-gb__buy form.cart:not(.variations_form),
+.twshop-gb__buy .woocommerce-variation-add-to-cart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Blocksy 的數量＋按鈕容器在外層 flex 裡要佔滿整行，按鈕才能延伸到右緣 */
+.twshop-gb__buy .ct-cart-actions {
+    flex: 1 1 100%;
+    width: 100%;
+}
+
+/* 數量欄與按鈕各佔一整行（Blocksy 以 .ct-cart-actions .quantity[data-type] 固定 80–100px，選擇器需更具體） */
+.twshop-gb__buy .quantity,
+.twshop-gb__buy .ct-cart-actions .quantity[data-type] {
+    --quantity-width: 100%;
+    flex: 1 1 100%;
+    width: 100%;
+}
+
+.twshop-gb__buy .single_add_to_cart_button {
+    flex: 1 1 100%;
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* 加入成功後 WooCommerce／Blocksy 會在按鈕旁插入「查看購物車」連結：會帶離本頁且擠壞版面，
+   團購頁改由底部購物車列顯示件數並前往結帳。 */
+.twshop-gb__buy .added_to_cart {
+    display: none !important;
+}
+
+.twshop-gb__buy .variations {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.twshop-gb__empty {
+    text-align: center;
+}
+
+.twshop-gb-cartbar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--theme-border-color, #e5e5e5);
+    background: var(--theme-palette-color-8, #fff);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.twshop-gb-cartbar:has(.twshop-gb-cartbar__summary[data-count="0"]) .twshop-gb-cartbar__checkout {
+    display: none;
+}
+
+/*
+ * LINE 浮動按鈕（終極登入）：位在購物車列上方，高度由 group-buy-cart.js 量測購物車列寫入 --twshop-gb-cartbar-h
+ * （手機上小計換行時列會變高）；購物車面板展開時淡出隱藏，避免蓋住面板右側的小計與移除鈕。
+ * 團購結束時沒有購物車列，按鈕維持終極登入的原始位置。
+ */
+.twshop-group-buy-page:has(.twshop-gb-cartbar) .wclon-line-float {
+    bottom: calc(var(--twshop-gb-cartbar-h, 72px) + 16px);
+    transition: opacity .2s ease, visibility .2s ease, transform .15s ease, background .15s ease;
+}
+.twshop-gb-cart-open .wclon-line-float {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* 團購模式結帳頁（templates/group-buy-checkout.php）：沿用 WooCommerce／主題的結帳表單樣式，只定外框寬度 */
+.twshop-gb--checkout {
+    padding-bottom: 60px;
+}
+
+.twshop-gb__back {
+    margin: 0 0 12px;
+    text-align: left;
+}
+
+.twshop-gb__checkout {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* 團購期間橫幅與倒數：捲動時黏在畫面上方（登入時避開 WordPress 工具列）；配色沿用主題（Blocksy 變數，其他主題退回中性色）。 */
+.twshop-gb-period {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 4px 16px;
+    margin: 0 0 32px;
+    padding: 12px 20px;
+    background: var(--theme-palette-color-8, #fff);
+    border: 1px solid var(--theme-border-color, #e0e0e0);
+    border-radius: 8px;
+    text-align: center;
+}
+/* 主題 body 的 overflow-x:hidden 在部分瀏覽器會讓 sticky 失效；clip 同樣裁掉橫向溢出但不產生捲動容器 */
+body.twshop-group-buy-page { overflow-x: clip; }
+.admin-bar .twshop-gb-period { top: 32px; }
+@media (max-width: 782px) {
+    .admin-bar .twshop-gb-period { top: 46px; }
+}
+/* 手機寬度 600px 以下 WordPress 工具列不固定，捲動後會離開畫面 */
+@media (max-width: 600px) {
+    .admin-bar .twshop-gb-period { top: 0; }
+    .twshop-gb-period { margin-bottom: 24px; padding: 10px 14px; border-radius: 0; }
+}
+.twshop-gb--elementor > .twshop-gb-period { margin: 0; border-radius: 0; border-width: 0 0 1px; }
+.twshop-gb-period__countdown {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--theme-palette-color-1, inherit);
+}
+.twshop-gb__buy--soon p { margin: 0; opacity: .7; }
+.twshop-gb-is-stale .twshop-gb__buy form,
+.twshop-gb-is-stale .twshop-gb-cartbar { display: none; }
+
+/* 團購頁購物車面板：點底部購物車列展開，可改數量與移除（assets/js/group-buy-cart.js）。 */
+.twshop-gb-cartbar__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+}
+.twshop-gb-cartbar__caret { font-size: 10px; transition: transform .2s; }
+.twshop-gb-cartbar__toggle[aria-expanded="true"] .twshop-gb-cartbar__caret { transform: rotate(180deg); }
+.twshop-gb-cartbar:has(.twshop-gb-cartbar__summary[data-count="0"]) .twshop-gb-cartbar__caret { display: none; }
+.twshop-gb-cartpanel {
+    position: fixed;
+    right: 0;
+    bottom: 64px;
+    left: 0;
+    z-index: 998;
+    max-width: 640px;
+    max-height: min(70vh, 560px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--theme-palette-color-8, #fff);
+    border: 1px solid var(--theme-border-color, #e5e5e5);
+    border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .12);
+}
+.twshop-gb-cartpanel[hidden] { display: none; }
+.twshop-gb-cartpanel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--theme-border-color, #e5e5e5);
+}
+.twshop-gb-cartpanel__close,
+.twshop-gb-cartpanel__remove {
+    padding: 0 6px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.twshop-gb-cartpanel__error { margin: 8px 16px 0; color: var(--theme-palette-color-1, #b32d2e); font-size: 14px; }
+.twshop-gb-cartpanel__items { overflow-y: auto; padding: 4px 16px 12px; }
+.twshop-gb-cartpanel__items.is-busy { opacity: .5; pointer-events: none; }
+.twshop-gb-cartpanel__items[data-loading] { min-height: 80px; }
+.twshop-gb-cartpanel__list { margin: 0; padding: 0; list-style: none; }
+.twshop-gb-cartpanel__item {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto auto 28px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--theme-border-color, #eee);
+}
+.twshop-gb-cartpanel__thumb img { display: block; width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
+.twshop-gb-cartpanel__name { font-weight: 600; }
+.twshop-gb-cartpanel__meta, .twshop-gb-cartpanel__price { font-size: 13px; opacity: .75; }
+.twshop-gb-cartpanel__price del { opacity: .7; }
+.twshop-gb-cartpanel__qty { display: inline-flex; align-items: center; border: 1px solid var(--theme-border-color, #ddd); border-radius: 6px; }
+.twshop-gb-cartpanel__qty-fixed { padding: 4px 10px; border: 0; }
+.twshop-gb-cartpanel__qty:has(.twshop-gb-cartpanel__qty-fixed) { border: 0; }
+.twshop-gb-qty-btn { width: 32px; height: 32px; padding: 0; border: 0; background: none; color: inherit; font-size: 18px; cursor: pointer; }
+.twshop-gb-cartpanel .twshop-gb-qty { width: 44px; height: 32px; min-height: 0; padding: 0; border: 0; background: none; text-align: center; -moz-appearance: textfield; }
+.twshop-gb-cartpanel .twshop-gb-qty::-webkit-outer-spin-button,
+.twshop-gb-cartpanel .twshop-gb-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.twshop-gb-cartpanel__subtotal { font-weight: 600; white-space: nowrap; text-align: right; }
+.twshop-gb-cartpanel__total { display: flex; justify-content: space-between; padding-top: 12px; font-size: 16px; }
+.twshop-gb-cartpanel__empty { margin: 16px 0; text-align: center; opacity: .7; }
+@media (max-width: 600px) {
+    .twshop-gb-cartpanel { max-height: 75vh; border-radius: 12px 12px 0 0; }
+    .twshop-gb-cartpanel__item { grid-template-columns: 48px minmax(0, 1fr) auto; grid-template-areas: "thumb info remove" "thumb qty subtotal"; row-gap: 8px; }
+    .twshop-gb-cartpanel__thumb { grid-area: thumb; align-self: start; }
+    .twshop-gb-cartpanel__thumb img { width: 48px; height: 48px; }
+    .twshop-gb-cartpanel__info { grid-area: info; }
+    .twshop-gb-cartpanel__qty { grid-area: qty; justify-self: start; }
+    .twshop-gb-cartpanel__subtotal { grid-area: subtotal; }
+    .twshop-gb-cartpanel__remove, .twshop-gb-cartpanel__remove-placeholder { grid-area: remove; }
+}

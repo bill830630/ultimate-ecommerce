@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Ultimate E-commerce
  * Description: 具備會員分級、動態折扣規則、優惠卡券、紅利點數系統、智能贈品與加購引擎的終極電商。
- * Version: 25.8.162
+ * Version: 25.8.163
  * Tested up to: 7.1.99
  * Author: 快捷鍵Ctrl+A
  * Text Domain: ultimate-ecommerce
@@ -61,6 +61,9 @@ require_once TWSHOP_PLUGIN_DIR . 'includes/modules/product-slug.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/modules/membership.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/modules/referrals.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/admin/page-referrals.php';
+require_once TWSHOP_PLUGIN_DIR . 'includes/modules/group-buy.php';
+require_once TWSHOP_PLUGIN_DIR . 'includes/modules/group-buy-elementor.php';
+require_once TWSHOP_PLUGIN_DIR . 'includes/admin/page-group-buy.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/modules/wallet-core.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/modules/wallet-account.php';
 require_once TWSHOP_PLUGIN_DIR . 'includes/modules/wallet-checkout.php';

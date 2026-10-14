@@ -975,8 +975,8 @@ function twshop_group_buy_page_assets() {
         return;
     }
     if ( ! twshop_group_buy_is_group_page() ) return;
-    // 描述收合一律需要；倒數段落在沒有期間橫幅時自行略過
-    wp_enqueue_script( 'twshop-group-buy-page', TWSHOP_PLUGIN_URL . 'assets/js/group-buy-page.js', array(), filemtime( TWSHOP_PLUGIN_DIR . 'assets/js/group-buy-page.js' ), true );
+    // 描述收合、圖片輪播一律需要；倒數段落在沒有期間橫幅時自行略過
+    wp_enqueue_script( 'twshop-group-buy-page', TWSHOP_PLUGIN_URL . 'assets/js/group-buy-page.js', array( 'jquery' ), filemtime( TWSHOP_PLUGIN_DIR . 'assets/js/group-buy-page.js' ), true );
     wp_enqueue_script( 'wc-add-to-cart-variation' );
     wp_enqueue_script( 'wc-cart-fragments' );
     // 端點網址對所有訪客相同，可以放在可快取的頁面上；nonce 由購物車片段帶入。
@@ -1083,8 +1083,8 @@ function twshop_group_buy_render_products( $leader, $empty_text = '目前沒有�
         $GLOBALS['post'] = get_post( $product->get_id() ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
         setup_postdata( $GLOBALS['post'] );
         $desc = twshop_group_buy_short_description( $product );
-        echo '<article class="twshop-gb__card product type-product ' . esc_attr( 'product-type-' . $product->get_type() ) . '">';
-        echo '<div class="twshop-gb__image images">' . wp_kses_post( $product->get_image( 'woocommerce_single' ) ) . '</div>';
+        echo '<article class="twshop-gb__card product type-product ' . esc_attr( 'product-type-' . $product->get_type() ) . '" data-product-id="' . (int) $product->get_id() . '">';
+        echo twshop_group_buy_render_card_images( $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress 產生的圖片 HTML，商品名稱已 esc_attr。
         echo '<div class="twshop-gb__body summary">';
         echo '<h2 class="twshop-gb__name">' . esc_html( $product->get_name() ) . '</h2>';
         echo '<p class="price">' . wp_kses_post( $product->get_price_html() ) . '</p>';
@@ -1099,6 +1099,25 @@ function twshop_group_buy_render_products( $leader, $empty_text = '目前沒有�
     $GLOBALS['post'] = $previous_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
     if ( $previous_post instanceof WP_Post ) setup_postdata( $previous_post );
     return $html;
+}
+
+/**
+ * 商品卡片圖片：主圖＋商品圖庫做成可左右滑動的輪播（CSS scroll-snap，手機直接滑；
+ * 箭頭、圓點與規格換圖由 group-buy-page.js 補上）。只有一張圖時維持單張。
+ * 外層刻意不用 woocommerce-product-gallery 系列 class，避免 WooCommerce 規格腳本改寫輪播。
+ * 圖片 HTML 由 WordPress 產生，不再過 wp_kses_post（它會濾掉 srcset／sizes，手機會載入原尺寸圖）。
+ */
+function twshop_group_buy_render_card_images( WC_Product $product ) {
+    $ids = array_values( array_unique( array_filter( array_map( 'absint', array_merge( array( $product->get_image_id() ), $product->get_gallery_image_ids() ) ) ) ) );
+    $ids = array_slice( $ids, 0, (int) apply_filters( 'twshop_group_buy_card_image_limit', 8, $product ) );
+    if ( count( $ids ) < 2 ) return '<div class="twshop-gb__image images">' . $product->get_image( 'woocommerce_single' ) . '</div>';
+    $slides = '';
+    foreach ( $ids as $i => $id ) {
+        // 第一張沿用主圖的載入方式，其餘延後載入
+        $img = wp_get_attachment_image( $id, 'woocommerce_single', false, array( 'loading' => $i ? 'lazy' : false, 'alt' => $i ? '' : $product->get_name() ) );
+        if ( $img ) $slides .= '<div class="twshop-gb__slide">' . $img . '</div>';
+    }
+    return '<div class="twshop-gb__image images twshop-gb__gallery"><div class="twshop-gb__slides" tabindex="0" role="group" aria-label="' . esc_attr( $product->get_name() . ' 商品圖片' ) . '">' . $slides . '</div></div>';
 }
 
 /**
@@ -1137,6 +1156,21 @@ function twshop_group_buy_is_page_request() {
 /** 從團購頁加入購物車後留在原頁（即使商店設定「加入後前往購物車」）。 */
 function twshop_group_buy_add_to_cart_redirect( $url, $product = null ) {
     return twshop_group_buy_is_page_request() ? false : $url;
+}
+
+/**
+ * 記下這次請求在團購頁成功加入的商品：整頁送出後瀏覽器會停在頁首，購物車列帶 data-just-added，
+ * 由 group-buy-cart.js 捲回該商品。只在 POST 回應輸出，可快取的 GET 頁面不受影響。
+ */
+function twshop_group_buy_track_added( $cart_item_key, $product_id, $quantity = 1 ) {
+    if ( ! twshop_group_buy_is_page_request() ) return;
+    $GLOBALS['twshop_group_buy_just_added'] = (int) $product_id;
+}
+
+/** 購物車列上的「剛加入」屬性；沒有就回空字串。 */
+function twshop_group_buy_just_added_attr() {
+    $product_id = (int) ( $GLOBALS['twshop_group_buy_just_added'] ?? 0 );
+    return $product_id ? ' data-just-added="' . $product_id . '"' : '';
 }
 
 /** 加入成功訊息原本帶「查看購物車」連結，團購頁上改成純文字。 */
@@ -1709,6 +1743,7 @@ function twshop_group_buy_init() {
     add_filter( 'woocommerce_add_to_cart_validation', 'twshop_group_buy_add_to_cart_validation', 20, 4 );
     add_action( 'woocommerce_check_cart_items', 'twshop_group_buy_check_cart_items' );
     add_filter( 'wc_add_to_cart_message_html', 'twshop_group_buy_add_to_cart_message', 20, 3 );
+    add_action( 'woocommerce_add_to_cart', 'twshop_group_buy_track_added', 20, 3 );
     add_filter( 'woocommerce_add_to_cart_fragments', 'twshop_group_buy_cart_fragments' );
     add_action( 'wc_ajax_twshop_gb_cart_update', 'twshop_group_buy_ajax_cart_update' );
     add_action( 'woocommerce_before_add_to_cart_button', 'twshop_group_buy_form_hidden_field' );

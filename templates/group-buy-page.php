@@ -48,7 +48,7 @@ $twshop_gb_open        = twshop_group_buy_is_open( $twshop_gb_leader );
     <div class="twshop-gb-cartpanel__error" role="alert" hidden></div>
     <?php echo twshop_group_buy_cart_panel_items( $twshop_gb_is_post ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 函式內已跳脫。 ?>
 </div>
-<div class="twshop-gb-cartbar" role="region" aria-label="購物車">
+<div class="twshop-gb-cartbar" role="region" aria-label="購物車"<?php echo $twshop_gb_is_post ? twshop_group_buy_just_added_attr() : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 函式內已跳脫。 ?>>
     <div class="twshop-gb-cartbar__toggle" role="button" tabindex="0" aria-controls="twshop-gb-cartpanel" aria-expanded="false">
         <?php echo twshop_group_buy_cartbar_summary( $twshop_gb_is_post ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 函式內已跳脫。 ?>
         <span class="twshop-gb-cartbar__caret" aria-hidden="true">▲</span>

@@ -1361,6 +1361,38 @@ function twshop_group_buy_track_added( $cart_item_key, $product_id, $quantity = 
     $GLOBALS['twshop_group_buy_just_added'] = (int) $product_id;
 }
 
+function twshop_group_buy_is_ajax_add_request() {
+    return 'POST' === strtoupper( $_SERVER['REQUEST_METHOD'] ?? '' ) && ! empty( $_POST['twshop_gb_ajax'] ) && twshop_group_buy_is_page_request(); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+}
+
+/** AJAX 加入時不轉到購物車頁（商店設定「加入後前往購物車」也一樣），才能回傳 JSON。 */
+function twshop_group_buy_ajax_no_cart_redirect( $value ) {
+    return twshop_group_buy_is_ajax_add_request() ? 'no' : $value;
+}
+
+/**
+ * 團購頁以 AJAX 加入購物車：group-buy-cart.js 把原本的表單原樣送到團購頁、多帶 twshop_gb_ajax=1，
+ * WooCommerce 照常處理（團購驗證、標記、最小購買量都走同一條路），這裡改回 JSON：
+ * 是否加入、錯誤訊息、購物車片段。通知在此清掉，不會留到下一頁；整頁重新載入時通知會把頁面推回頁首。
+ */
+function twshop_group_buy_ajax_add_to_cart_response() {
+    if ( ! twshop_group_buy_is_ajax_add_request() || ! function_exists( 'WC' ) || ! WC()->cart ) return;
+    $errors = wc_get_notices( 'error' );
+    $added  = ! empty( $GLOBALS['twshop_group_buy_just_added'] ) && ! $errors;
+    wc_clear_notices();
+    ob_start();
+    woocommerce_mini_cart();
+    $mini = ob_get_clean();
+    $fragments = apply_filters( 'woocommerce_add_to_cart_fragments', array( 'div.widget_shopping_cart_content' => '<div class="widget_shopping_cart_content">' . $mini . '</div>' ) );
+    nocache_headers();
+    wp_send_json( array(
+        'added'     => $added,
+        'message'   => $errors ? wp_strip_all_tags( html_entity_decode( (string) $errors[0]['notice'], ENT_QUOTES, 'UTF-8' ) ) : ( $added ? '' : '無法加入購物車，請重新整理頁面後再試。' ),
+        'fragments' => $fragments,
+        'cart_hash' => WC()->cart->get_cart_hash(),
+    ) );
+}
+
 /** 購物車列上的「剛加入」屬性；沒有就回空字串。 */
 function twshop_group_buy_just_added_attr() {
     $product_id = (int) ( $GLOBALS['twshop_group_buy_just_added'] ?? 0 );
@@ -1938,6 +1970,8 @@ function twshop_group_buy_init() {
     add_action( 'woocommerce_check_cart_items', 'twshop_group_buy_check_cart_items' );
     add_filter( 'wc_add_to_cart_message_html', 'twshop_group_buy_add_to_cart_message', 20, 3 );
     add_action( 'woocommerce_add_to_cart', 'twshop_group_buy_track_added', 20, 3 );
+    add_filter( 'pre_option_woocommerce_cart_redirect_after_add', 'twshop_group_buy_ajax_no_cart_redirect' );
+    add_action( 'wp_loaded', 'twshop_group_buy_ajax_add_to_cart_response', 21 ); // WooCommerce 在 wp_loaded:20 處理加入購物車
     add_filter( 'woocommerce_add_to_cart_fragments', 'twshop_group_buy_cart_fragments' );
     add_action( 'wc_ajax_twshop_gb_cart_update', 'twshop_group_buy_ajax_cart_update' );
     add_action( 'woocommerce_before_add_to_cart_button', 'twshop_group_buy_form_hidden_field' );

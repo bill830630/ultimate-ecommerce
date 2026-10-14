@@ -2,7 +2,8 @@
  * 團購頁購物車面板：點底部購物車列展開／收合，在面板裡改數量或移除商品。
  * 面板內容與 nonce 由 WooCommerce 購物車片段（div.twshop-gb-cartpanel__items）帶入，頁面本身可被快取。
  * 更新走 wc-ajax=twshop_gb_cart_update，回傳的片段直接替換，並觸發 removed_from_cart 讓 wc-cart-fragments 更新 sessionStorage。
- * 整頁送出加入購物車後，依購物車列的 data-just-added 捲回剛加入的商品。
+ * 加入購物車改用 AJAX（表單原樣送到團購頁、多帶 twshop_gb_ajax），不重新載入頁面；
+ * 沒有 fetch 或回應不是 JSON 時改回整頁送出，整頁送出後依購物車列的 data-just-added 捲回剛加入的商品。
  */
 jQuery(function ($) {
     var $panel = $('#twshop-gb-cartpanel');
@@ -84,10 +85,10 @@ jQuery(function ($) {
     function showError(message) {
         $error.text(message || '更新失敗，請稍後再試。').prop('hidden', false);
     }
-    function applyFragments(data) {
+    function applyFragments(data, event) {
         if (!data || !data.fragments) return;
         $.each(data.fragments, function (selector, html) { $(selector).replaceWith(html); });
-        $(document.body).trigger('removed_from_cart', [data.fragments, data.cart_hash, $()]);
+        $(document.body).trigger(event || 'removed_from_cart', [data.fragments, data.cart_hash, undefined]);
     }
     function update(key, quantity) {
         var $items = $panel.find('.twshop-gb-cartpanel__items');
@@ -142,12 +143,88 @@ jQuery(function ($) {
     $panel.on('click', '.twshop-gb-cartpanel__remove', function () {
         update($(this).closest('.twshop-gb-cartpanel__item').data('key'), 0);
     });
-    // 整頁送出加入購物車後，瀏覽器載入 POST 回應會停在頁首；捲回剛加入的商品
+    // 整頁送出加入購物車後（沒有 JS 的備援路徑），瀏覽器載入 POST 回應會停在頁首；捲回剛加入的商品。
+    // 版型上方的大圖載入後位置會變，所以載入完成時再捲一次。
     var justAdded = parseInt($bar.attr('data-just-added'), 10);
     if (justAdded) {
-        var $added = $('.twshop-gb__card[data-product-id="' + justAdded + '"]').first();
-        if ($added.length && $added[0].scrollIntoView) $added[0].scrollIntoView({ block: 'center' });
+        var scrollBack = function () {
+            var $added = $('.twshop-gb__card[data-product-id="' + justAdded + '"]').first();
+            if ($added.length && $added[0].scrollIntoView) $added[0].scrollIntoView({ block: 'center' });
+        };
+        scrollBack();
+        $(window).on('load', scrollBack);
     }
+
+    // AJAX 加入購物車
+    function notify(form, message) {
+        var $msg = $(form).siblings('.twshop-gb__msg');
+        if (!message) { $msg.remove(); return; }
+        if (!$msg.length) $msg = $('<p class="twshop-gb__msg" role="alert"></p>').insertAfter(form);
+        $msg.text(message);
+    }
+    function addedFeedback($btn) {
+        if (!$btn.length) return;
+        if ($btn.data('gbHtml') === undefined) $btn.data('gbHtml', $btn.html());
+        clearTimeout($btn.data('gbTimer'));
+        $btn.addClass('is-added').text('✓ 已加入購物車');
+        $btn.data('gbTimer', setTimeout(function () { $btn.removeClass('is-added').html($btn.data('gbHtml')); }, 1600));
+        $bar.removeClass('is-bump');
+        void $bar[0].offsetWidth;
+        $bar.addClass('is-bump');
+    }
+    function fallbackSubmit(form, data) {
+        // 簡單商品的原生表單把商品 ID 放在送出按鈕上，form.submit() 不會帶按鈕的值
+        if (!form.querySelector('input[name="add-to-cart"]') && data.get('add-to-cart')) {
+            $('<input type="hidden" name="add-to-cart">').val(data.get('add-to-cart')).appendTo(form);
+        }
+        form.submit();
+    }
+    $(document).on('submit', '.twshop-gb__card form.cart, .twshop-gb__card form.twshop-gb__quick', function (e) {
+        var form = this;
+        if (!window.fetch || !window.FormData || form.getAttribute('data-gb-busy')) return;
+        e.preventDefault();
+        var data = new FormData(form);
+        var submitter = e.originalEvent && e.originalEvent.submitter;
+        if (submitter && submitter.name && !data.has(submitter.name)) data.append(submitter.name, submitter.value);
+        var idButton = form.querySelector('button[name="add-to-cart"]');
+        if (!data.has('add-to-cart') && idButton) data.append('add-to-cart', idButton.value);
+        data.append('twshop_gb_ajax', '1');
+        var $btn = $(form).find('[type="submit"]').first();
+        form.setAttribute('data-gb-busy', '1');
+        $btn.addClass('loading').prop('disabled', true);
+        notify(form, '');
+        function done() {
+            form.removeAttribute('data-gb-busy');
+            $btn.removeClass('loading').prop('disabled', false);
+        }
+        fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: data, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                return r.json().catch(function () {
+                    // 伺服器已收到請求但回應不是 JSON：不能再整頁送出（可能重複加入），改為重新抓購物車內容
+                    done();
+                    $(document.body).trigger('wc_fragment_refresh');
+                    notify(form, '無法確認是否已加入，請點底部購物車查看。');
+                    return null;
+                });
+            }, function () {
+                // 連線失敗（請求沒送到）：改回整頁送出
+                done();
+                fallbackSubmit(form, data);
+                return null;
+            })
+            .then(function (res) {
+                if (!res) return;
+                done();
+                applyFragments(res, 'added_to_cart');
+                if (!res.added) { notify(form, res.message || '無法加入購物車，請稍後再試。'); return; }
+                addedFeedback($btn);
+                var dialog = form.closest('dialog');
+                if (dialog && dialog.open) {
+                    var close = dialog.querySelector('.twshop-gb__close');
+                    setTimeout(function () { if (dialog.open && close) close.click(); }, 600);
+                }
+            });
+    });
 
     // 從團購頁加入購物車後（整頁 POST）或其他頁更新片段時，同步收合狀態
     $(document.body).on('wc_fragments_refreshed wc_fragments_loaded', function () {

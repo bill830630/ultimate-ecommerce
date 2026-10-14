@@ -274,6 +274,19 @@
     cursor: not-allowed;
 }
 
+/* AJAX 加入購物車：按鈕短暫顯示「已加入」，失敗訊息顯示在按鈕下方 */
+.twshop-gb__msg {
+    margin: 6px 0 0;
+    color: var(--theme-palette-color-1, currentColor);
+    font-size: .875em;
+}
+
+.single_add_to_cart_button.loading,
+.twshop-gb__card-btn.loading {
+    opacity: .6;
+    cursor: progress;
+}
+
 .twshop-gb__soon {
     margin: 0;
     font-size: .875em;
@@ -507,6 +520,21 @@ html.twshop-gb-detail-open {
     border-top: 1px solid var(--theme-border-color, #e5e5e5);
     background: var(--theme-palette-color-8, #fff);
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* 加入購物車成功時購物車列彈一下 */
+.twshop-gb-cartbar.is-bump .twshop-gb-cartbar__summary {
+    animation: twshop-gb-bump .45s ease-out;
+}
+
+@keyframes twshop-gb-bump {
+    40% { transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .twshop-gb-cartbar.is-bump .twshop-gb-cartbar__summary {
+        animation: none;
+    }
 }
 
 .twshop-gb-cartbar:has(.twshop-gb-cartbar__summary[data-count="0"]) .twshop-gb-cartbar__checkout {

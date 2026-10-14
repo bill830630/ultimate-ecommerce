@@ -289,17 +289,79 @@
     white-space: nowrap;
 }
 
-/* 手機版（與 Blocksy 的手機斷點一致）：數量與按鈕各佔一整行，按鈕好按 */
+/* 手機版（與 Blocksy 的手機斷點一致）：數量與按鈕仍在同一行，數量框改窄、按鈕字縮小一級（Blocksy 以 --theme-button-font-size 控制）；
+   兩欄卡片內容寬約 140–190px，真的放不下時（flex-wrap）按鈕才換到下一行。卡片內距與間距一併縮小。 */
 @media (max-width: 689.98px) {
+    .twshop-gb__body {
+        gap: 6px;
+        padding: 12px;
+    }
+
+    .twshop-gb__buy .ct-cart-actions,
+    .twshop-gb__buy form.cart:not(.variations_form),
+    .twshop-gb__buy .woocommerce-variation-add-to-cart {
+        gap: 6px;
+    }
+
     .twshop-gb__buy .quantity,
     .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
-        --quantity-width: 100%;
-        flex: 1 1 100%;
-        width: 100%;
+        --quantity-width: 64px;
+        flex: 0 0 64px;
+        width: 64px;
+    }
+
+    .twshop-gb__buy .quantity[data-type] input.qty {
+        padding-left: 18px;
+        padding-right: 18px;
     }
 
     .twshop-gb__buy .single_add_to_cart_button {
-        flex: 1 1 100%;
+        --theme-button-padding: 5px 6px;
+        flex: 1 1 64px;
+        padding-left: 6px;
+        padding-right: 6px;
+        --theme-button-font-size: 14px;
+        font-size: 14px;
+    }
+}
+
+/* 很窄的卡片（手機兩欄、卡片寬不到 180px，例如 iPhone 標準尺寸）：再縮數量框與按鈕字級，讓兩者仍放得進同一行。
+   用容器查詢依卡片本身寬度判斷（Elementor 可改欄數，視窗寬度不準）；不支援的瀏覽器維持上一段的樣式。 */
+.twshop-gb__card {
+    container-type: inline-size;
+}
+
+@container (max-width: 179.98px) {
+    .twshop-gb__body {
+        padding: 10px;
+    }
+
+    .twshop-gb__buy .ct-cart-actions,
+    .twshop-gb__buy form.cart:not(.variations_form),
+    .twshop-gb__buy .woocommerce-variation-add-to-cart {
+        gap: 4px;
+    }
+
+    .twshop-gb__buy .quantity,
+    .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
+        --quantity-width: 54px;
+        flex: 0 0 54px;
+        width: 54px;
+    }
+
+    .twshop-gb__buy .quantity[data-type] input.qty {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .twshop-gb__buy .single_add_to_cart_button {
+        --theme-button-padding: 5px 2px;
+        flex-basis: 56px;
+        padding-left: 2px;
+        padding-right: 2px;
+        --theme-button-font-size: 12px;
+        font-size: 12px;
+        letter-spacing: -.02em;
     }
 }
 
@@ -314,32 +376,31 @@
     margin-bottom: 8px;
 }
 
-/* 規格選單與數量列之間的空白：Blocksy 在規格表下（與每個屬性之間）留 1.5em，
-   WooCommerce 的「清除」連結未選規格時只是 visibility:hidden，仍在選單下方佔一行。
-   改成較小的間距，「清除」移到屬性名稱那一行的右側，不再佔高度。 */
+/* 規格選單與數量列之間的空白：Blocksy 在規格表下（與每個屬性之間）留 1.5em，改成較小的間距。
+   屬性名稱已由 twshop_group_buy_variation_select_args() 放進選單的空白選項（「選擇尺寸」），
+   名稱那一行只留給螢幕閱讀器；選回空白選項就是清除，WooCommerce 的「清除」連結（未選時仍佔一行）不顯示。 */
 .twshop-gb__buy form.variations_form table.variations {
-    margin-bottom: 12px;
-}
-
-.twshop-gb__buy form.variations_form table.variations tr {
-    gap: 6px;
+    margin-bottom: 8px;
 }
 
 .twshop-gb__buy form.variations_form table.variations tr:not(:last-child) {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
-.twshop-gb__buy table.variations td {
-    position: relative;
+.twshop-gb__buy table.variations th.label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .twshop-gb__buy .reset_variations {
-    position: absolute;
-    right: 0;
-    bottom: 100%;
-    margin-bottom: 6px;
-    font-size: .85em;
-    line-height: 1.5;
+    display: none !important;
 }
 
 /* 選好規格後顯示的規格價格與庫存，Blocksy 預設下方留 20px */

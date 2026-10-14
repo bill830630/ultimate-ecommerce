@@ -1178,12 +1178,24 @@ function twshop_group_buy_render_add_to_cart( WC_Product $product ) {
     $GLOBALS['product'] = $product;
     $addons = has_action( 'woocommerce_before_add_to_cart_button', 'twshop_render_pdp_addons' );
     if ( false !== $addons ) remove_action( 'woocommerce_before_add_to_cart_button', 'twshop_render_pdp_addons', $addons );
+    add_filter( 'woocommerce_dropdown_variation_attribute_options_args', 'twshop_group_buy_variation_select_args' );
     ob_start();
     woocommerce_template_single_add_to_cart();
     $form = ob_get_clean();
+    remove_filter( 'woocommerce_dropdown_variation_attribute_options_args', 'twshop_group_buy_variation_select_args' );
     if ( false !== $addons ) add_action( 'woocommerce_before_add_to_cart_button', 'twshop_render_pdp_addons', $addons );
     $GLOBALS['product'] = $previous;
     return $form;
+}
+
+/**
+ * 商品卡的規格選單：屬性名稱改放在選單的空白選項（「選擇尺寸」），CSS 把名稱那一行改成只給螢幕閱讀器，卡片少一行。
+ * 選回這個空白選項就是清除規格，所以卡片上也不顯示 WooCommerce 的「清除」連結。
+ */
+function twshop_group_buy_variation_select_args( $args ) {
+    $label = wc_attribute_label( $args['attribute'], $args['product'] ?? '' );
+    if ( '' !== $label ) $args['show_option_none'] = sprintf( '選擇%s', $label );
+    return $args;
 }
 
 /** 簡短描述照原樣輸出，但移除連結，避免顧客從說明文字跳到其他頁面。 */

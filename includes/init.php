@@ -104,6 +104,8 @@ function twshop_membership_init() {
 
     if ( ! twshop_license_is_active() ) return;
 
+    // WooCommerce 設定頁在 wp_loaded（優先權 10）儲存，比 admin_init 早；欄位須在儲存前註冊，否則運送方式頁面儲存時讀不到。
+    add_action( 'wp_loaded', 'twshop_register_cvs_field_for_shipping', 5 );
     add_action( 'admin_init', 'twshop_register_cvs_field_for_shipping' );
     add_filter( 'wc_order_statuses', 'twshop_add_custom_order_statuses' );
     add_filter( 'woocommerce_reports_order_statuses', 'twshop_add_custom_report_statuses' );

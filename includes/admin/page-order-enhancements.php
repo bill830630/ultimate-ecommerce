@@ -8,6 +8,8 @@ function twshop_order_wc_settings_init() {
     add_action( 'woocommerce_update_options_twshop-orders', function () { twshop_order_wc_save( twshop_order_wc_fields() ); } );
     add_filter( 'woocommerce_get_sections_shipping', function ( $sections ) { $sections['twshop-logistics'] = '物流與訂單狀態'; return $sections; } );
     add_filter( 'woocommerce_get_settings_shipping', function ( $settings, $section ) { return 'twshop-logistics' === $section ? twshop_order_logistics_fields() : $settings; }, 10, 2 );
+    // WooCommerce 設定頁在 wp_loaded（優先權 10）儲存，比 admin_init 早；必須在儲存前就註冊欄位與儲存過濾器。
+    add_action( 'wp_loaded', 'twshop_order_register_title_fields', 5 );
     add_action( 'admin_init', 'twshop_order_register_title_fields', 20 );
 }
 

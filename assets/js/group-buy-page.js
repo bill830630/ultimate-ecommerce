@@ -1,5 +1,30 @@
 /**
- * 團購專屬頁期間倒數。頁面可能被 CDN 快取，所以狀態以瀏覽器當下時間判斷：
+ * 團購專屬頁：商品描述收合、期間倒數。
+ */
+
+/** 描述超過約 3 行時收合，並在下方加「看更多／收起」切換。 */
+(function () {
+    var descs = document.querySelectorAll('.twshop-gb__desc');
+    Array.prototype.forEach.call(descs, function (desc) {
+        desc.classList.add('is-clamped');
+        // 多出不到半行就不收合，避免只為一點點內容出現按鈕
+        if (desc.scrollHeight <= desc.clientHeight + 8) { desc.classList.remove('is-clamped'); return; }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'twshop-gb__more';
+        btn.textContent = '看更多';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function () {
+            var open = desc.classList.toggle('is-clamped') === false;
+            btn.textContent = open ? '收起' : '看更多';
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        desc.parentNode.insertBefore(btn, desc.nextSibling);
+    });
+})();
+
+/**
+ * 期間倒數。頁面可能被 CDN 快取，所以狀態以瀏覽器當下時間判斷：
  * 跨過開始／結束時間時重新載入一次（sessionStorage 防止 CDN 仍回舊頁時無限重載），
  * 重載後仍是舊狀態就改顯示提示文字。加入購物車與結帳時伺服器另外驗證期間。
  */

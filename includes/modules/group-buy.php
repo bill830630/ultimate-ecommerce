@@ -874,8 +874,82 @@ function twshop_group_buy_page_template( $template ) {
 }
 
 function twshop_group_buy_page_title( $title ) {
-    if ( twshop_group_buy_is_group_page() ) $title['title'] = twshop_group_buy_leader_title( twshop_group_buy_page_leader() );
-    return $title;
+    if ( ! twshop_group_buy_is_group_page() ) return $title;
+    // 自訂路由在 WordPress 眼中是首頁，預設只有「網站名稱｜標語」；改成「團購名稱 - 網站名稱」
+    return array( 'title' => twshop_group_buy_leader_title( twshop_group_buy_page_leader() ), 'site' => get_bloginfo( 'name', 'display' ) );
+}
+
+/** 團購頁完整標題「團購名稱 - 網站名稱」，給 SEO 外掛的標題濾鏡用。 */
+function twshop_group_buy_page_full_title() {
+    $sep = apply_filters( 'document_title_separator', '-' );
+    return twshop_group_buy_leader_title( twshop_group_buy_page_leader() ) . ' ' . $sep . ' ' . get_bloginfo( 'name', 'display' );
+}
+
+function twshop_group_buy_page_description() {
+    $leader = twshop_group_buy_page_leader();
+    return $leader ? wp_trim_words( wp_strip_all_tags( strip_shortcodes( (string) ( $leader['intro'] ?? '' ) ) ), 80, '…' ) : '';
+}
+
+/**
+ * SEO 外掛（Rank Math、Yoast）不認得團購頁這條自訂路由，主查詢落在首頁條件上，
+ * 會把標題、canonical、og:url 換成部落格頁（文章頁面）的值、robots 改回 index。
+ * 只在團購頁時覆寫這些輸出；沒有裝 SEO 外掛時 pre_get_document_title 回空字串，交回 document_title_parts。
+ */
+function twshop_group_buy_seo_title( $title ) {
+    return twshop_group_buy_is_group_page() ? twshop_group_buy_page_full_title() : $title;
+}
+
+function twshop_group_buy_seo_document_title( $title ) {
+    // 沒有其他外掛先接手時保持空字串，讓 WordPress 走 document_title_parts（twshop_group_buy_page_title）
+    return twshop_group_buy_is_group_page() && '' !== (string) $title ? twshop_group_buy_page_full_title() : $title;
+}
+
+function twshop_group_buy_seo_description( $description ) {
+    if ( ! twshop_group_buy_is_group_page() ) return $description;
+    return twshop_group_buy_page_description();
+}
+
+function twshop_group_buy_seo_url( $url ) {
+    if ( ! twshop_group_buy_is_group_page() ) return $url;
+    return twshop_group_buy_page_url( twshop_group_buy_page_leader() );
+}
+
+function twshop_group_buy_seo_robots_array( $robots ) {
+    if ( ! twshop_group_buy_is_group_page() ) return $robots;
+    $robots = is_array( $robots ) ? $robots : array();
+    // Rank Math 用 index/follow 鍵存值；Yoast 的 wpseo_robots_array 也是同樣的鍵
+    $robots['index'] = 'noindex';
+    $robots['follow'] = 'nofollow';
+    return $robots;
+}
+
+function twshop_group_buy_seo_robots_string( $robots ) {
+    return twshop_group_buy_is_group_page() ? 'noindex, nofollow' : $robots;
+}
+
+function twshop_group_buy_register_seo_filters() {
+    add_filter( 'pre_get_document_title', 'twshop_group_buy_seo_document_title', 9999 );
+    // Rank Math
+    add_filter( 'rank_math/frontend/title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'rank_math/frontend/description', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'rank_math/frontend/canonical', 'twshop_group_buy_seo_url', 9999 );
+    add_filter( 'rank_math/frontend/robots', 'twshop_group_buy_seo_robots_array', 9999 );
+    add_filter( 'rank_math/opengraph/url', 'twshop_group_buy_seo_url', 9999 );
+    add_filter( 'rank_math/opengraph/facebook/og_title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'rank_math/opengraph/facebook/og_description', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'rank_math/opengraph/twitter/twitter_title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'rank_math/opengraph/twitter/twitter_description', 'twshop_group_buy_seo_description', 9999 );
+    // Yoast SEO
+    add_filter( 'wpseo_title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'wpseo_opengraph_title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'wpseo_twitter_title', 'twshop_group_buy_seo_title', 9999 );
+    add_filter( 'wpseo_metadesc', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'wpseo_opengraph_desc', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'wpseo_twitter_description', 'twshop_group_buy_seo_description', 9999 );
+    add_filter( 'wpseo_canonical', 'twshop_group_buy_seo_url', 9999 );
+    add_filter( 'wpseo_opengraph_url', 'twshop_group_buy_seo_url', 9999 );
+    add_filter( 'wpseo_robots_array', 'twshop_group_buy_seo_robots_array', 9999 );
+    add_filter( 'wpseo_robots', 'twshop_group_buy_seo_robots_string', 9999 );
 }
 
 function twshop_group_buy_page_robots( $robots ) {
@@ -901,11 +975,8 @@ function twshop_group_buy_page_assets() {
         return;
     }
     if ( ! twshop_group_buy_is_group_page() ) return;
-    $leader = twshop_group_buy_page_leader();
-    $period = $leader ? twshop_group_buy_period( $leader ) : array( 'start' => 0, 'end' => 0 );
-    if ( $period['start'] || $period['end'] ) {
-        wp_enqueue_script( 'twshop-group-buy-page', TWSHOP_PLUGIN_URL . 'assets/js/group-buy-page.js', array(), filemtime( TWSHOP_PLUGIN_DIR . 'assets/js/group-buy-page.js' ), true );
-    }
+    // 描述收合一律需要；倒數段落在沒有期間橫幅時自行略過
+    wp_enqueue_script( 'twshop-group-buy-page', TWSHOP_PLUGIN_URL . 'assets/js/group-buy-page.js', array(), filemtime( TWSHOP_PLUGIN_DIR . 'assets/js/group-buy-page.js' ), true );
     wp_enqueue_script( 'wc-add-to-cart-variation' );
     wp_enqueue_script( 'wc-cart-fragments' );
     // 端點網址對所有訪客相同，可以放在可快取的頁面上；nonce 由購物車片段帶入。
@@ -1627,6 +1698,7 @@ function twshop_group_buy_init() {
     // 專屬頁（可被快取：不寫 Cookie、不設 no-cache）
     add_filter( 'template_include', 'twshop_group_buy_page_template', 20 );
     add_filter( 'document_title_parts', 'twshop_group_buy_page_title' );
+    twshop_group_buy_register_seo_filters();
     add_filter( 'wp_robots', 'twshop_group_buy_page_robots' );
     add_filter( 'body_class', 'twshop_group_buy_body_class' );
     add_action( 'wp_enqueue_scripts', 'twshop_group_buy_page_assets' );

@@ -107,6 +107,32 @@
     margin-bottom: 0;
 }
 
+/* 描述預設收合成約 3 行（由 group-buy-page.js 只在內容超過時加上 is-clamped），沒有 JS 時完整顯示 */
+.twshop-gb__desc.is-clamped {
+    max-height: 4.8em;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.twshop-gb__more {
+    align-self: flex-start;
+    margin: -4px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: .875em;
+    text-decoration: underline;
+    cursor: pointer;
+    opacity: .75;
+}
+
+.twshop-gb__more:hover,
+.twshop-gb__more:focus-visible {
+    opacity: 1;
+}
+
 .twshop-gb__buy {
     margin-top: auto;
 }
@@ -131,18 +157,40 @@
     width: 100%;
 }
 
-/* 數量欄與按鈕各佔一整行（Blocksy 以 .ct-cart-actions .quantity[data-type] 固定 80–100px，選擇器需更具體） */
+/* 數量框固定寬、按鈕吃掉剩下的空間，兩者同一行以縮短卡片。
+   四欄卡片內容寬約 208px：88（數量）+ 8（間距）+ 96（按鈕最小寬）= 192px 才放得下；
+   更窄（例如手機兩欄）時按鈕自動換到下一行。按鈕左右內距縮小，Blocksy 透過 --theme-button-padding 控制。
+   Blocksy 以 .ct-cart-actions .quantity[data-type] 固定寬度，選擇器需更具體。 */
 .twshop-gb__buy .quantity,
 .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
-    --quantity-width: 100%;
-    flex: 1 1 100%;
-    width: 100%;
+    --quantity-width: 88px;
+    flex: 0 0 88px;
+    width: 88px;
+    margin: 0;
 }
 
 .twshop-gb__buy .single_add_to_cart_button {
-    flex: 1 1 100%;
+    --theme-button-padding: 5px 12px;
+    flex: 1 1 96px;
+    min-width: 0;
     margin: 0;
+    padding-left: 12px;
+    padding-right: 12px;
     white-space: nowrap;
+}
+
+/* 手機版（與 Blocksy 的手機斷點一致）：數量與按鈕各佔一整行，按鈕好按 */
+@media (max-width: 689.98px) {
+    .twshop-gb__buy .quantity,
+    .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
+        --quantity-width: 100%;
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .twshop-gb__buy .single_add_to_cart_button {
+        flex: 1 1 100%;
+    }
 }
 
 /* 加入成功後 WooCommerce／Blocksy 會在按鈕旁插入「查看購物車」連結：會帶離本頁且擠壞版面，
@@ -153,6 +201,39 @@
 
 .twshop-gb__buy .variations {
     width: 100%;
+    margin-bottom: 8px;
+}
+
+/* 規格選單與數量列之間的空白：Blocksy 在規格表下（與每個屬性之間）留 1.5em，
+   WooCommerce 的「清除」連結未選規格時只是 visibility:hidden，仍在選單下方佔一行。
+   改成較小的間距，「清除」移到屬性名稱那一行的右側，不再佔高度。 */
+.twshop-gb__buy form.variations_form table.variations {
+    margin-bottom: 12px;
+}
+
+.twshop-gb__buy form.variations_form table.variations tr {
+    gap: 6px;
+}
+
+.twshop-gb__buy form.variations_form table.variations tr:not(:last-child) {
+    margin-bottom: 12px;
+}
+
+.twshop-gb__buy table.variations td {
+    position: relative;
+}
+
+.twshop-gb__buy .reset_variations {
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    margin-bottom: 6px;
+    font-size: .85em;
+    line-height: 1.5;
+}
+
+/* 選好規格後顯示的規格價格與庫存，Blocksy 預設下方留 20px */
+.twshop-gb__buy form.variations_form .single_variation :is(p, .price) {
     margin-bottom: 8px;
 }
 

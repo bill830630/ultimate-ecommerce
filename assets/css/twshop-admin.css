@@ -551,7 +551,8 @@ input[type="checkbox"].twshop-sw:disabled{ opacity:.5; cursor:not-allowed; }
 .twshop-gb-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .twshop-gb-actions form { margin: 0; }
 .twshop-gb-leaders tr.is-inactive td { opacity: .6; }
-.twshop-gb-leaders tr.is-inactive td:last-child { opacity: 1; }
+.twshop-gb-leaders tr.is-inactive td:last-child,
+.twshop-gb-leaders tr.is-inactive .twshop-gb-status-cell { opacity: 1; }
 
 /* 佣金級距編輯器：精簡表格，只列已設定的級距，新增／刪除由按鈕控制。 */
 .twshop-gb-tier-editor { max-width: 460px; }
@@ -586,14 +587,17 @@ input[type="checkbox"].twshop-sw:disabled{ opacity:.5; cursor:not-allowed; }
 /* 團購頁：欄位多，外層由 960px 放寬到 1400px；容易被擠斷的欄位不換行。 */
 .twshop-admin-wrap:has(.twshop-gb-section) { max-width: 1400px; }
 .twshop-gb-leaders td { padding-top: 12px; padding-bottom: 12px; }
-.twshop-gb-leaders td:first-child { min-width: 200px; }
-.twshop-gb-leaders td:first-child .twshop-hint,
-.twshop-gb-leaders td:nth-child(2),
-.twshop-gb-leaders td:nth-child(4),
+.twshop-gb-leaders .twshop-gb-leader-cell { min-width: 200px; }
+.twshop-gb-leaders .twshop-gb-leader-cell .twshop-hint,
+.twshop-gb-leaders .twshop-gb-url-cell,
+.twshop-gb-leaders .twshop-gb-discount-cell,
 .twshop-gb-leaders .twshop-badge { white-space: nowrap; }
 .twshop-gb-leaders .twshop-gb-actions { flex-wrap: nowrap; }
 .twshop-gb-section .twshop-panel-body { overflow-x: auto; }
 .twshop-gb-period-fields { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.twshop-gb-leaders .twshop-gb-period-hint { margin-top: 4px; font-size: 12px; white-space: nowrap; }
+/* 徽章與下方時間左緣對齊：兩者同為區塊、時間文字補上徽章的左內距，讓字對齊字 */
+.twshop-gb-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.twshop-gb-status .twshop-badge { display: inline-block; line-height: 18px; }
+.twshop-gb-leaders .twshop-gb-period-hint { margin: 0; padding-left: 8px; font-size: 12px; white-space: nowrap; }
 .twshop-gb-period-fields .twshop-gb-time { width: 70px; text-align: center; }
 .twshop-gb-period-sep { margin: 0 4px; }

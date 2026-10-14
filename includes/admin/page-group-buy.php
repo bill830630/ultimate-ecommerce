@@ -167,7 +167,7 @@ function twshop_group_buy_leaders_tab() {
     foreach ( $wpdb->get_results( 'SELECT leader_id, SUM(base_amount) AS p FROM ' . twshop_group_buy_tables()['commissions'] . ' GROUP BY leader_id', ARRAY_A ) as $row ) {
         $performance[ (int) $row['leader_id'] ] = (float) $row['p'];
     }
-    echo '<table class="widefat striped twshop-gb-leaders"><thead><tr><th>團購主</th><th>專屬頁</th><th class="num">商品</th><th>團購折扣</th><th>佣金規則</th><th class="num">累計業績</th><th class="num">未結算</th><th class="num">累計佣金</th><th>狀態</th><th>操作</th></tr></thead><tbody>';
+    echo '<table class="widefat striped twshop-gb-leaders"><thead><tr><th>狀態</th><th>團購主</th><th>專屬頁</th><th class="num">商品</th><th>團購折扣</th><th>佣金規則</th><th class="num">累計業績</th><th class="num">未結算</th><th class="num">累計佣金</th><th>操作</th></tr></thead><tbody>';
     foreach ( $leaders as $leader ) {
         $id = (int) $leader['user_id'];
         $active = 'active' === $leader['status'];
@@ -177,12 +177,22 @@ function twshop_group_buy_leaders_tab() {
         $user = get_userdata( $id );
         $tiers = twshop_group_buy_leader_tiers( $leader );
         $current_tier = twshop_group_buy_tier_index_at( $perf, $tiers );
-        echo '<tr' . ( $active ? '' : ' class="is-inactive"' ) . '><td><strong>' . esc_html( twshop_group_buy_leader_title( $leader ) ) . '</strong>';
+        $period_state = twshop_group_buy_period_state( $leader );
+        $period = twshop_group_buy_period( $leader );
+        // 徽章已表明狀態，下方只列時間，避免「進行中」重複出現
+        $period_text = 'upcoming' === $period_state ? twshop_group_buy_format_time( $period['start'] ) . ' 開始'
+            : ( 'ended' === $period_state ? twshop_group_buy_format_time( $period['end'] ) . ' 結束'
+            : ( $period['end'] ? '至 ' . twshop_group_buy_format_time( $period['end'] ) . ' 結束' : ( $period['start'] ? twshop_group_buy_format_time( $period['start'] ) . ' 起' : '' ) ) );
+        $badge = ! $active ? array( 'twshop-badge--warn', '停用' ) : ( 'upcoming' === $period_state ? array( '', '未開始' ) : ( 'ended' === $period_state ? array( 'twshop-badge--warn', '已結束' ) : array( 'twshop-badge--ok', '進行中' ) ) );
+        $status_html = '<td class="twshop-gb-status-cell"><div class="twshop-gb-status"><span class="twshop-badge ' . esc_attr( $badge[0] ) . '">' . esc_html( $badge[1] ) . '</span>';
+        if ( $active && '' !== $period_text ) $status_html .= '<span class="twshop-hint twshop-gb-period-hint">' . esc_html( $period_text ) . '</span>';
+        $status_html .= '</div></td>';
+        echo '<tr' . ( $active ? '' : ' class="is-inactive"' ) . '>' . $status_html . '<td class="twshop-gb-leader-cell"><strong>' . esc_html( twshop_group_buy_leader_title( $leader ) ) . '</strong>';
         echo '<div class="twshop-hint">' . ( $user ? esc_html( $user->display_name . ' · ' . $user->user_email ) : '已刪除會員' ) . ' <span class="twshop-gb-id">#' . $id . '</span></div></td>';
-        echo '<td><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener"><code>' . esc_html( wp_parse_url( $url, PHP_URL_PATH ) ?: $leader['code'] ) . '</code><span class="dashicons dashicons-external" aria-hidden="true"></span></a></td>';
+        echo '<td class="twshop-gb-url-cell"><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener"><code>' . esc_html( wp_parse_url( $url, PHP_URL_PATH ) ?: $leader['code'] ) . '</code><span class="dashicons dashicons-external" aria-hidden="true"></span></a></td>';
         echo '<td class="num">' . (int) ( $counts[ $id ] ?? 0 ) . '</td>';
         $discount_text = twshop_group_buy_describe_discount( twshop_group_buy_leader_discount( $leader ) );
-        echo '<td>' . ( $discount_text ? esc_html( $discount_text ) : '<span class="twshop-hint">商品團購價</span>' );
+        echo '<td class="twshop-gb-discount-cell">' . ( $discount_text ? esc_html( $discount_text ) : '<span class="twshop-hint">商品團購價</span>' );
         if ( ! empty( $own_counts[ $id ] ) ) echo '<div class="twshop-hint">另有 ' . (int) $own_counts[ $id ] . ' 項個別價格</div>';
         echo '</td><td>';
         if ( 'global' === twshop_group_buy_leader_rule_mode( $leader ) ) echo '<span class="twshop-badge">全站預設</span>';
@@ -195,12 +205,6 @@ function twshop_group_buy_leaders_tab() {
         echo '<td class="num">' . wp_kses_post( wc_price( $perf ) ) . '</td>';
         echo '<td class="num">' . ( $sum['unsettled'] > 0 ? '<strong>' . wp_kses_post( wc_price( $sum['unsettled'] ) ) . '</strong>' : wp_kses_post( wc_price( 0 ) ) ) . '</td>';
         echo '<td class="num">' . wp_kses_post( wc_price( $sum['total'] ) ) . '</td>';
-        $period_state = twshop_group_buy_period_state( $leader );
-        $period_text = twshop_group_buy_describe_period( $leader );
-        $badge = ! $active ? array( 'twshop-badge--warn', '停用' ) : ( 'upcoming' === $period_state ? array( '', '未開始' ) : ( 'ended' === $period_state ? array( 'twshop-badge--warn', '已結束' ) : array( 'twshop-badge--ok', '進行中' ) ) );
-        echo '<td><span class="twshop-badge ' . esc_attr( $badge[0] ) . '">' . esc_html( $badge[1] ) . '</span>';
-        if ( $active && '' !== $period_text ) echo '<div class="twshop-hint twshop-gb-period-hint">' . esc_html( $period_text ) . '</div>';
-        echo '</td>';
         echo '<td><div class="twshop-gb-actions">';
         echo '<a class="button button-small" href="' . esc_url( twshop_admin_url( 'group-buy', array( 'tab' => 'leaders', 'edit' => $id ) ) ) . '">編輯</a>';
         if ( $sum['unsettled'] > 0 ) echo '<a class="button button-small button-primary" href="' . esc_url( twshop_admin_url( 'group-buy', array( 'tab' => 'leaders', 'settle' => $id ) ) ) . '">結算</a>';

@@ -90,25 +90,40 @@
     });
 })();
 
-/** 描述超過約 3 行時收合，並在下方加「看更多／收起」切換。 */
+/**
+ * 描述超過收合高度時收合，並在下方加「看更多／收起」切換。收合高度由 CSS 決定（桌機約 3 行、手機 1 行），
+ * 視窗跨過手機斷點時重新判斷；已被顧客展開的描述維持展開。
+ */
 (function () {
     var descs = document.querySelectorAll('.twshop-gb__desc');
-    Array.prototype.forEach.call(descs, function (desc) {
+    if (!descs.length) return;
+    function check(desc) {
+        if (desc.getAttribute('data-open') === '1') return;
+        var btn = desc.nextElementSibling && desc.nextElementSibling.classList.contains('twshop-gb__more') ? desc.nextElementSibling : null;
         desc.classList.add('is-clamped');
         // 多出不到半行就不收合，避免只為一點點內容出現按鈕
-        if (desc.scrollHeight <= desc.clientHeight + 8) { desc.classList.remove('is-clamped'); return; }
-        var btn = document.createElement('button');
+        var overflow = desc.scrollHeight > desc.clientHeight + 8;
+        if (!overflow) desc.classList.remove('is-clamped');
+        if (!overflow) { if (btn) btn.hidden = true; return; }
+        if (btn) { btn.hidden = false; return; }
+        btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'twshop-gb__more';
         btn.textContent = '看更多';
         btn.setAttribute('aria-expanded', 'false');
         btn.addEventListener('click', function () {
             var open = desc.classList.toggle('is-clamped') === false;
+            desc.setAttribute('data-open', open ? '1' : '0');
             btn.textContent = open ? '收起' : '看更多';
             btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
         desc.parentNode.insertBefore(btn, desc.nextSibling);
-    });
+    }
+    Array.prototype.forEach.call(descs, check);
+    var mq = window.matchMedia ? window.matchMedia('(max-width: 689.98px)') : null;
+    var recheck = function () { Array.prototype.forEach.call(descs, check); };
+    if (mq && mq.addEventListener) mq.addEventListener('change', recheck);
+    else if (mq && mq.addListener) mq.addListener(recheck);
 })();
 
 /**

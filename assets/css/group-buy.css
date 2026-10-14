@@ -217,12 +217,35 @@
     margin-bottom: 0;
 }
 
-/* 描述預設收合成約 3 行（由 group-buy-page.js 只在內容超過時加上 is-clamped），沒有 JS 時完整顯示 */
+/* 描述預設收合成約 3 行，手機 1 行（由 group-buy-page.js 只在內容超過時加上 is-clamped），沒有 JS 時完整顯示 */
 .twshop-gb__desc.is-clamped {
     max-height: 4.8em;
     overflow: hidden;
     -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
     mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+/* 手機兩欄卡片很窄，描述只留 1 行，結尾往右淡出 */
+@media (max-width: 689.98px) {
+    .twshop-gb__desc.is-clamped {
+        max-height: 1.7em;
+        max-height: 1lh;
+        -webkit-mask-image: linear-gradient(to right, #000 65%, transparent);
+        mask-image: linear-gradient(to right, #000 65%, transparent);
+    }
+}
+
+/* 整頁都是團購商品，卡片上不重複顯示「團購價」標籤（仍保留給螢幕閱讀器）；劃線原價照常顯示 */
+.twshop-gb__card .price .twshop-group-buy-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .twshop-gb__more {
@@ -289,79 +312,22 @@
     white-space: nowrap;
 }
 
-/* 手機版（與 Blocksy 的手機斷點一致）：數量與按鈕仍在同一行，數量框改窄、按鈕字縮小一級（Blocksy 以 --theme-button-font-size 控制）；
-   兩欄卡片內容寬約 140–190px，真的放不下時（flex-wrap）按鈕才換到下一行。卡片內距與間距一併縮小。 */
+/* 手機版（與 Blocksy 的手機斷點一致）：數量與按鈕各佔一整行，按鈕好按；卡片內距與間距縮小 */
 @media (max-width: 689.98px) {
     .twshop-gb__body {
         gap: 6px;
         padding: 12px;
     }
 
-    .twshop-gb__buy .ct-cart-actions,
-    .twshop-gb__buy form.cart:not(.variations_form),
-    .twshop-gb__buy .woocommerce-variation-add-to-cart {
-        gap: 6px;
-    }
-
     .twshop-gb__buy .quantity,
     .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
-        --quantity-width: 64px;
-        flex: 0 0 64px;
-        width: 64px;
-    }
-
-    .twshop-gb__buy .quantity[data-type] input.qty {
-        padding-left: 18px;
-        padding-right: 18px;
+        --quantity-width: 100%;
+        flex: 1 1 100%;
+        width: 100%;
     }
 
     .twshop-gb__buy .single_add_to_cart_button {
-        --theme-button-padding: 5px 6px;
-        flex: 1 1 64px;
-        padding-left: 6px;
-        padding-right: 6px;
-        --theme-button-font-size: 14px;
-        font-size: 14px;
-    }
-}
-
-/* 很窄的卡片（手機兩欄、卡片寬不到 180px，例如 iPhone 標準尺寸）：再縮數量框與按鈕字級，讓兩者仍放得進同一行。
-   用容器查詢依卡片本身寬度判斷（Elementor 可改欄數，視窗寬度不準）；不支援的瀏覽器維持上一段的樣式。 */
-.twshop-gb__card {
-    container-type: inline-size;
-}
-
-@container (max-width: 179.98px) {
-    .twshop-gb__body {
-        padding: 10px;
-    }
-
-    .twshop-gb__buy .ct-cart-actions,
-    .twshop-gb__buy form.cart:not(.variations_form),
-    .twshop-gb__buy .woocommerce-variation-add-to-cart {
-        gap: 4px;
-    }
-
-    .twshop-gb__buy .quantity,
-    .twshop-gb__buy .ct-cart-actions .quantity[data-type] {
-        --quantity-width: 54px;
-        flex: 0 0 54px;
-        width: 54px;
-    }
-
-    .twshop-gb__buy .quantity[data-type] input.qty {
-        padding-left: 14px;
-        padding-right: 14px;
-    }
-
-    .twshop-gb__buy .single_add_to_cart_button {
-        --theme-button-padding: 5px 2px;
-        flex-basis: 56px;
-        padding-left: 2px;
-        padding-right: 2px;
-        --theme-button-font-size: 12px;
-        font-size: 12px;
-        letter-spacing: -.02em;
+        flex: 1 1 100%;
     }
 }
 

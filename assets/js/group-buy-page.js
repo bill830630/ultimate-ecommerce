@@ -1,5 +1,5 @@
 /**
- * 團購專屬頁：商品描述收合、商品圖片輪播、期間倒數。
+ * 團購專屬頁：商品詳細彈窗、商品圖片輪播、期間倒數。
  */
 
 /**
@@ -91,39 +91,45 @@
 })();
 
 /**
- * 描述超過收合高度時收合，並在下方加「看更多／收起」切換。收合高度由 CSS 決定（桌機約 3 行、手機 1 行），
- * 視窗跨過手機斷點時重新判斷；已被顧客展開的描述維持展開。
+ * 商品詳細彈窗：點卡片圖片、名稱或「選擇規格」按鈕開啟同一張卡片裡的 <dialog>。
+ * 開啟時記一筆瀏覽紀錄，手機的返回鍵只關閉彈窗、不離開團購頁；Esc、點背景、關閉鈕也走同一條路。
+ * 不支援 <dialog> 的舊瀏覽器點了沒反應，卡片上的直接加入按鈕照常可用。
  */
 (function () {
-    var descs = document.querySelectorAll('.twshop-gb__desc');
-    if (!descs.length) return;
-    function check(desc) {
-        if (desc.getAttribute('data-open') === '1') return;
-        var btn = desc.nextElementSibling && desc.nextElementSibling.classList.contains('twshop-gb__more') ? desc.nextElementSibling : null;
-        desc.classList.add('is-clamped');
-        // 多出不到半行就不收合，避免只為一點點內容出現按鈕
-        var overflow = desc.scrollHeight > desc.clientHeight + 8;
-        if (!overflow) desc.classList.remove('is-clamped');
-        if (!overflow) { if (btn) btn.hidden = true; return; }
-        if (btn) { btn.hidden = false; return; }
-        btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'twshop-gb__more';
-        btn.textContent = '看更多';
-        btn.setAttribute('aria-expanded', 'false');
-        btn.addEventListener('click', function () {
-            var open = desc.classList.toggle('is-clamped') === false;
-            desc.setAttribute('data-open', open ? '1' : '0');
-            btn.textContent = open ? '收起' : '看更多';
-            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        });
-        desc.parentNode.insertBefore(btn, desc.nextSibling);
+    var current = null;
+    function open(dialog) {
+        if (!dialog || typeof dialog.showModal !== 'function' || dialog.open) return;
+        if (current) close(false);
+        dialog.showModal();
+        current = dialog;
+        document.documentElement.classList.add('twshop-gb-detail-open');
+        var track = dialog.querySelector('.twshop-gb__slides');
+        if (track) track.scrollLeft = 0;
+        try { history.pushState({ twshopGbDetail: dialog.id }, ''); } catch (e) {}
     }
-    Array.prototype.forEach.call(descs, check);
-    var mq = window.matchMedia ? window.matchMedia('(max-width: 689.98px)') : null;
-    var recheck = function () { Array.prototype.forEach.call(descs, check); };
-    if (mq && mq.addEventListener) mq.addEventListener('change', recheck);
-    else if (mq && mq.addListener) mq.addListener(recheck);
+    function close(fromHistory) {
+        if (!current) return;
+        var dialog = current;
+        current = null;
+        if (dialog.open) dialog.close();
+        document.documentElement.classList.remove('twshop-gb-detail-open');
+        if (!fromHistory && history.state && history.state.twshopGbDetail === dialog.id) history.back();
+    }
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest ? e.target.closest('[data-gb-open]') : null;
+        if (trigger) {
+            e.preventDefault();
+            open(document.getElementById(trigger.getAttribute('data-gb-open')));
+            return;
+        }
+        if (!current) return;
+        // 點到彈窗本身（內容外的背景區）或關閉鈕
+        if (e.target === current || (e.target.closest && e.target.closest('.twshop-gb__close'))) close(false);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.twshop-gb__detail'), function (dialog) {
+        dialog.addEventListener('cancel', function (e) { e.preventDefault(); close(false); });
+    });
+    window.addEventListener('popstate', function () { if (current) close(true); });
 })();
 
 /**

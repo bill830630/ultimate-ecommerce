@@ -88,6 +88,7 @@
     background: var(--theme-palette-color-8, #fff);
 }
 
+.twshop-gb__thumb img,
 .twshop-gb__image img {
     display: block;
     width: 100%;
@@ -217,26 +218,8 @@
     margin-bottom: 0;
 }
 
-/* 描述預設收合成約 3 行，手機 1 行（由 group-buy-page.js 只在內容超過時加上 is-clamped），沒有 JS 時完整顯示 */
-.twshop-gb__desc.is-clamped {
-    max-height: 4.8em;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
-    mask-image: linear-gradient(to bottom, #000 55%, transparent);
-}
-
-/* 手機兩欄卡片很窄，描述只留 1 行，結尾往右淡出 */
-@media (max-width: 689.98px) {
-    .twshop-gb__desc.is-clamped {
-        max-height: 1.7em;
-        max-height: 1lh;
-        -webkit-mask-image: linear-gradient(to right, #000 65%, transparent);
-        mask-image: linear-gradient(to right, #000 65%, transparent);
-    }
-}
-
 /* 整頁都是團購商品，卡片上不重複顯示「團購價」標籤（仍保留給螢幕閱讀器）；劃線原價照常顯示 */
-.twshop-gb__card .price .twshop-group-buy-label {
+.twshop-gb__body .price .twshop-group-buy-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -248,22 +231,154 @@
     border: 0;
 }
 
-.twshop-gb__more {
-    align-self: flex-start;
-    margin: -4px 0 0;
+/* 卡片：圖片與名稱可點開詳細彈窗 */
+.twshop-gb__thumb {
+    cursor: pointer;
+}
+
+.twshop-gb__open {
+    display: block;
+    width: 100%;
+    margin: 0;
     padding: 0;
     border: 0;
     background: none;
     color: inherit;
-    font-size: .875em;
-    text-decoration: underline;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
     cursor: pointer;
+}
+
+.twshop-gb__open:hover {
+    text-decoration: underline;
+}
+
+.twshop-gb__action {
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.twshop-gb__action form {
+    margin: 0;
+}
+
+.twshop-gb__card-btn {
+    width: 100%;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.twshop-gb__card-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.twshop-gb__soon {
+    margin: 0;
+    font-size: .875em;
     opacity: .75;
 }
 
-.twshop-gb__more:hover,
-.twshop-gb__more:focus-visible {
-    opacity: 1;
+/* 商品詳細彈窗（原生 <dialog>，在最上層顯示）：桌機置中、圖文左右兩欄；手機從底部滑上 */
+.twshop-gb__detail {
+    box-sizing: border-box;
+    width: min(880px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100vh - 64px);
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: var(--theme-palette-color-8, #fff);
+    color: inherit;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.twshop-gb__detail::backdrop {
+    background: rgba(0, 0, 0, .5);
+}
+
+.twshop-gb__detail[open] {
+    animation: twshop-gb-detail-in .2s ease-out;
+}
+
+@keyframes twshop-gb-detail-in {
+    from { opacity: 0; transform: translateY(16px); }
+}
+
+.twshop-gb__detail-inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.twshop-gb__detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 24px;
+}
+
+.twshop-gb__detail-name {
+    margin: 0;
+    padding-right: 32px;
+    font-size: 1.3em;
+}
+
+.twshop-gb__detail-body .price {
+    margin: 0;
+}
+
+.twshop-gb__close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+    color: #222;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* 彈窗開著時，背後頁面不跟著捲動 */
+html.twshop-gb-detail-open {
+    overflow: hidden;
+}
+
+@media (max-width: 689.98px) {
+    .twshop-gb__detail {
+        width: 100%;
+        max-height: 90vh;
+        max-height: 90dvh;
+        margin: auto 0 0;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .twshop-gb__detail-inner {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .twshop-gb__detail-body {
+        padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .twshop-gb__detail[open] {
+        animation: none;
+    }
 }
 
 .twshop-gb__buy {

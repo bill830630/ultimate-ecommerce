@@ -1216,7 +1216,11 @@ function twshop_group_buy_render_notices( $is_post ) {
     return '' === $html ? '' : '<div class="twshop-gb__notices woocommerce">' . $html . '</div>';
 }
 
-/** 團購商品格線（內建版型與 Elementor「團購商品」小工具共用）。 */
+/**
+ * 團購商品格線（內建版型與 Elementor「團購商品」小工具共用）。
+ * 卡片只放圖片、名稱、價格與一顆按鈕；點圖片或名稱開啟同一張卡片裡的 <dialog>，內含圖片輪播、完整描述與原生購買表單。
+ * 彈窗內容與卡片一起在伺服器端輸出（不用 AJAX），頁面仍對所有訪客相同、可被 CDN 快取。
+ */
 function twshop_group_buy_render_products( $leader, $empty_text = null ) {
     $empty_text = null === $empty_text ? twshop_group_buy_t( '目前沒有團購商品。' ) : $empty_text;
     $state = is_array( $leader ) ? twshop_group_buy_period_state( $leader ) : 'open';
@@ -1229,23 +1233,66 @@ function twshop_group_buy_render_products( $leader, $empty_text = null ) {
     foreach ( $products as $product ) {
         $GLOBALS['post'] = get_post( $product->get_id() ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
         setup_postdata( $GLOBALS['post'] );
-        $desc = twshop_group_buy_short_description( $product );
-        echo '<article class="twshop-gb__card product type-product ' . esc_attr( 'product-type-' . $product->get_type() ) . '" data-product-id="' . (int) $product->get_id() . '">';
-        echo twshop_group_buy_render_card_images( $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress 產生的圖片 HTML，商品名稱已 esc_attr。
-        echo '<div class="twshop-gb__body summary">';
-        echo '<h2 class="twshop-gb__name">' . esc_html( $product->get_name() ) . '</h2>';
-        echo '<p class="price">' . wp_kses_post( $product->get_price_html() ) . '</p>';
-        if ( $desc ) echo '<div class="twshop-gb__desc">' . $desc . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 已 wp_kses。
+        $id    = 'twshop-gb-detail-' . (int) $product->get_id();
+        $name  = esc_html( $product->get_name() );
+        $price = '<p class="price">' . wp_kses_post( $product->get_price_html() ) . '</p>';
+        $desc  = twshop_group_buy_short_description( $product );
         // 尚未開始只預告商品與團購價，不輸出購買表單。
+        $form  = 'upcoming' === $state ? '' : twshop_group_buy_render_add_to_cart( $product );
+        echo '<article class="twshop-gb__card product type-product ' . esc_attr( 'product-type-' . $product->get_type() ) . '" data-product-id="' . (int) $product->get_id() . '">';
+        // 圖片只給滑鼠／觸控點擊；鍵盤與螢幕閱讀器使用名稱按鈕，避免同一個彈窗有兩個焦點停留點。
+        echo '<div class="twshop-gb__thumb" data-gb-open="' . esc_attr( $id ) . '">' . $product->get_image( 'woocommerce_single' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress 產生的圖片 HTML。
+        echo '<div class="twshop-gb__body">';
+        echo '<h2 class="twshop-gb__name"><button type="button" class="twshop-gb__open" data-gb-open="' . esc_attr( $id ) . '" aria-haspopup="dialog">' . $name . '</button></h2>';
+        echo $price; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 已 wp_kses_post。
+        echo '<div class="twshop-gb__action">' . twshop_group_buy_render_card_action( $product, $form, $leader, $state, $id ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 函式內已跳脫。
+        echo '</div>';
+        echo '<dialog class="twshop-gb__detail" id="' . esc_attr( $id ) . '" aria-labelledby="' . esc_attr( $id . '-title' ) . '"><div class="twshop-gb__detail-inner">';
+        echo '<button type="button" class="twshop-gb__close" aria-label="關閉">×</button>';
+        echo twshop_group_buy_render_card_images( $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress 產生的圖片 HTML，商品名稱已 esc_attr。
+        echo '<div class="twshop-gb__detail-body summary">';
+        echo '<h2 class="twshop-gb__detail-name" id="' . esc_attr( $id . '-title' ) . '">' . $name . '</h2>';
+        echo $price; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 已 wp_kses_post。
+        if ( $desc ) echo '<div class="twshop-gb__desc">' . $desc . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- 已 wp_kses。
         if ( 'upcoming' === $state ) echo '<div class="twshop-gb__buy twshop-gb__buy--soon"><p>' . esc_html( twshop_group_buy_t( '團購開始後即可購買' ) ) . '</p></div>';
-        else echo '<div class="twshop-gb__buy">' . twshop_group_buy_render_add_to_cart( $product ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce 原生樣板。
-        echo '</div></article>';
+        else echo '<div class="twshop-gb__buy">' . $form . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce 原生樣板。
+        echo '</div></div></dialog></article>';
     }
     echo '</div>';
     $html = ob_get_clean();
     $GLOBALS['post'] = $previous_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
     if ( $previous_post instanceof WP_Post ) setup_postdata( $previous_post );
     return $html;
+}
+
+/**
+ * 卡片上的按鈕。簡單商品直接加入購物車（數量用原生表單的預設值，通常是 1，要改數量到購物車面板）；
+ * 可變商品、或原生表單多了其他欄位（例如其他外掛的商品選項）時，改成開啟彈窗，避免略過必填欄位。
+ */
+function twshop_group_buy_render_card_action( WC_Product $product, $form, $leader, $state, $dialog_id ) {
+    if ( 'upcoming' === $state ) return '<p class="twshop-gb__soon">' . esc_html( twshop_group_buy_t( '團購開始後即可購買' ) ) . '</p>';
+    if ( ! $product->is_in_stock() ) return '<button type="button" class="button twshop-gb__card-btn" disabled>已售完</button>';
+    $open = '<button type="button" class="button alt twshop-gb__card-btn" data-gb-open="' . esc_attr( $dialog_id ) . '" aria-haspopup="dialog">%s</button>';
+    if ( $product->is_type( 'variable' ) ) return sprintf( $open, '選擇規格' );
+    $quantity = twshop_group_buy_quick_add_quantity( $product, $form );
+    if ( null === $quantity || ! is_array( $leader ) ) return sprintf( $open, '選購' );
+    return '<form class="twshop-gb__quick" action="' . esc_url( twshop_group_buy_page_url( $leader ) ) . '" method="post">'
+        . '<input type="hidden" name="twshop_group_buy" value="' . esc_attr( $leader['code'] ) . '">'
+        . '<input type="hidden" name="add-to-cart" value="' . (int) $product->get_id() . '">'
+        . '<input type="hidden" name="quantity" value="' . (int) $quantity . '">'
+        . '<button type="submit" class="button alt twshop-gb__card-btn">' . esc_html( $product->single_add_to_cart_text() ) . '</button></form>';
+}
+
+/**
+ * 能否在卡片上直接加入：限可購買的簡單商品，且原生表單只有數量、商品 ID 與團購代碼三種欄位。
+ * 回傳原生數量欄位的預設值（已套用最小購買量等濾鏡），不能直接加入時回傳 null。
+ */
+function twshop_group_buy_quick_add_quantity( WC_Product $product, $form ) {
+    if ( ! $product->is_type( 'simple' ) || ! $product->is_purchasable() || '' === $form ) return null;
+    preg_match_all( '/<(?:input|select|textarea)\b[^>]*\bname=["\']([^"\']+)["\']/i', $form, $names );
+    if ( array_diff( array_unique( $names[1] ), array( 'quantity', 'add-to-cart', 'twshop_group_buy' ) ) ) return null;
+    if ( ! preg_match( '/<input\b[^>]*\bname=["\']quantity["\'][^>]*>/i', $form, $input ) ) return 1;
+    return preg_match( '/\bvalue=["\'](\d+)["\']/', $input[0], $value ) && (int) $value[1] > 0 ? (int) $value[1] : 1;
 }
 
 /**

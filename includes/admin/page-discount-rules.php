@@ -55,6 +55,7 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
     $limit = $r['usage_limit'] ?? ''; $u_limit = $r['user_limit'] ?? '';
     $s_time = $r['start_time'] ?? ''; $e_time = $r['end_time'] ?? '';
     $enabled = $r['enabled'] ?? 'yes'; $stack_exclusive = $r['stack_exclusive'] ?? 'no';
+    $group_buy = twshop_rule_applies_to_group_buy( array( 'group_buy' => $r['group_buy'] ?? '', 'type' => $type ) ) ? 'yes' : 'no';
     $buy_qty = $r['buy_qty'] ?? ''; $free_qty = $r['free_qty'] ?? '';
     // 注意：命名為 $rule_tiers 以跟本函式第二參數 $tiers（會員等級清單，供「套用對象」下拉使用）區分開來。
     $rule_tiers = is_array( $r['tiers'] ?? null ) ? $r['tiers'] : array();
@@ -306,6 +307,13 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                 </span>
                 <span class="twshop-rule-footer-group">
                     <span class="twshop-rule-status twshop-rule-footer-status" aria-live="polite"></span>
+                    <?php if ( twshop_module_enabled( 'group_buy' ) ) : ?>
+                    <label class="rule-group-buy-wrap" title="商品層折扣：勾選後在團購價上再打折。購物車層：取消勾選時，團購商品不算進門檻、範圍與折扣金額">
+                        <input type="checkbox" class="twshop-sw twshop-rule-group-buy" name="group_buy" value="yes" <?php checked( $group_buy, 'yes' ); ?> /> 套用到團購商品
+                    </label>
+                    <?php else : ?>
+                    <input type="hidden" name="group_buy" value="<?php echo esc_attr( $group_buy ); ?>" />
+                    <?php endif; ?>
                     <label class="rule-stack-wrap" title="勾選後，排序在這條規則後面的同類折扣規則不會再套用">
                         <input type="checkbox" class="twshop-sw" name="stack_exclusive" value="yes" <?php checked( $stack_exclusive, 'yes' ); ?> /> 不與同類折扣疊加
                     </label>
@@ -404,6 +412,7 @@ function twshop_ajax_save_rule() {
         'end_time'          => sanitize_text_field( wp_unslash( $_POST['end_time'] ?? '' ) ),
         'enabled'           => sanitize_text_field( wp_unslash( $_POST['enabled'] ?? 'no' ) ),
         'stack_exclusive'   => sanitize_text_field( wp_unslash( $_POST['stack_exclusive'] ?? 'no' ) ),
+        'group_buy'         => ( $_POST['group_buy'] ?? '' ) === 'yes' ? 'yes' : 'no',
         'buy_qty'           => absint($_POST['buy_qty'] ?? 0),
         'free_qty'          => absint($_POST['free_qty'] ?? 0),
         'tiers'             => $tiers,

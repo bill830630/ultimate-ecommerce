@@ -15,12 +15,23 @@ function twshop_get_rules( $force_refresh = false ) {
     static $rules_cache = null;
     if ( $force_refresh ) {
         $rules_cache = null;
+        twshop_rules_cache_version( true );
     }
     if ( $rules_cache === null ) {
         $rules_cache = get_option( 'wc_discount_rules_settings', array() );
         $rules_cache = twshop_backfill_missing_rule_ids( $rules_cache );
     }
     return $rules_cache;
+}
+
+/**
+ * 規則清單的版本號：twshop_get_rules( true ) 重新讀取時加一。折扣計算的 per-request 快取 key 帶上它，
+ * 同一次請求內規則被改寫（後台存檔後立即重算、測試替換規則）時不會沿用舊結果。
+ */
+function twshop_rules_cache_version( $bump = false ) {
+    static $version = 0;
+    if ( $bump ) $version++;
+    return $version;
 }
 
 /**

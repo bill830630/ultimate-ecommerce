@@ -193,6 +193,7 @@ function twshop_render_cart_addons() {
     $user_roles = twshop_current_user_roles();
 
     $cart_total      = twshop_get_cart_threshold_total( WC()->cart );
+    $group_subtotal  = twshop_group_buy_cart_subtotal( WC()->cart );
     $addon_rules_in_cart = array();
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         if ( isset( $cart_item['twshop_addon_rule_id'] ) ) $addon_rules_in_cart[] = $cart_item['twshop_addon_rule_id'];
@@ -203,7 +204,7 @@ function twshop_render_cart_addons() {
         if ( $rule['type'] === 'addon_product' && ! empty( $rule['gift_product_id'] ) ) {
             $addon_id = (int) $rule['gift_product_id'];
             if ( isset( $available_addons[ $addon_id ] ) ) continue; // 同一商品多條加購規則，取排序最前面那條
-            if ( twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, 0 ) ) {
+            if ( twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, $cart_total, $group_subtotal ), 0 ) ) {
                 $available_addons[ $addon_id ] = array(
                     'product_id' => $addon_id,
                     'rule_id'    => $rule['rule_id'],

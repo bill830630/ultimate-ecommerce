@@ -29,9 +29,11 @@ function twshop_finalize_progress_items( array $items, $cart_total ) {
     usort( $items, function( $a, $b ) { return $a['threshold'] <=> $b['threshold']; } );
 
     foreach ( $items as &$item ) {
-        $item['achieved']  = $cart_total >= $item['threshold'];
-        $item['remaining'] = max( 0, $item['threshold'] - $cart_total );
-        $item['percent']   = $item['threshold'] > 0 ? min( 100, round( ( $cart_total / $item['threshold'] ) * 100 ) ) : 100;
+        // 不套用到團購的規則用扣掉團購商品的小計計算（項目自帶 base）
+        $base = isset( $item['base'] ) ? (float) $item['base'] : $cart_total;
+        $item['achieved']  = $base >= $item['threshold'];
+        $item['remaining'] = max( 0, $item['threshold'] - $base );
+        $item['percent']   = $item['threshold'] > 0 ? min( 100, round( ( $base / $item['threshold'] ) * 100 ) ) : 100;
     }
     unset( $item );
 
@@ -95,7 +97,7 @@ function twshop_get_cart_progress_items() {
     $cart_total = WC()->cart->get_subtotal();
 
     static $cache = array();
-    $cache_key = $cart_total . '|' . $user_id . '|' . implode( ',', $user_roles );
+    $cache_key = $cart_total . '|' . $user_id . '|' . implode( ',', $user_roles ) . '|' . twshop_group_buy_cart_subtotal( WC()->cart );
     if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
 
     $rules = twshop_get_rules();
@@ -114,8 +116,10 @@ function twshop_get_cart_progress_items() {
         _prime_post_caches( array_unique( $gift_ids_to_prime ), false, false );
     }
 
+    $group_subtotal = twshop_group_buy_cart_subtotal( WC()->cart );
     foreach ( $rules as $rule ) {
         if ( ! twshop_is_discount_rule_valid( $rule, $user_roles, PHP_INT_MAX, 0 ) ) continue;
+        $base = twshop_rule_cart_base( $rule, $cart_total, $group_subtotal );
 
         if ( 'free_gift' === $rule['type'] && ! empty( $rule['min_amount'] ) && ! empty( $rule['gift_product_id'] ) ) {
             $gift_name = html_entity_decode( get_the_title( $rule['gift_product_id'] ), ENT_QUOTES, 'UTF-8' );
@@ -124,13 +128,14 @@ function twshop_get_cart_progress_items() {
                 'threshold'      => floatval( $rule['min_amount'] ),
                 'title'          => '再消費 {amount} 即可獲得贈品「' . esc_html( $gift_name ) . '」',
                 'achieved_title' => '已獲得贈品「' . $gift_name . '」',
+                'base'           => $base,
             );
         } elseif ( 'tiered_cart' === $rule['type'] ) {
             $tiers = is_array( $rule['tiers'] ?? null ) ? $rule['tiers'] : array();
             $next  = null;
             foreach ( $tiers as $tier ) {
                 $t_min = floatval( $tier['min_amount'] ?? 0 );
-                if ( $t_min <= 0 || $cart_total >= $t_min ) continue;
+                if ( $t_min <= 0 || $base >= $t_min ) continue;
                 if ( null === $next || $t_min < $next['min_amount'] ) {
                     $discount_text = twshop_format_rule_discount( ( ( $tier['discount_type'] ?? 'fixed' ) === 'percent' ) ? 'percent' : 'fixed_product', $tier['value'] ?? 0 );
                     $next = array( 'min_amount' => $t_min, 'discount_text' => $discount_text );
@@ -142,6 +147,7 @@ function twshop_get_cart_progress_items() {
                     'threshold'      => $next['min_amount'],
                     'title'          => '再消費 {amount} 即可享「' . $next['discount_text'] . '」',
                     'achieved_title' => '',
+                    'base'           => $base,
                 );
             }
         }

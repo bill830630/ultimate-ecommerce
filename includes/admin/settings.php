@@ -84,6 +84,8 @@ function twshop_sanitize_discount_rules_settings( $input ) {
             'end_time'          => sanitize_text_field( $rule['end_time'] ?? '' ),
             'enabled'           => sanitize_text_field( $rule['enabled'] ?? 'no' ),
             'stack_exclusive'   => sanitize_text_field( $rule['stack_exclusive'] ?? 'no' ),
+            // 沒有這個欄位的舊規則保留空值，由 twshop_rule_applies_to_group_buy() 依類型套用預設
+            'group_buy'         => in_array( $rule['group_buy'] ?? '', array( 'yes', 'no' ), true ) ? $rule['group_buy'] : '',
             'buy_qty'           => absint( $rule['buy_qty'] ?? 0 ),
             'free_qty'          => absint( $rule['free_qty'] ?? 0 ),
             'tiers'             => $tiers,

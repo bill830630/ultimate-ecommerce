@@ -992,6 +992,8 @@ function twshop_group_buy_body_class( $classes ) {
         $classes[] = 'woocommerce';
         $classes[] = 'woocommerce-page';
         $classes[] = 'twshop-group-buy-page';
+        // 與 templates/group-buy-page.php 輸出購物車列的條件相同；CSS 依此預留底部空間
+        if ( twshop_group_buy_is_open( twshop_group_buy_page_leader() ) ) $classes[] = 'twshop-gb-has-cartbar';
     } elseif ( twshop_group_buy_checkout_leader() ) {
         $classes[] = 'twshop-group-buy-page';
         $classes[] = 'twshop-group-buy-checkout';

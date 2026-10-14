@@ -53,6 +53,55 @@ function twshop_any_rule_uses_payment_method() {
 }
 
 /**
+ * 規則是否套用到團購商品（規則欄位 group_buy：yes／no）。舊規則沒有這個欄位時，維持團購模組上線時的行為：
+ * 商品層（打折、每件減價）不套用——團購價就是最終單價；購物車層（整單／階梯折扣、免運、贈品、加購、買N送N）套用，
+ * 團購商品照常算進門檻與折扣金額。
+ */
+function twshop_rule_group_buy_default( $type ) {
+    return in_array( $type, array( 'percent', 'fixed_product' ), true ) ? 'no' : 'yes';
+}
+
+function twshop_rule_applies_to_group_buy( $rule ) {
+    $value = $rule['group_buy'] ?? '';
+    if ( 'yes' !== $value && 'no' !== $value ) $value = twshop_rule_group_buy_default( $rule['type'] ?? '' );
+    return 'yes' === $value;
+}
+
+/** 購物車項目是否以團購價計價（團購模組驗證通過、登記在 twshop_group_buy_cart_items() 的項目）。 */
+function twshop_is_group_buy_cart_item( $cart_item ) {
+    return ! empty( $cart_item['data'] ) && $cart_item['data'] instanceof WC_Product
+        && function_exists( 'twshop_group_buy_cart_items' ) && twshop_group_buy_cart_items()->offsetExists( $cart_item['data'] );
+}
+
+/**
+ * 判斷「不套用到團購商品」的購物車層規則時，暫時把團購商品排除在範圍條件、件數門檻之外。
+ * 由 twshop_is_discount_rule_valid() 設定與還原；傳入值時回傳設定前的狀態。
+ */
+function twshop_discount_excludes_group_buy( $set = null ) {
+    static $on = false;
+    if ( null === $set ) return $on;
+    $prev = $on;
+    $on = (bool) $set;
+    return $prev;
+}
+
+/** 購物車裡團購商品的小計（不含稅，依目前售價計算，跟 twshop_get_cart_threshold_total() 同一種算法）。 */
+function twshop_group_buy_cart_subtotal( $cart_obj ) {
+    $total = 0;
+    if ( ! $cart_obj ) return $total;
+    foreach ( $cart_obj->get_cart() as $cart_item ) {
+        if ( twshop_is_twshop_special_cart_item( $cart_item ) || ! twshop_is_group_buy_cart_item( $cart_item ) ) continue;
+        $total += (float) wc_get_price_excluding_tax( $cart_item['data'], array( 'qty' => (int) $cart_item['quantity'] ) );
+    }
+    return $total;
+}
+
+/** 這條規則的購物車金額基準：不套用團購的規則扣掉團購商品小計。 */
+function twshop_rule_cart_base( $rule, $cart_total, $group_subtotal ) {
+    return twshop_rule_applies_to_group_buy( $rule ) ? $cart_total : max( 0.0, $cart_total - $group_subtotal );
+}
+
+/**
  * 全外掛呼叫頻率最高的函式（price / is_on_sale / fees / shipping / progress 全部經過）。
  * 加 per-request static cache 包一層外殼，實際判斷邏輯在 twshop_is_discount_rule_valid_compute()。
  *
@@ -65,7 +114,10 @@ function twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total = 0, $pr
     // 等價格 filter 上，一次 fatal 就是整個商店頁白畫面，代價遠高於一次轉型，故保留這道防呆。
     // （目前 16 個呼叫端傳的都是 WP_User::$roles 或 array('customer')，必為陣列；這純粹是保險。）
     $user_roles = (array) $user_roles;
-    $cache_key = ( $rule['rule_id'] ?? '' ) . '|' . $product_id . '|' . get_current_user_id() . '|' . implode( ',', $user_roles ) . '|' . $cart_total;
+    // 購物車層判斷「不套用到團購」的規則時，範圍條件與件數門檻不計團購商品（金額基準由呼叫端扣除）
+    $exclude_gb = 0 === (int) $product_id && ! twshop_rule_applies_to_group_buy( $rule );
+    $prev_exclude = twshop_discount_excludes_group_buy( $exclude_gb );
+    $cache_key = twshop_rules_cache_version() . '|' . ( $rule['rule_id'] ?? '' ) . '|' . $product_id . '|' . get_current_user_id() . '|' . implode( ',', $user_roles ) . '|' . $cart_total . ( $exclude_gb ? '|nogb' : '' );
     // 購物車層判斷（$product_id = 0）且規則有條件時，結果取決於購物車內容，同一請求內內容可能變動。
     if ( 0 === (int) $product_id ) {
         list( $cond_type, $cond_values ) = twshop_get_rule_condition( $rule );
@@ -81,11 +133,11 @@ function twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total = 0, $pr
     if ( twshop_get_rule_payment_methods( $rule ) ) {
         $cache_key .= '|pm' . twshop_get_chosen_payment_method();
     }
-    if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
-
-    $result = twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total, $product_id );
-    $cache[ $cache_key ] = $result;
-    return $result;
+    if ( ! array_key_exists( $cache_key, $cache ) ) {
+        $cache[ $cache_key ] = twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total, $product_id );
+    }
+    twshop_discount_excludes_group_buy( $prev_exclude );
+    return $cache[ $cache_key ];
 }
 
 /**
@@ -183,8 +235,10 @@ function twshop_is_twshop_special_cart_item( $cart_item ) {
 function twshop_cart_condition_fingerprint() {
     if ( ! function_exists( 'WC' ) || ! WC()->cart ) return 'nocart';
     $ids = array();
+    $exclude_gb = twshop_discount_excludes_group_buy();
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         if ( twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
+        if ( $exclude_gb && twshop_is_group_buy_cart_item( $cart_item ) ) continue;
         $ids[] = (int) $cart_item['product_id'] . ':' . (int) $cart_item['quantity'];
     }
     sort( $ids );
@@ -200,6 +254,7 @@ function twshop_count_cart_qty_in_scope( $cond_type, $cond_values ) {
     $qty = 0;
     foreach ( WC()->cart->get_cart() as $cart_item ) {
         if ( twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
+        if ( twshop_discount_excludes_group_buy() && twshop_is_group_buy_cart_item( $cart_item ) ) continue;
         if ( ! empty( $cond_type ) && ! empty( $cond_values )
             && ! twshop_rule_condition_matches_product( $cond_type, $cond_values, (int) $cart_item['product_id'] ) ) continue;
         $qty += (int) $cart_item['quantity'];
@@ -255,6 +310,7 @@ function twshop_is_discount_rule_valid_compute( $rule, $user_roles, $cart_total 
         } elseif ( function_exists( 'WC' ) && WC()->cart ) {
             foreach ( WC()->cart->get_cart() as $cart_item ) {
                 if ( twshop_is_twshop_special_cart_item( $cart_item ) ) continue;
+                if ( twshop_discount_excludes_group_buy() && twshop_is_group_buy_cart_item( $cart_item ) ) continue;
                 if ( twshop_rule_condition_matches_product( $cond_type, $cond_values, (int) $cart_item['product_id'] ) ) {
                     $p_cond = true;
                     break;
@@ -284,6 +340,7 @@ function twshop_bxgy_item_matches_rule( $cart_item, $rule ) {
     // 也不能被選成免費件（面額照入帳）。
     if ( twshop_is_twshop_special_cart_item( $cart_item ) ) return false;
     if ( ! empty( $cart_item['data'] ) && twshop_is_wallet_credit_product( $cart_item['data'] ) ) return false;
+    if ( ! twshop_rule_applies_to_group_buy( $rule ) && twshop_is_group_buy_cart_item( $cart_item ) ) return false;
     list( $cond_type, $cond_values ) = twshop_get_rule_condition( $rule );
     if ( empty( $cond_type ) || empty( $cond_values ) ) return false;
     return twshop_rule_condition_matches_product( $cond_type, $cond_values, (int) $cart_item['product_id'] );
@@ -320,7 +377,7 @@ function twshop_mark_addon_cart_item( $cart_item_data, $product_id, $variation_i
     foreach ( twshop_get_rules() as $rule ) {
         if ( $rule['rule_id'] !== $rule_id ) continue;
         if ( $rule['type'] === 'addon_product' && (int) $rule['gift_product_id'] === (int) $product_id
-            && WC()->cart && twshop_is_discount_rule_valid( $rule, $user_roles, twshop_get_cart_threshold_total( WC()->cart ), 0 ) ) {
+            && WC()->cart && twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, twshop_get_cart_threshold_total( WC()->cart ), twshop_group_buy_cart_subtotal( WC()->cart ) ), 0 ) ) {
             $cart_item_data['twshop_addon_rule_id'] = $rule_id;
         }
         break;
@@ -567,7 +624,9 @@ function twshop_merge_pdp_addon_subtotal( $subtotal, $cart_item, $cart_item_key 
 function twshop_bxgy_index_key( $cart_item ) {
     $variation = (array) ( $cart_item['variation'] ?? array() );
     ksort( $variation );
-    return $cart_item['product_id'] . '|' . $cart_item['variation_id'] . '|' . md5( wp_json_encode( $variation ) );
+    // 團購與一般購買的同一商品是不同行（價格不同），免費件要併回它原本那一行
+    $gb = $cart_item['twshop_gb'] ?? ( $cart_item['twshop_gb_src'] ?? array() );
+    return $cart_item['product_id'] . '|' . $cart_item['variation_id'] . '|' . md5( wp_json_encode( $variation ) ) . '|' . ( is_array( $gb ) ? ( $gb['code'] ?? '' ) : '' );
 }
 
 // 智能自動贈品與加購處理核心
@@ -583,6 +642,8 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
     $user_roles = twshop_current_user_roles();
 
     $cart_total = twshop_get_cart_threshold_total( $cart_obj );
+    // 不套用到團購的規則改用扣掉團購商品的小計判斷門檻（twshop_rule_cart_base()）
+    $group_subtotal = twshop_group_buy_cart_subtotal( $cart_obj );
 
     $gifts_to_add = [];
     $gifts_to_remove = [];
@@ -609,7 +670,7 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
     foreach($rules as $rule) {
         if ( $rule['type'] === 'free_gift' && !empty($rule['gift_product_id']) ) {
             $gift_id = (int)$rule['gift_product_id'];
-            $is_valid = twshop_is_discount_rule_valid($rule, $user_roles, $cart_total, 0);
+            $is_valid = twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, $cart_total, $group_subtotal ), 0 );
 
             $found_in_cart = false;
             $cart_item_key_to_remove = '';
@@ -672,6 +733,8 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
             $restore_variation_id = $split_item['variation_id'];
             // 「任意」屬性的規格必須帶回顧客當初選的屬性，否則 add_to_cart() 會失敗或遺失屬性（v25.8.36 修正）。
             $restore_variation    = (array) ( $split_item['variation'] ?? array() );
+            // 從團購項目拆出的免費件，還原時帶回團購歸屬（否則原行整個被拆走時，加回的那一行會變原價）
+            $restore_data         = ! empty( $split_item['twshop_gb_src'] ) ? array( 'twshop_gb' => $split_item['twshop_gb_src'] ) : array();
             $index_key = twshop_bxgy_index_key( $split_item );
 
             $cart_obj->remove_cart_item( $split_key );
@@ -681,12 +744,12 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
             if ( $sibling_item ) {
                 $cart_obj->set_quantity( $sibling_key, $sibling_item['quantity'] + $restore_qty, false );
             } else {
-                $new_key = $cart_obj->add_to_cart( $restore_product_id, $restore_qty, $restore_variation_id, $restore_variation );
+                $new_key = $cart_obj->add_to_cart( $restore_product_id, $restore_qty, $restore_variation_id, $restore_variation, $restore_data );
                 if ( $new_key ) $item_index[ $index_key ] = $new_key;
             }
         }
 
-        if ( ! twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, 0 ) ) continue;
+        if ( ! twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, $cart_total, $group_subtotal ), 0 ) ) continue;
 
         $buy_qty  = max( 1, (int) ( $rule['buy_qty'] ?? 0 ) );
         $free_qty = max( 1, (int) ( $rule['free_qty'] ?? 0 ) );
@@ -722,7 +785,9 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
             } else {
                 $cart_obj->remove_cart_item( $src_key );
             }
-            $cart_obj->add_to_cart( $product_id, $qty_to_split, $variation_id, $variation, array( 'twshop_bxgy_rule_id' => $rule['rule_id'] ) );
+            $split_data = array( 'twshop_bxgy_rule_id' => $rule['rule_id'] );
+            if ( ! empty( $src_item['twshop_gb'] ) ) $split_data['twshop_gb_src'] = $src_item['twshop_gb'];
+            $cart_obj->add_to_cart( $product_id, $qty_to_split, $variation_id, $variation, $split_data );
         }
     }
 
@@ -768,7 +833,7 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
                 if ( $rule['rule_id'] === $cart_item['twshop_addon_rule_id'] && $rule['type'] === 'addon_product' ) { $addon_rule = $rule; break; }
             }
             if ( $addon_rule && (int) $addon_rule['gift_product_id'] === (int) $cart_item['product_id']
-                && twshop_is_discount_rule_valid( $addon_rule, $user_roles, $cart_total, 0 ) ) {
+                && twshop_is_discount_rule_valid( $addon_rule, $user_roles, twshop_rule_cart_base( $addon_rule, $cart_total, $group_subtotal ), 0 ) ) {
                 if ( (int) $cart_item['quantity'] > 1 ) {
                     $cart_obj->set_quantity( $cart_item_key, 1, false );
                 }
@@ -825,8 +890,9 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
     // woocommerce_product_get_price／_variation_get_price 與 twshop_product_is_on_sale()
     // 的共同入口，這裡擋掉同時也讓折扣角標/促銷標記不會誤標儲值金商品。
     if ( twshop_is_wallet_credit_product( $product ) ) return array( 'price' => false, 'rule_ids' => array() );
-    // 團購價即最終單價，不再疊加商品層折扣；放在快取前，同一商品在專屬頁與一般頁的結果不會互相沿用。
-    if ( twshop_group_buy_applies( $product ) ) return array( 'price' => false, 'rule_ids' => array() );
+    // 團購商品（專屬頁顯示或購物車裡以團購價計價）只套用勾選「套用到團購商品」的規則，打折基準是團購價；
+    // 納入快取 key，同一商品在專屬頁與一般頁的結果不會互相沿用。
+    $is_group_buy = twshop_group_buy_applies( $product );
 
     $rules = twshop_get_rules();
     if ( empty($rules) ) return array( 'price' => false, 'rule_ids' => array() );
@@ -843,8 +909,8 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
     // price_html、促銷角標等），兩者傳入的 $price 可能不同（is_on_sale 特意傳「未打折的原價」），
     // 快取 key 納入 $price 才不會把不同輸入誤判成同一結果；購物車小計與角色在同一次請求內視為不變。
     static $cache = array();
-    $cache_key = $product_id . '|' . $price . '|' . $cart_total . '|' . implode( ',', $user_roles )
-        . '|' . twshop_cart_condition_fingerprint();
+    $cache_key = twshop_rules_cache_version() . '|' . $product_id . '|' . $price . '|' . $cart_total . '|' . implode( ',', $user_roles )
+        . '|' . twshop_cart_condition_fingerprint() . ( $is_group_buy ? '|gb' : '' );
     if ( array_key_exists( $cache_key, $cache ) ) return $cache[ $cache_key ];
 
     $final_price = floatval($price);
@@ -854,6 +920,7 @@ function twshop_calculate_product_discount( $price, $product, $user_roles ) {
     // 遇到第一筆 stack_exclusive='yes' 的有效規則就只套用它、不再套用同群組其餘規則。
     foreach ( $rules as $rule ) {
         if ( $rule['type'] === 'percent' || $rule['type'] === 'fixed_product' ) {
+            if ( $is_group_buy && ! twshop_rule_applies_to_group_buy( $rule ) ) continue;
             if ( twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, $condition_product_id ) ) {
                 $applied_ids[] = $rule['rule_id'];
                 if ( $rule['type'] === 'percent' ) $final_price = $final_price * ( floatval($rule['value']) / 100 );
@@ -899,7 +966,9 @@ function twshop_is_frontend_price_context() {
 function twshop_apply_product_discount_rules( $price, $product ) {
     if ( $price === '' || ! twshop_is_frontend_price_context() ) return $price;
     // 加購價等由 twshop_auto_manage_gifts_and_addons() 直接指定的價格不再疊加商品層折扣。
-    if ( twshop_fixed_price_products()->offsetExists( $product ) ) return $price;
+    // 團購價也是直接指定的，但勾選「套用到團購商品」的規則要再打折（twshop_calculate_product_discount() 會篩規則）。
+    if ( twshop_fixed_price_products()->offsetExists( $product )
+        && ! ( function_exists( 'twshop_group_buy_cart_items' ) && twshop_group_buy_cart_items()->offsetExists( $product ) ) ) return $price;
     $user_roles = twshop_current_user_roles();
     $discounted = twshop_get_calculated_discount_price( $price, $product, $user_roles );
     return ($discounted !== false) ? $discounted : $price;
@@ -1139,28 +1208,31 @@ function twshop_get_cart_discount_fees( $cart ) {
             $cart_total -= (float) $cart_item['line_subtotal'];
         }
     }
+    // 不套用到團購的規則：門檻與折扣金額都用扣掉團購商品的小計（twshop_rule_cart_base()）
+    $group_subtotal = twshop_group_buy_cart_subtotal( $cart );
     // label 不先跳脫：WooCommerce 輸出費用名稱時會自己 esc_html()，先跳脫會讓「&」顯示成「&amp;」。
     $fees = array();
 
     // 疊加群組 B（cart 層）：cart_percent + cart_discount + tiered_cart 依卡片排序（優先權）逐一套用；
     // 遇到第一筆 stack_exclusive='yes' 的有效規則就只套用它、不再套用同群組其餘規則（跟群組 A 同一套邏輯）。
     foreach ( $rules as $rule ) {
+        $base = twshop_rule_cart_base( $rule, $cart_total, $group_subtotal );
         if ( $rule['type'] === 'cart_discount' || $rule['type'] === 'cart_percent' ) {
-            if ( twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, 0 ) ) {
+            if ( twshop_is_discount_rule_valid( $rule, $user_roles, $base, 0 ) ) {
                 // 「打折 (%)」統一採「打N折＝付N%」慣例，跟商品層 percent 一致（value=90 代表打9折，
                 // 折扣後應付原價 90%，即折抵掉 10%）；修法前這裡誤算成 value=90 折抵掉 90%（只收10%），
                 // 跟商品層 percent 的算法方向剛好相反（v25.5.67 修正，見 CLAUDE.md）。
-                $discount_amount = ($rule['type'] === 'cart_percent') ? ($cart_total * ( 1 - floatval($rule['value']) / 100 )) : abs(floatval($rule['value']));
+                $discount_amount = ($rule['type'] === 'cart_percent') ? ($base * ( 1 - floatval($rule['value']) / 100 )) : abs(floatval($rule['value']));
                 $fees[] = array( 'rule_id' => $rule['rule_id'], 'label' => $rule['name'], 'amount' => $discount_amount );
                 if ( ( $rule['stack_exclusive'] ?? 'no' ) === 'yes' ) break;
             }
         } elseif ( $rule['type'] === 'tiered_cart' ) {
-            if ( twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, 0 ) ) {
-                $tier = twshop_get_matching_cart_tier( $rule, $cart_total );
+            if ( twshop_is_discount_rule_valid( $rule, $user_roles, $base, 0 ) ) {
+                $tier = twshop_get_matching_cart_tier( $rule, $base );
                 if ( $tier !== false ) {
                     // 同上，'percent' 階梯一律採「打N折＝付N%」慣例。
                     $discount_amount = ( ( $tier['discount_type'] ?? 'fixed' ) === 'percent' )
-                        ? ( $cart_total * ( 1 - floatval( $tier['value'] ?? 0 ) / 100 ) )
+                        ? ( $base * ( 1 - floatval( $tier['value'] ?? 0 ) / 100 ) )
                         : abs( floatval( $tier['value'] ?? 0 ) );
                     $fee_label = $rule['name'] . '（滿 ' . twshop_plain_price( floatval( $tier['min_amount'] ?? 0 ) ) . '）';
                     $fees[] = array( 'rule_id' => $rule['rule_id'], 'label' => $fee_label, 'amount' => $discount_amount );
@@ -1192,9 +1264,10 @@ function twshop_get_active_free_shipping_rule() {
         }
     }
     $cart_total = max( 0.0, $subtotal - $coupon_discount - $fee_discount );
+    $group_subtotal = twshop_group_buy_cart_subtotal( WC()->cart );
 
     foreach ( $rules as $rule ) {
-        if ( $rule['type'] === 'free_shipping' && twshop_is_discount_rule_valid( $rule, $user_roles, $cart_total, 0 ) ) {
+        if ( $rule['type'] === 'free_shipping' && twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, $cart_total, $group_subtotal ), 0 ) ) {
             return $rule;
         }
     }

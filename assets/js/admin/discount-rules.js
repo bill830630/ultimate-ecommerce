@@ -37,6 +37,7 @@ jQuery(document).ready(function($) {
         $card.toggleClass('is-dirty', dirty);
         $card.find('.twshop-rule-dirty-badge').toggle(dirty);
     }
+    $container.on('change', '.twshop-rule-group-buy', function(e) { if (e.originalEvent) $(this).data('touched', true); });
     $container.on('input change', '.twshop-rule-form :input', function() {
         if (!dirtyTrackingOn) return;
         // 已儲存規則的標題列切換鈕會立刻存檔，不算未儲存的修改
@@ -150,6 +151,8 @@ jQuery(document).ready(function($) {
         $card.find('.rule-payment-wrap').toggle(supportsPayment);
         if (!supportsPayment) $card.find('input[name="payment_methods[]"]').prop('checked', false);
         $card.find('.rule-stack-wrap').toggle(STACKABLE_TYPES.indexOf(type) !== -1);
+        // 套用到團購商品：商品頁加購沒有購物車門檻可排除，不顯示
+        $card.find('.rule-group-buy-wrap').toggle(type !== 'product_addon');
         // 階梯式折扣的門檻寫在每一階裡，商品適用範圍/小計滿額對它沒有意義；但「套用對象」
         // （會員等級）任何類型都要能設定，所以只隱藏範圍相關欄位（.rule-scope-toggle），
         // 不整個隱藏「2. 套用對象與適用範圍」區塊（不然 tiered_cart 規則會連套用對象都改不了）。
@@ -306,6 +309,12 @@ jQuery(document).ready(function($) {
 
     $container.on('change', '.twshop-rule-type-group', function() { filterTypeOptions($(this).closest('.twshop-rule-form')); });
     $container.on('change', '.twshop-rule-type, .twshop-pdp-price-type', function() { applyTypeLayout($(this).closest('.twshop-rule-form')); });
+    // 切換類型時，「套用到團購商品」沒被手動改過就跟著該類型的預設（商品層打折／減價不套用，其餘套用），
+    // 跟 PHP twshop_rule_group_buy_default() 一致；載入既有規則時不動，保留存檔的值。
+    $container.on('change', '.twshop-rule-type', function() {
+        var $gb = $(this).closest('.twshop-rule-form').find('.twshop-rule-group-buy');
+        if ($gb.length && !$gb.data('touched')) $gb.prop('checked', PRODUCT_LEVEL_TYPES.indexOf($(this).val()) === -1);
+    });
     $container.on('input change', '.twshop-rule-value', function() { updateValueHint($(this).closest('.twshop-rule-form')); });
     $container.on('input change', '.twshop-rule-min-amount, .twshop-rule-min-qty', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });
     $container.on('change', '.twshop-condition-type', function() { updateLogicVisibility($(this).closest('.twshop-rule-form')); });

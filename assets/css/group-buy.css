@@ -6,13 +6,23 @@
     box-sizing: border-box;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 40px 16px 120px;
+    padding: 40px 16px;
 }
 
-/* Elementor 範本版型：寬度與留白交給範本的區段／容器設定，只保留底部購物車列的空間 */
+/* Elementor 範本版型：寬度與留白交給範本的區段／容器設定 */
 .twshop-gb--elementor {
     max-width: none;
-    padding: 0 0 100px;
+    padding: 0;
+}
+
+/* 底部固定的購物車列會蓋住頁尾內容，依它的實際高度（group-buy-cart.js 量測寫入 --twshop-gb-cartbar-h）預留空間；
+   團購結束時沒有購物車列（body 沒有 twshop-gb-has-cartbar）就不留。內建版型另保留 40px 的底部留白。 */
+.twshop-gb-has-cartbar .twshop-gb {
+    padding-bottom: calc(var(--twshop-gb-cartbar-h, 64px) + 40px);
+}
+
+.twshop-gb-has-cartbar .twshop-gb--elementor {
+    padding-bottom: var(--twshop-gb-cartbar-h, 64px);
 }
 
 .twshop-gb--elementor > .twshop-gb__notices {
@@ -366,7 +376,7 @@
  * （手機上小計換行時列會變高）；購物車面板展開時淡出隱藏，避免蓋住面板右側的小計與移除鈕。
  * 團購結束時沒有購物車列，按鈕維持終極登入的原始位置。
  */
-.twshop-group-buy-page:has(.twshop-gb-cartbar) .wclon-line-float {
+.twshop-gb-has-cartbar .wclon-line-float {
     bottom: calc(var(--twshop-gb-cartbar-h, 72px) + 16px);
     transition: opacity .2s ease, visibility .2s ease, transform .15s ease, background .15s ease;
 }

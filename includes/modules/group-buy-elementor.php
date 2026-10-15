@@ -62,6 +62,9 @@ function twshop_group_buy_elementor_assets() {
     $id = twshop_group_buy_template_for( twshop_group_buy_page_leader() );
     if ( ! $id ) return;
     $elementor = \Elementor\Plugin::instance();
+    // V4 原子元素的樣式只為 elementor/post/render 登記過的文件產生（團購頁不是 singular，Elementor 不會自己登記範本）；
+    // 必須在 enqueue_styles() 觸發 after_enqueue_post_styles 之前登記，所以掛在優先序 20 之前的 19。
+    do_action( 'elementor/post/render', $id );
     $elementor->frontend->enqueue_styles();
     if ( class_exists( '\Elementor\Core\Files\CSS\Post' ) ) \Elementor\Core\Files\CSS\Post::create( $id )->enqueue();
 }
@@ -120,5 +123,5 @@ function twshop_group_buy_elementor_init() {
     add_action( 'elementor/elements/categories_registered', 'twshop_group_buy_elementor_category' );
     add_action( 'elementor/widgets/register', 'twshop_group_buy_elementor_widgets' );
     add_action( 'elementor/preview/enqueue_styles', 'twshop_group_buy_elementor_preview_styles' );
-    add_action( 'wp_enqueue_scripts', 'twshop_group_buy_elementor_assets', 20 );
+    add_action( 'wp_enqueue_scripts', 'twshop_group_buy_elementor_assets', 19 );
 }

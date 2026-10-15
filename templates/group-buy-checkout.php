@@ -19,7 +19,8 @@ $twshop_gb_leader = twshop_group_buy_checkout_leader();
 <main class="twshop-gb twshop-gb--checkout">
     <header class="twshop-gb__header">
         <p class="twshop-gb__back"><a href="<?php echo esc_url( twshop_group_buy_page_url( $twshop_gb_leader ) ); ?>">← <?php echo esc_html( twshop_group_buy_t( '返回團購頁' ) ); ?></a></p>
-        <h1 class="twshop-gb__title"><?php echo esc_html( twshop_group_buy_leader_title( $twshop_gb_leader ) ); ?></h1>
+        <h1 class="twshop-gb__checkout-title"><?php echo esc_html( twshop_group_buy_checkout_heading() ); ?></h1>
+        <p class="twshop-gb__checkout-leader"><?php echo esc_html( twshop_group_buy_t( '團購' ) . '：' . twshop_group_buy_leader_title( $twshop_gb_leader ) ); ?></p>
     </header>
     <div class="twshop-gb__checkout">
         <?php

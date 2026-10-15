@@ -1145,6 +1145,13 @@ function twshop_group_buy_checkout_leader() {
     return is_string( $code ) && '' !== $code ? twshop_group_buy_find_active_leader( $code ) : null;
 }
 
+/** 團購結帳頁的頁面標題：付款完成等 endpoint 用 WooCommerce 的 endpoint 標題，否則用結帳頁本身的標題。 */
+function twshop_group_buy_checkout_heading() {
+    $endpoint = WC()->query->get_current_endpoint();
+    $title = $endpoint ? WC()->query->get_endpoint_title( $endpoint ) : '';
+    return '' !== $title ? $title : get_the_title( wc_get_page_id( 'checkout' ) );
+}
+
 function twshop_group_buy_checkout_template( $template ) {
     return twshop_group_buy_checkout_leader() ? TWSHOP_PLUGIN_DIR . 'templates/group-buy-checkout.php' : $template;
 }

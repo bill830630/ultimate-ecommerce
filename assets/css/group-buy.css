@@ -577,6 +577,22 @@ html.twshop-gb-detail-open {
     margin: 0 auto;
 }
 
+/* 結帳頁頁首：頁面標題（結帳／訂單已收到）為主，團購名稱降為一行小字，與表單同寬靠左，不搶結帳表單的視覺 */
+.twshop-gb--checkout .twshop-gb__header {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    text-align: left;
+}
+
+.twshop-gb__checkout-title {
+    margin: 0 0 4px;
+}
+
+.twshop-gb__checkout-leader {
+    margin: 0;
+    opacity: 0.7;
+}
+
 /* 團購期間橫幅與倒數：捲動時黏在畫面上方（登入時避開 WordPress 工具列）；配色沿用主題（Blocksy 變數，其他主題退回中性色）。 */
 .twshop-gb-period {
     position: sticky;

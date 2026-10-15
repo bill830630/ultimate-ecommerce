@@ -163,12 +163,11 @@ function twshop_get_rule_row_html( $r = array(), $tiers = array(), $cats = array
                     </div>
                     <div class="twshop-rule-field rule-gift-wrap" style="display:none;">
                         <label class="twshop-rule-label">指定商品 <small>(贈品/加購品)</small></label>
-                        <?php // 排除可變商品：free_gift 型別是直接 WC()->cart->add_to_cart( $id, 1, 0, ... )
-                        // （不含 variation_id）自動加入購物車，選到可變商品的父商品會讓贈品必定加不進去
-                        // （核心要求可變商品一定要指定規格），且這段是掛在 woocommerce_before_calculate_totals，
-                        // 失敗時完全沒有任何錯誤訊息浮現，管理員很難發現。addon_product 型別雖然不是主動
-                        // 加入購物車，但同一個欄位語意是「指定商品」，一併排除避免混淆。
-                        echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable', 'wallet_credit' ) ); ?>
+                        <?php // 可選單一規格（v25.8.177），但排除可變商品本身：沒指定規格的父商品加不進購物車，
+                        // 而 free_gift 是在 woocommerce_before_calculate_totals 自動加入，失敗時沒有任何錯誤訊息。
+                        // 規格 ID 由 twshop_cart_add_args_for_product() 轉成上層商品 ID＋規格 ID＋屬性；
+                        // 屬性設成「任意」的規格儲存時擋下（無法決定要送哪個屬性值）。
+                        echo twshop_render_product_search_field( 'gift_product_id', $gift_id ? array( $gift_id ) : array(), false, '— 請選擇商品 —', array( 'variable', 'wallet_credit' ), true ); ?>
                     </div>
                     <?php // 商品頁加購：哪些商品頁會出現，由下方「2. 適用範圍」決定（必填）；這裡選的是可以加購的商品。 ?>
                     <div class="twshop-rule-field is-wide rule-pdpaddon-wrap" style="display:none;">
@@ -430,6 +429,13 @@ function twshop_ajax_save_rule() {
         $gift_product = wc_get_product( $new_rule['gift_product_id'] );
         if ( $gift_product && twshop_is_wallet_credit_product( $gift_product ) ) {
             wp_send_json_error( array( 'msg' => '「贈品」／「加購品」不能設定為儲值金商品。' ) );
+        }
+        // 可變商品要指定到單一規格；規格的屬性不能是「任意」（系統代為加入購物車時無法決定屬性值）。
+        if ( $gift_product && $gift_product->is_type( 'variable' ) ) {
+            wp_send_json_error( array( 'msg' => '「贈品」／「加購品」是可變商品時，請選擇其中一個規格。' ) );
+        }
+        if ( twshop_variation_has_any_attribute( $gift_product ) ) {
+            wp_send_json_error( array( 'msg' => '這個規格有屬性設為「任意」，不能當贈品／加購品，請到商品的規格設定指定屬性值。' ) );
         }
     }
 

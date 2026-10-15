@@ -336,8 +336,11 @@ function twshop_render_chip_field( $name, $selected_values, $options ) {
  *                                add_to_cart() 回傳 false——排除可變商品讓管理員從源頭就選不到，
  *                                不要等前台顧客實際操作才發現失敗。只有「限制條件」這類純粹拿
  *                                商品 ID 做比對、不會直接加入購物車的欄位不需要排除，見呼叫端。
+ * @param bool   $include_variations 搜尋結果是否列出單一規格（改用 woocommerce_json_search_products_and_variations）。
+ *                                呼叫端必須能處理規格 ID（加入購物車時帶上層商品 ID＋規格 ID＋屬性），
+ *                                見 twshop_cart_add_args_for_product()。
  */
-function twshop_render_product_search_field( $name, $selected_ids, $multiple = false, $placeholder = '搜尋商品名稱或商品編號…', $exclude_types = array() ) {
+function twshop_render_product_search_field( $name, $selected_ids, $multiple = false, $placeholder = '搜尋商品名稱或商品編號…', $exclude_types = array(), $include_variations = false ) {
     $selected_ids = array_filter( array_map( 'absint', (array) $selected_ids ) );
     $exclude_types = array_filter( array_map( 'sanitize_key', (array) $exclude_types ) );
     ob_start();
@@ -346,7 +349,7 @@ function twshop_render_product_search_field( $name, $selected_ids, $multiple = f
         name="<?php echo esc_attr( $name . ( $multiple ? '[]' : '' ) ); ?>"
         class="wc-product-search"
         style="width:100%;"
-        data-action="woocommerce_json_search_products"
+        data-action="<?php echo esc_attr( $include_variations ? 'woocommerce_json_search_products_and_variations' : 'woocommerce_json_search_products' ); ?>"
         data-placeholder="<?php echo esc_attr( $placeholder ); ?>"
         data-allow_clear="true"
         <?php if ( ! empty( $exclude_types ) ) : ?>
@@ -361,7 +364,7 @@ function twshop_render_product_search_field( $name, $selected_ids, $multiple = f
             $product = wc_get_product( $pid );
             if ( ! $product ) continue;
         ?>
-            <option value="<?php echo esc_attr( $pid ); ?>" selected><?php echo esc_html( $product->get_name() ); ?></option>
+            <option value="<?php echo esc_attr( $pid ); ?>" selected><?php echo esc_html( $product->is_type( 'variation' ) ? wp_strip_all_tags( $product->get_formatted_name() ) : $product->get_name() ); ?></option>
         <?php endforeach; ?>
     </select>
     <?php

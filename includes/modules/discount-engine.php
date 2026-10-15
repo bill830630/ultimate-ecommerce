@@ -376,7 +376,8 @@ function twshop_mark_addon_cart_item( $cart_item_data, $product_id, $variation_i
     $user_roles = twshop_current_user_roles();
     foreach ( twshop_get_rules() as $rule ) {
         if ( $rule['rule_id'] !== $rule_id ) continue;
-        if ( $rule['type'] === 'addon_product' && (int) $rule['gift_product_id'] === (int) $product_id
+        // 加購品可以是單一規格（v25.8.177）：規格行比對規格 ID。
+        if ( $rule['type'] === 'addon_product' && (int) $rule['gift_product_id'] === ( $variation_id ? (int) $variation_id : (int) $product_id )
             && WC()->cart && twshop_is_discount_rule_valid( $rule, $user_roles, twshop_rule_cart_base( $rule, twshop_get_cart_threshold_total( WC()->cart ), twshop_group_buy_cart_subtotal( WC()->cart ) ), 0 ) ) {
             $cart_item_data['twshop_addon_rule_id'] = $rule_id;
         }
@@ -699,7 +700,11 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
         foreach($gifts_to_add as $gift) {
             twshop_bypass_purchase_restriction( true );
             try {
-                WC()->cart->add_to_cart($gift['id'], 1, 0, array(), array('twshop_gift_rule_id' => $gift['rule_id']));
+                // 贈品可以是單一規格（v25.8.177）：要帶上層商品 ID＋規格 ID＋屬性才加得進去。
+                $add_args = twshop_cart_add_args_for_product( $gift['id'] );
+                if ( $add_args ) {
+                    WC()->cart->add_to_cart( $add_args[0], 1, $add_args[1], $add_args[2], array( 'twshop_gift_rule_id' => $gift['rule_id'] ) );
+                }
             } finally {
                 twshop_bypass_purchase_restriction( false );
             }
@@ -832,7 +837,7 @@ function twshop_auto_manage_gifts_and_addons( $cart_obj ) {
             foreach ( $rules as $rule ) {
                 if ( $rule['rule_id'] === $cart_item['twshop_addon_rule_id'] && $rule['type'] === 'addon_product' ) { $addon_rule = $rule; break; }
             }
-            if ( $addon_rule && (int) $addon_rule['gift_product_id'] === (int) $cart_item['product_id']
+            if ( $addon_rule && (int) $addon_rule['gift_product_id'] === twshop_cart_item_target_id( $cart_item )
                 && twshop_is_discount_rule_valid( $addon_rule, $user_roles, twshop_rule_cart_base( $addon_rule, $cart_total, $group_subtotal ), 0 ) ) {
                 if ( (int) $cart_item['quantity'] > 1 ) {
                     $cart_obj->set_quantity( $cart_item_key, 1, false );

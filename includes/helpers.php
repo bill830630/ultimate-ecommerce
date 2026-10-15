@@ -379,6 +379,40 @@ function twshop_module_enabled( $module ) {
 }
 
 /**
+ * 規格有沒有設成「任意」的屬性（屬性值空白）。這種規格加入購物車時必須由顧客選屬性值，
+ * 贈品／加購品是系統代為加入，無從決定，所以不能被指定（v25.8.177）。
+ */
+function twshop_variation_has_any_attribute( $variation ) {
+    if ( ! $variation instanceof WC_Product_Variation ) return false;
+    foreach ( $variation->get_variation_attributes() as $value ) {
+        if ( '' === (string) $value ) return true;
+    }
+    return false;
+}
+
+/**
+ * 把規則指定的商品 ID（簡單商品或單一規格）轉成 WC()->cart->add_to_cart() 的參數
+ * array( 上層商品 ID, 規格 ID, 規格屬性 )。可變商品本身、含「任意」屬性的規格、找不到的商品回 null。
+ */
+function twshop_cart_add_args_for_product( $product_id ) {
+    $product = wc_get_product( (int) $product_id );
+    if ( ! $product || $product->is_type( 'variable' ) ) return null;
+    if ( $product->is_type( 'variation' ) ) {
+        if ( twshop_variation_has_any_attribute( $product ) ) return null;
+        return array( $product->get_parent_id(), $product->get_id(), $product->get_variation_attributes() );
+    }
+    return array( $product->get_id(), 0, array() );
+}
+
+/**
+ * 購物車項目實際對應的商品 ID：規格行用規格 ID，其他用商品 ID；
+ * 用來跟規則的 gift_product_id（可能是規格 ID）比對。
+ */
+function twshop_cart_item_target_id( $cart_item ) {
+    return ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) ( $cart_item['product_id'] ?? 0 );
+}
+
+/**
  * 內部旗標：twshop 自己呼叫 WC()->cart->add_to_cart() 把「兌換商品」／「贈品」加入購物車時，
  * 用來暫時跳過 twshop_restrict_purchase_for_redeem_and_gift_products()（掛在
  * woocommerce_is_purchasable）的自我阻擋——這兩者都是刻意把「原本不開放直接購買」的商品
@@ -456,9 +490,11 @@ function twshop_get_purchase_restricted_product_ids( $force_refresh = false ) {
 function twshop_restrict_purchase_for_redeem_and_gift_products( $purchasable, $product ) {
     if ( ! $purchasable ) return $purchasable;
     if ( twshop_bypass_purchase_restriction() ) return $purchasable;
-    // 可變商品的規格是獨立的商品物件（ID 不同），要連同父商品一起判斷，否則選了規格就能買。
-    $check_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
-    if ( in_array( $check_id, twshop_get_purchase_restricted_product_ids(), true ) ) return false;
+    // 可變商品的規格是獨立的商品物件（ID 不同），要連同父商品一起判斷，否則選了規格就能買；
+    // 贈品可以指定單一規格（v25.8.177），所以規格自己的 ID 也要比對（只擋那個規格，其他規格照常販售）。
+    $restricted = twshop_get_purchase_restricted_product_ids();
+    if ( in_array( $product->get_id(), $restricted, true ) ) return false;
+    if ( $product->is_type( 'variation' ) && in_array( $product->get_parent_id(), $restricted, true ) ) return false;
     return $purchasable;
 }
 

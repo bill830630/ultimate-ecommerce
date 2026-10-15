@@ -265,7 +265,8 @@ function twshop_render_cart_addons() {
 function twshop_render_product_cards( array $product_ids, $class, $header_html, callable $price_html, callable $button_html ) {
     $ids   = array_map( 'intval', $product_ids );
     $query = new WP_Query( array(
-        'post_type'              => 'product',
+        // 加購品可以是單一規格（v25.8.177）；停用的規格是 private，不會列出。
+        'post_type'              => array( 'product', 'product_variation' ),
         'post__in'               => $ids,
         'orderby'                => 'post__in',
         'posts_per_page'         => count( $ids ),
@@ -348,7 +349,8 @@ function twshop_ajax_remove_addon() {
     // 優先移除加購項目／點數兌換項目，找不到才退回移除同商品的一般項目（相容改版前加入、沒有標記的舊加購項目）。
     $fallback_key = null;
     foreach ( WC()->cart->get_cart() as $key => $item ) {
-        if ( (int) $item['product_id'] !== $product_id || isset( $item['twshop_gift_rule_id'] ) || isset( $item['twshop_bxgy_rule_id'] ) ) continue;
+        // 加購品可以是單一規格（v25.8.177），按鈕帶的是規格 ID，商品 ID 或規格 ID 任一相符即可。
+        if ( ( (int) $item['product_id'] !== $product_id && (int) ( $item['variation_id'] ?? 0 ) !== $product_id ) || isset( $item['twshop_gift_rule_id'] ) || isset( $item['twshop_bxgy_rule_id'] ) ) continue;
         if ( isset( $item['twshop_addon_rule_id'] ) || isset( $item['twshop_points_redeem_product_id'] ) ) {
             WC()->cart->remove_cart_item( $key );
             wp_send_json_success( array( 'message' => '已移除' ) );

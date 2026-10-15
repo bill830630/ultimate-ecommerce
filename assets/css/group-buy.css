@@ -214,6 +214,12 @@
     margin: 0;
 }
 
+/* Blocksy 的 .sale-price 是置中的 inline-flex；價格換行時兩行會各自置中，改成靠左對齊 */
+.twshop-gb__body .price .sale-price,
+.twshop-gb__detail-body .price .sale-price {
+    justify-content: flex-start;
+}
+
 .twshop-gb__desc > :last-child {
     margin-bottom: 0;
 }

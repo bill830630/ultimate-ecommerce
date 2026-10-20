@@ -8,6 +8,38 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
+ * 外掛通知信共用 WooCommerce HTML 範本、內嵌樣式與寄件人設定。
+ * $body 為純文字；$context 只接受結構化文字、贈禮明細與操作連結，不接受任意 HTML。
+ * 不在此改寫主旨或排程，讓各通知保留既有設定與寄送時機。
+ */
+function twshop_send_email( $to, $subject, $body, array $context = array() ) {
+    if ( ! is_email( $to ) ) return false;
+    // 初始化 WooCommerce 的頁首頁尾 hooks；內文使用外掛的結構化信件範本。
+    WC()->mailer();
+    $message = wc_get_template_html( 'emails/notification.php', array(
+        'email_heading' => $subject,
+        'body'          => $body,
+        'context'       => $context,
+    ), 'ultimate-ecommerce/', TWSHOP_PLUGIN_DIR . 'templates/' );
+    $email   = new WC_Email();
+    $email->email_type = 'html';
+    return $email->send( $to, $subject, $message, $email->get_headers(), array() );
+}
+
+/** 四種會員通知共用的摘要與會員中心入口。 */
+function twshop_member_email_context( $title, array $details = array(), array $gifts = array() ) {
+    return array(
+        'title'        => $title,
+        'details'      => $details,
+        'gift_lines'   => $gifts,
+        'action_label' => '查看會員權益',
+        'action_url'   => twshop_module_enabled( 'member_tiers' )
+            ? wc_get_endpoint_url( 'my-membership', '', wc_get_page_permalink( 'myaccount' ) )
+            : wc_get_page_permalink( 'myaccount' ),
+    );
+}
+
+/**
  * 靜態快取規則列表：同一次請求內多次讀取只查一次資料庫。
  * 傳入 true 可強制重新讀取（規則儲存/刪除/排序後呼叫）。
  */

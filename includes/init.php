@@ -227,7 +227,7 @@ function twshop_membership_init() {
         // 退款後扣掉已退款金額並重算等級（v25.8.152）；priority 20 排在點數/儲值金退款 callback（15）之後
         add_action( 'woocommerce_order_refunded', 'twshop_refresh_tier_after_refund', 20, 1 );
         add_action( 'wc_membership_daily_downgrade_check', 'twshop_run_daily_check' );
-        add_action( 'twshop_send_birthday_gift_notice', 'twshop_send_birthday_gift_notice_email', 10, 3 );
+        add_action( 'twshop_send_birthday_gift_notice', 'twshop_send_birthday_gift_notice_email', 10, 4 );
         add_action( 'woocommerce_account_my-membership_endpoint', 'twshop_my_membership_endpoint_content' );
         add_action( 'woocommerce_register_form', 'twshop_add_birthday_field_registration' );
         add_filter( 'woocommerce_process_registration_errors', 'twshop_validate_birthday_field_registration' );
@@ -339,7 +339,7 @@ function twshop_membership_init() {
         add_action( 'woocommerce_review_order_after_order_total', 'twshop_display_points_used', 5 );
         add_action( 'woocommerce_review_order_after_order_total', 'twshop_display_estimated_points_earn' );
         add_action( 'wc_membership_daily_downgrade_check', 'twshop_points_daily_expiry_check' );
-        add_action( 'twshop_send_points_expiry_notice', 'twshop_send_points_expiry_notice_email', 10, 3 );
+        add_action( 'twshop_send_points_expiry_notice', 'twshop_send_points_expiry_notice_email', 10, 4 );
     }
 
     // ── 團購（v25.8.163，group-buy.php、admin/page-group-buy.php）────────────

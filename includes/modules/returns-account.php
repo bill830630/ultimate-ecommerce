@@ -57,17 +57,17 @@ function twshop_returns_render_list( $user_id ) {
         return;
     }
     ?>
-    <table class="woocommerce-table shop_table twshop-returns-table">
-        <thead><tr><th>申請編號</th><th>訂單</th><th>類型</th><th>狀態</th><th>申請日期</th><th></th></tr></thead>
+    <table class="woocommerce-table shop_table twshop-returns-table" role="table" aria-label="退換貨申請列表">
+        <thead><tr><th scope="col">申請編號</th><th scope="col">訂單</th><th scope="col">類型</th><th scope="col">狀態</th><th scope="col">申請日期</th><th scope="col"><span class="screen-reader-text">操作</span></th></tr></thead>
         <tbody>
         <?php foreach ( $result['rows'] as $row ) : ?>
             <tr>
-                <td>#<?php echo (int) $row['id']; ?></td>
-                <td>#<?php echo esc_html( ( $o = wc_get_order( $row['order_id'] ) ) ? $o->get_order_number() : $row['order_id'] ); ?></td>
-                <td><?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?></td>
-                <td><?php echo wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) ); ?></td>
-                <td><?php echo esc_html( mysql2date( 'Y-m-d', $row['created_at'] ) ); ?></td>
-                <td><a class="button" href="<?php echo esc_url( twshop_returns_customer_view_url( $row['id'] ) ); ?>">查看</a></td>
+                <td data-title="申請編號">#<?php echo (int) $row['id']; ?></td>
+                <td data-title="訂單">#<?php echo esc_html( ( $o = wc_get_order( $row['order_id'] ) ) ? $o->get_order_number() : $row['order_id'] ); ?></td>
+                <td data-title="類型"><?php echo esc_html( twshop_returns_type_label( $row['type'] ) ); ?></td>
+                <td data-title="狀態"><?php echo wp_kses_post( twshop_returns_status_badge( $row['status'], $row['type'] ) ); ?></td>
+                <td data-title="申請日期"><time datetime="<?php echo esc_attr( mysql2date( 'Y-m-d', $row['created_at'] ) ); ?>"><?php echo esc_html( mysql2date( 'Y-m-d', $row['created_at'] ) ); ?></time></td>
+                <td class="twshop-returns-actions"><a class="button" aria-label="<?php echo esc_attr( sprintf( '查看申請 #%d', $row['id'] ) ); ?>" href="<?php echo esc_url( twshop_returns_customer_view_url( $row['id'] ) ); ?>">查看</a></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

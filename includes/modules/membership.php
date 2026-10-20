@@ -118,7 +118,10 @@ function twshop_run_daily_check() {
             );
             // 排入佇列而非在這個迴圈裡同步呼叫 wp_mail()（阻塞性網路呼叫），比照
             // twshop_points_daily_expiry_check() 既有的做法，避免生日會員多時拖慢 cron 總執行時間。
-            wp_schedule_single_event( time(), 'twshop_send_birthday_gift_notice', array( $user->user_email, $b_subject, $message ) );
+            $coupon_details = array_filter( $gifts, static function ( $gift ) { return 'points' !== ( $gift['type'] ?? '' ); } )
+                ? array( '優惠券有效期限' => $b_days . ' 天' ) : array();
+            $mail_context = twshop_member_email_context( '生日專屬好禮', $coupon_details, $msg_lines );
+            wp_schedule_single_event( time(), 'twshop_send_birthday_gift_notice', array( $user->user_email, $b_subject, $message, $mail_context ) );
             update_user_meta( $user->ID, 'twshop_birthday_sent_year', $current_year );
         }
         twshop_flush_user_spent_cache();
@@ -157,8 +160,8 @@ function twshop_issue_tier_gifts( WP_User $user, array $gifts, $code_prefix, $co
  * twshop_run_daily_check() 排入佇列（wp_schedule_single_event）的生日禮通知信
  * 實際寄送 callback，讓每日 cron 主迴圈不會被 wp_mail() 的阻塞式網路呼叫逐一拖慢。
  */
-function twshop_send_birthday_gift_notice_email( $to, $subject, $message ) {
-    wp_mail( $to, $subject, $message );
+function twshop_send_birthday_gift_notice_email( $to, $subject, $message, array $context = array() ) {
+    twshop_send_email( $to, $subject, $message, $context ?: twshop_member_email_context( '生日專屬好禮' ) );
 }
 
 /**
@@ -331,26 +334,35 @@ function twshop_apply_tier_change( WP_User $user, $new_tier, $is_upgrade ) {
                     '{codes}', implode( "\n", $msg_lines ),
                     get_option( 'wc_upgrade_email_body_gift', "恭喜升級！這是您的專屬升級禮包：\n{codes}\n\n請至會員中心查看。" )
                 );
-                wp_mail( $user->user_email, $u_subject, $gift_body );
+                $gift_details = array( '新會員等級' => $new_role_name );
+                if ( array_filter( $gifts, static function ( $gift ) { return 'points' !== ( $gift['type'] ?? '' ); } ) ) {
+                    $gift_details['優惠券有效期限'] = get_option( 'wc_upgrade_validity_days', 30 ) . ' 天';
+                }
+                twshop_send_email( $user->user_email, $u_subject, $gift_body, twshop_member_email_context(
+                    '升級專屬好禮', $gift_details, $msg_lines
+                ) );
             } else {
-                wp_mail(
+                twshop_send_email(
                     $user->user_email,
                     twshop_option( 'wc_upgrade_email_subject_no_gift' ),
-                    str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) )
+                    str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) ),
+                    twshop_member_email_context( '會員升級成功', array( '新會員等級' => $new_role_name ) )
                 );
             }
         } else {
-            wp_mail(
+            twshop_send_email(
                 $user->user_email,
                 twshop_option( 'wc_upgrade_email_subject_no_gift' ),
-                str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) )
+                str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) ),
+                twshop_member_email_context( '會員升級成功', array( '新會員等級' => $new_role_name ) )
             );
         }
     } else {
-        wp_mail(
+        twshop_send_email(
             $user->user_email,
             twshop_option( 'wc_tier_change_email_subject' ),
-            str_replace( '{tier}', $new_role_name, twshop_option( 'wc_tier_change_email_body' ) )
+            str_replace( '{tier}', $new_role_name, twshop_option( 'wc_tier_change_email_body' ) ),
+            twshop_member_email_context( '會員等級已調整', array( '調整後等級' => $new_role_name ) )
         );
     }
 }

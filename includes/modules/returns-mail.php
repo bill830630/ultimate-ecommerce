@@ -1,6 +1,6 @@
 <?php
 /**
- * 退換貨通知信（v25.8.152）。比照外掛既有慣例：純文字 wp_mail＋字串組裝（沒有 WC_Email 子類別的先例）。
+ * 退換貨通知信。內容以純文字組裝，寄送時轉為 HTML，套用 WooCommerce 信件範本與內嵌樣式。
  * 顧客：已收到申請／已核准（帶寄回地址與說明）／已拒絕（帶理由）／已收到退貨／換貨完成。
  * 管理員：有新申請。開關與管理員信箱在 WooCommerce → 設定 → 「退換貨」。
  * **退款完成不寄信**：建立 WooCommerce 退款時，WooCommerce 原生的「已退款的訂單」信件會寄給顧客，再寄一封內容重疊（v25.8.152 拿掉）。
@@ -19,23 +19,9 @@ function twshop_returns_items_text( array $row ) {
     return implode( "\n", $lines );
 }
 
-/**
- * 寄件人沿用 WooCommerce 設定（WooCommerce → 設定 → 電子郵件 → 「寄件人」名稱與地址），
- * 跟 WooCommerce 原生信件（已退款的訂單、新訂單…）同一個名稱；寄件人名稱沒填時用網站名稱，地址沒填或無效時退回 WordPress 預設寄件人。
- */
-function twshop_returns_mail_headers() {
-    $name    = trim( wp_specialchars_decode( (string) get_option( 'woocommerce_email_from_name' ), ENT_QUOTES ) );
-    $address = sanitize_email( (string) get_option( 'woocommerce_email_from_address' ) );
-    if ( ! is_email( $address ) ) return array();
-    if ( '' === $name ) $name = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-    $name = str_replace( array( '"', "\r", "\n" ), '', $name );
-    return array( sprintf( 'From: "%s" <%s>', $name, $address ) );
-}
-
-function twshop_returns_send( $to, $subject, $body ) {
-    if ( ! is_email( $to ) ) return false;
+function twshop_returns_send( $to, $subject, $body, array $context = array() ) {
     $subject = sprintf( '[%s] %s', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ), $subject );
-    return wp_mail( $to, $subject, $body, twshop_returns_mail_headers() );
+    return twshop_send_email( $to, $subject, $body, $context );
 }
 
 /**
@@ -53,6 +39,12 @@ function twshop_returns_send_mail( $return_id, $event ) {
     $order_no   = $order->get_order_number();
     $items_text = twshop_returns_items_text( $row );
     $view_url   = twshop_returns_customer_view_url( $return_id );
+    $mail_context = array(
+        'title'        => $type_label . '申請通知',
+        'details'      => array( '申請編號' => '#' . $return_id, '訂單編號' => '#' . $order_no, '申請類型' => $type_label ),
+        'action_label' => '查看申請進度',
+        'action_url'   => $view_url,
+    );
 
     if ( 'submitted' === $event && 'yes' === twshop_option( 'wc_returns_notify_admin' ) ) {
         $admin_to = trim( (string) twshop_option( 'wc_returns_admin_email' ) ) ?: get_option( 'admin_email' );
@@ -62,7 +54,8 @@ function twshop_returns_send_mail( $return_id, $event ) {
             sprintf(
                 "有一筆新的%s申請：\n\n申請編號：#%d\n訂單：#%s\n顧客：%s\n原因：%s\n商品：\n%s\n\n請到訂單頁審核：\n%s",
                 $type_label, $return_id, $order_no, $name, $row['reason'], $items_text, $order->get_edit_order_url()
-            )
+            ),
+            array_merge( $mail_context, array( 'action_label' => '前往訂單審核', 'action_url' => $order->get_edit_order_url() ) )
         );
     }
 
@@ -109,7 +102,7 @@ function twshop_returns_send_mail( $return_id, $event ) {
         default:
             return;
     }
-    twshop_returns_send( $customer_to, $subject, $body );
+    twshop_returns_send( $customer_to, $subject, $body, $mail_context );
 }
 
 /**

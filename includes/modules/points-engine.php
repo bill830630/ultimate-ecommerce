@@ -346,7 +346,11 @@ function twshop_points_daily_expiry_check() {
                             );
                             // 排入佇列而非在這個迴圈裡同步呼叫 wp_mail()（阻塞性網路呼叫），
                             // 避免會員/到期批次多時拖慢這支每日 cron 的總執行時間。
-                            $notifications[] = array( $user->user_email, $notify_subj, $message );
+                            $mail_context = twshop_member_email_context( '點數即將到期', array(
+                                '即將到期點數' => $batch['amount'] . ' ' . $pt, '到期日期' => $batch['expire'],
+                            ) );
+                            $mail_context['action_label'] = '查看我的點數';
+                            $notifications[] = array( $user->user_email, $notify_subj, $message, $mail_context );
                         }
                         $batch['notified'] = true;
                     }
@@ -370,8 +374,12 @@ function twshop_points_daily_expiry_check() {
  * twshop_points_daily_expiry_check() 排入佇列（wp_schedule_single_event）的到期提醒信
  * 實際寄送 callback，讓每日 cron 主迴圈不會被 wp_mail() 的阻塞式網路呼叫逐一拖慢。
  */
-function twshop_send_points_expiry_notice_email( $to, $subject, $message ) {
-    wp_mail( $to, $subject, $message );
+function twshop_send_points_expiry_notice_email( $to, $subject, $message, array $context = array() ) {
+    if ( ! $context ) {
+        $context = twshop_member_email_context( '點數即將到期' );
+        $context['action_label'] = '查看我的點數';
+    }
+    twshop_send_email( $to, $subject, $message, $context );
 }
 
 /**

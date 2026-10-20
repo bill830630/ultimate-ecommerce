@@ -310,7 +310,7 @@ function twshop_wallet_credit_on_payment_complete( $order_id ) {
 
 /**
  * 儲值成功通知信，開關與範本見「儲值金 ▸ 設定」頁籤。跟會員等級的生日禮/升等禮通知信
- * 同一套做法（`str_replace` 套版＋直接同步 `wp_mail()`，不像點數到期提醒那樣走
+ * 同一套 WooCommerce HTML 寄信流程（`str_replace` 套版＋同步寄送，不像點數到期提醒那樣走
  * `wp_schedule_single_event()` 排隊——這裡是使用者當下操作觸發的即時通知，不是批次
  * 掃描大量會員的排程情境，不需要非同步化）。$amount 是這張訂單所有儲值金商品項目
  * 加總後的入帳金額（一張訂單可能買了不只一個儲值金商品）。
@@ -332,7 +332,16 @@ function twshop_wallet_maybe_send_topup_email( $order, $user_id, $amount ) {
         $body
     );
 
-    wp_mail( $user->user_email, twshop_option( 'wc_wallet_topup_email_subject' ), $body );
+    twshop_send_email( $user->user_email, twshop_option( 'wc_wallet_topup_email_subject' ), $body, array(
+        'title'        => '儲值已成功入帳',
+        'details'      => array(
+            '本次儲值金額' => twshop_plain_price( $amount ),
+            '目前可用餘額' => twshop_plain_price( $balance ),
+            '訂單編號'     => '#' . $order->get_order_number(),
+        ),
+        'action_label' => '查看儲值金明細',
+        'action_url'   => wc_get_endpoint_url( 'my-wallet', '', wc_get_page_permalink( 'myaccount' ) ),
+    ) );
 }
 
 /**

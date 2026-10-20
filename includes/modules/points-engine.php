@@ -379,7 +379,7 @@ function twshop_send_points_expiry_notice_email( $to, $subject, $message, array 
         $context = twshop_member_email_context( '點數即將到期' );
         $context['action_label'] = '查看我的點數';
     }
-    twshop_send_email( $to, $subject, $message, $context );
+    twshop_send_notification( 'twshop_points_expiry', $to, $subject, $message, $context );
 }
 
 /**

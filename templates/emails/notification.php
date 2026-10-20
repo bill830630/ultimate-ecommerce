@@ -14,7 +14,7 @@ $gift_text = implode( "\n", $gift_lines );
 // 只將本封信已發放的完整贈禮文字替換為表格，其他自訂文案保持原順序與內容。
 $body_parts = '' !== $gift_text ? explode( $gift_text, $body ) : array( $body );
 
-do_action( 'woocommerce_email_header', $email_heading, null );
+do_action( 'woocommerce_email_header', $email_heading, $email ?? null );
 ?>
 <div class="twshop-email-notification" style="color:<?php echo esc_attr( $text_color ); ?>; font-size:16px; line-height:1.7;">
     <?php if ( ! empty( $context['title'] ) ) : ?>
@@ -52,4 +52,4 @@ do_action( 'woocommerce_email_header', $email_heading, null );
         </table>
     <?php endif; ?>
 </div>
-<?php do_action( 'woocommerce_email_footer', null ); ?>
+<?php do_action( 'woocommerce_email_footer', $email ?? null ); ?>

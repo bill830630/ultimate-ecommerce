@@ -215,8 +215,6 @@ function twshop_points_rules_tab() {
     );
     $p_expiry_days   = (int) get_option( 'wc_points_expiry_days', 0 );
     $p_notify_days   = get_option( 'wc_points_expiry_notify_days', 7 );
-    $p_notify_subj   = get_option( 'wc_points_expiry_notify_subject', '您的' . twshop_points_term() . '即將到期' );
-    $p_notify_body   = get_option( 'wc_points_expiry_notify_body', "親愛的 {name}：\n\n您有 {amount} {term}將於 {date} 到期，請把握時間使用！" );
 
     ?>
         <form action="options.php" method="post">
@@ -282,15 +280,8 @@ function twshop_points_rules_tab() {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">到期提醒信件主旨</th>
-                        <td><input type="text" name="wc_points_expiry_notify_subject" value="<?php echo esc_attr( $p_notify_subj ); ?>" class="regular-text" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">到期提醒信件內容</th>
-                        <td>
-                            <textarea name="wc_points_expiry_notify_body" rows="4" class="regular-text"><?php echo esc_html( $p_notify_body ); ?></textarea>
-                            <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{name}</code>／<code>{amount}</code>／<code>{term}</code>／<code>{date}</code> 代表會員姓名/到期點數/點數名稱/到期日。</p></details>
-                        </td>
+                        <th scope="row">到期提醒信管理</th>
+                        <td><?php twshop_notification_settings_link( 'twshop_points_expiry' ); ?><p class="description">信件啟用、主旨、標題與內文在 WooCommerce 電子郵件設定管理。提醒天數仍在上方設定。</p></td>
                     </tr>
                 </table>
                 </div>

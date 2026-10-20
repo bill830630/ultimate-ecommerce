@@ -161,7 +161,7 @@ function twshop_issue_tier_gifts( WP_User $user, array $gifts, $code_prefix, $co
  * 實際寄送 callback，讓每日 cron 主迴圈不會被 wp_mail() 的阻塞式網路呼叫逐一拖慢。
  */
 function twshop_send_birthday_gift_notice_email( $to, $subject, $message, array $context = array() ) {
-    twshop_send_email( $to, $subject, $message, $context ?: twshop_member_email_context( '生日專屬好禮' ) );
+    twshop_send_notification( 'twshop_birthday', $to, $subject, $message, $context ?: twshop_member_email_context( '生日專屬好禮' ) );
 }
 
 /**
@@ -338,28 +338,28 @@ function twshop_apply_tier_change( WP_User $user, $new_tier, $is_upgrade ) {
                 if ( array_filter( $gifts, static function ( $gift ) { return 'points' !== ( $gift['type'] ?? '' ); } ) ) {
                     $gift_details['優惠券有效期限'] = get_option( 'wc_upgrade_validity_days', 30 ) . ' 天';
                 }
-                twshop_send_email( $user->user_email, $u_subject, $gift_body, twshop_member_email_context(
+                twshop_send_notification( 'twshop_upgrade_gift', $user->user_email, $u_subject, $gift_body, twshop_member_email_context(
                     '升級專屬好禮', $gift_details, $msg_lines
                 ) );
             } else {
-                twshop_send_email(
-                    $user->user_email,
+                twshop_send_notification(
+                    'twshop_upgrade', $user->user_email,
                     twshop_option( 'wc_upgrade_email_subject_no_gift' ),
                     str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) ),
                     twshop_member_email_context( '會員升級成功', array( '新會員等級' => $new_role_name ) )
                 );
             }
         } else {
-            twshop_send_email(
-                $user->user_email,
+            twshop_send_notification(
+                'twshop_upgrade', $user->user_email,
                 twshop_option( 'wc_upgrade_email_subject_no_gift' ),
                 str_replace( '{tier}', $new_role_name, twshop_option( 'wc_upgrade_email_body_no_gift' ) ),
                 twshop_member_email_context( '會員升級成功', array( '新會員等級' => $new_role_name ) )
             );
         }
     } else {
-        twshop_send_email(
-            $user->user_email,
+        twshop_send_notification(
+            'twshop_tier_change', $user->user_email,
             twshop_option( 'wc_tier_change_email_subject' ),
             str_replace( '{tier}', $new_role_name, twshop_option( 'wc_tier_change_email_body' ) ),
             twshop_member_email_context( '會員等級已調整', array( '調整後等級' => $new_role_name ) )

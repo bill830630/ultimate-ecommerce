@@ -13,16 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function twshop_member_tiers_tab() {
     if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( '權限不足。' );
     $b_days = get_option( 'wc_birthday_validity_days', 30 );
-    $b_subject = twshop_option( 'wc_birthday_email_subject' );
     $u_days = get_option( 'wc_upgrade_validity_days', 30 );
-    $u_subject = twshop_option( 'wc_upgrade_email_subject' );
-
-    $birthday_body          = get_option( 'wc_birthday_email_body', "親愛的 {name}：\n\n生日快樂！這是系統為您生成的生日禮包：\n{codes}\n\n有效期限為 {days} 天，請至網站查看！" );
-    $upgrade_body_gift      = get_option( 'wc_upgrade_email_body_gift', "恭喜升級！這是您的專屬升級禮包：\n{codes}\n\n請至會員中心查看。" );
-    $upgrade_subject_no_gift = twshop_option( 'wc_upgrade_email_subject_no_gift' );
-    $upgrade_body_no_gift    = twshop_option( 'wc_upgrade_email_body_no_gift' );
-    $tier_change_subject     = twshop_option( 'wc_tier_change_email_subject' );
-    $tier_change_body        = twshop_option( 'wc_tier_change_email_body' );
 
     $tier_max_reached_text  = twshop_option( 'wc_tier_max_reached_text' );
     $tier_not_configured    = twshop_option( 'wc_tier_not_configured_text' );
@@ -60,45 +51,9 @@ function twshop_member_tiers_tab() {
             </div>
 
             <div class="twshop-panel">
-                <?php twshop_panel_head( 'mail', '會員通知信件內容', '四種會員等級相關通知信的主旨與正文，統一在此設定。' ); ?>
+                <?php twshop_panel_head( 'mail', '會員通知信', '啟用、主旨、標題與內文已集中至 WooCommerce → 設定 → 電子郵件。' ); ?>
                 <div class="twshop-panel-body">
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">生日禮信件內容</th>
-                            <td>
-                                主旨：<input type="text" name="wc_birthday_email_subject" value="<?php echo esc_attr( $b_subject ); ?>" class="regular-text" /><br><br>
-                                內容：<textarea style="vertical-align:top;" name="wc_birthday_email_body" rows="4" class="regular-text"><?php echo esc_html( $birthday_body ); ?></textarea>
-                                <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{name}</code>／<code>{codes}</code>／<code>{days}</code> 代表會員姓名/優惠券代碼清單/有效天數。</p></details>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">升級禮信件內容</th>
-                            <td>
-                                主旨：<input type="text" name="wc_upgrade_email_subject" value="<?php echo esc_attr( $u_subject ); ?>" class="regular-text" /><br><br>
-                                內容：<textarea style="vertical-align:top;" name="wc_upgrade_email_body_gift" rows="4" class="regular-text"><?php echo esc_html( $upgrade_body_gift ); ?></textarea>
-                                <p class="description">升級且該等級有設定升等禮包時寄送。</p>
-                                <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{codes}</code> 代表優惠券代碼清單。</p></details>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">升級通知（未設定贈禮）</th>
-                            <td>
-                                主旨：<input type="text" name="wc_upgrade_email_subject_no_gift" value="<?php echo esc_attr( $upgrade_subject_no_gift ); ?>" class="regular-text" /><br><br>
-                                內容：<textarea style="vertical-align:top;" name="wc_upgrade_email_body_no_gift" rows="3" class="regular-text"><?php echo esc_html( $upgrade_body_no_gift ); ?></textarea>
-                                <p class="description">升級但該等級未啟用升等禮／未設定贈禮時寄送。</p>
-                                <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{tier}</code> 代表新等級名稱。</p></details>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">降級/等級調整通知</th>
-                            <td>
-                                主旨：<input type="text" name="wc_tier_change_email_subject" value="<?php echo esc_attr( $tier_change_subject ); ?>" class="regular-text" /><br><br>
-                                內容：<textarea style="vertical-align:top;" name="wc_tier_change_email_body" rows="3" class="regular-text"><?php echo esc_html( $tier_change_body ); ?></textarea>
-                                <p class="description">週期到期後依累積消費降級或調整等級時寄送。</p>
-                                <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{tier}</code> 代表調整後的等級名稱。</p></details>
-                            </td>
-                        </tr>
-                    </table>
+                    <?php twshop_notification_settings_links( array( 'twshop_birthday', 'twshop_upgrade_gift', 'twshop_upgrade', 'twshop_tier_change' ) ); ?>
                 </div>
             </div>
 

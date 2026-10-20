@@ -280,9 +280,6 @@ function twshop_wallet_ledger_tab() {
 function twshop_wallet_settings_tab() {
     $full_amount   = twshop_option( 'wc_wallet_tier_spend_full_amount' );
     $earn_points   = twshop_option( 'wc_wallet_earn_points' );
-    $email_enabled = twshop_option( 'wc_wallet_topup_email_enabled' );
-    $email_subject = twshop_option( 'wc_wallet_topup_email_subject' );
-    $email_body    = get_option( 'wc_wallet_topup_email_body', "親愛的 {name}：\n\n您的儲值已完成！\n\n本次儲值：NT{amount}\n目前餘額：NT{balance}\n\n感謝您的支持！" );
 
     // 使用限制（v25.8.76 起效仿「紅利點數 ▸ 點數規則設定」的最低消費門檻與限制兌換商品做法）
     $min_amount = get_option( 'wc_wallet_min_cart_amount', 0 );
@@ -385,26 +382,8 @@ function twshop_wallet_settings_tab() {
         </div>
 
         <div class="twshop-panel">
-            <?php twshop_panel_head( 'mail', '儲值成功通知信' ); ?>
-            <div class="twshop-panel-body">
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">寄送通知信</th>
-                        <td><label><input type="checkbox" class="twshop-sw" name="wc_wallet_topup_email_enabled" value="yes" <?php checked( $email_enabled, 'yes' ); ?>> 儲值訂單付款完成、入帳成功後寄送通知信給會員</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">主旨</th>
-                        <td><input type="text" name="wc_wallet_topup_email_subject" value="<?php echo esc_attr( $email_subject ); ?>" class="regular-text"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">內容</th>
-                        <td>
-                            <textarea name="wc_wallet_topup_email_body" rows="6" class="regular-text" style="width:100%; max-width:500px;"><?php echo esc_textarea( $email_body ); ?></textarea>
-                            <details class="twshop-help"><summary>詳細說明：可用信件變數</summary><p>可用 <code>{name}</code>／<code>{amount}</code>（本次儲值金額）／<code>{balance}</code>（目前總餘額）／<code>{order_id}</code>。</p></details>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+            <?php twshop_panel_head( 'mail', '儲值成功通知信', '啟用、主旨、標題與內文已集中至 WooCommerce → 設定 → 電子郵件。' ); ?>
+            <div class="twshop-panel-body"><?php twshop_notification_settings_link( 'twshop_wallet_topup' ); ?></div>
         </div>
 
         <?php submit_button( '儲存設定' ); ?>

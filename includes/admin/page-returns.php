@@ -269,9 +269,7 @@ function twshop_returns_wc_settings_fields() {
         array( 'title' => '商品照片', 'id' => 'wc_returns_photos_required', 'type' => 'checkbox', 'default' => 'no', 'desc' => '必須上傳照片' ),
         array( 'title' => '照片張數上限', 'id' => 'wc_returns_max_photos', 'type' => 'number', 'default' => '3', 'css' => 'width:90px;', 'custom_attributes' => array( 'min' => '0', 'max' => '10' ), 'desc' => '0＝不開放上傳。' ),
         array( 'title' => '寄回地址與說明', 'id' => 'wc_returns_instructions', 'type' => 'textarea', 'default' => '', 'css' => 'width:400px; height:110px;', 'desc' => '核准後會顯示在顧客的申請頁，並寫進核准通知信。' ),
-        array( 'title' => '通知信（顧客）', 'id' => 'wc_returns_notify_customer', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '申請收到、核准、拒絕、收到退貨、換貨完成時寄信給顧客（退款通知由 WooCommerce 原生的「已退款的訂單」信件負責，請在 WooCommerce → 設定 → 電子郵件確認它是開啟的）' ),
-        array( 'title' => '通知信（管理員）', 'id' => 'wc_returns_notify_admin', 'type' => 'checkbox', 'default' => 'yes', 'desc' => '有新申請時寄信給管理員' ),
-        array( 'title' => '管理員通知信箱', 'id' => 'wc_returns_admin_email', 'type' => 'email', 'default' => '', 'css' => 'width:300px;', 'placeholder' => get_option( 'admin_email' ), 'desc' => '留空使用網站管理員信箱。' ),
+        array( 'title' => '通知信管理', 'type' => 'twshop_notification_links', 'id' => 'twshop_returns_email_links' ),
         array( 'type' => 'sectionend', 'id' => 'twshop_returns_section' ),
     );
 }
